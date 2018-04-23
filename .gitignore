@@ -1,2 +1,8 @@
 # Pickled matrices
 *.npy
+
+# Compiled Python
+*.pyc
+
+# DNN weights
+*.hdf5
