@@ -45,6 +45,30 @@ def joinContoursIfClose(contours, max_distance = 400):
             cnt_joined.append(hull)
     return cnt_joined
 
+## Modified version of 
+## http://dsp.stackexchange.com/questions/2564/opencv-c-connect-nearby-contours-based-on-distance-between-them
+def joinContoursIfClose_OnlyKeepPatches(contours, max_distance = 400):
+    cnt_xy   = np.array([contour_xy(cnt_i) for cnt_i in contours])
+    num_cnt  = len(contours)
+    clusters = np.arange(num_cnt)    
+    for indx1 in range(num_cnt-1):
+        cnt_xy_1 = cnt_xy[indx1,:]
+        for indx2 in range(indx1+1, num_cnt):
+            cnt_xy_2 = cnt_xy[indx2,:]
+            is_close = find_if_close(cnt_xy_1, cnt_xy_2, max_distance)
+            if is_close:
+                val = min(clusters[indx1], clusters[indx2])
+                clusters[indx2] = clusters[indx1] = val    
+    cnt_joined = []
+    maximum = int(clusters.max())+1
+    for i in range(maximum):
+        pos = np.where(clusters==i)[0]
+        if (pos.size > 1):
+            cont = np.vstack(contours[i] for i in pos)
+            hull = cv2.convexHull(cont)
+            cnt_joined.append(hull)
+    return cnt_joined
+
 ## Giving cv2.drawContours all contours is slower than looping 
 def drawAllCont(img_new, all_cnt, cnt_num, col, line_width):
     all_cnt_loop = all_cnt

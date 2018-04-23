@@ -51,7 +51,7 @@ def outlier_calc(var_vec, indx_val, indx_vec_val, type_compare, stddevmult = 1.6
     return(bool_outlier)
 
 def remove_tiling_overlaps_knn(contours, nn = 2):
-    if len(contours)==0: return contours, 0
+    if len(contours)==0: return contours, np.array([])
     # check moments arent zero or something
     all_xy = [contour_xy(cnt_i) for cnt_i in contours if not cv2.moments(cnt_i)['m00']==0]
     all_xy = np.array(all_xy)  
@@ -70,7 +70,8 @@ def remove_tiling_overlaps_knn(contours, nn = 2):
                 if (compare_cnt_num not in throw_inds):
                     throw_inds.append(compare_cnt_num)            
     fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in throw_inds]
-    return fixed_contour_list, len(throw_inds)
+    keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )
+    return fixed_contour_list, keep_inds
 
 def prune_contours_knn(crypt_cnt, features, nuclei_ch_raw, backgrd, smallBlur_img_nuc, stddevmult = 1.6, nn = 7):
     all_xy = [contour_xy(cnt_i) for cnt_i in crypt_cnt]
