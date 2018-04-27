@@ -50,25 +50,29 @@ def outlier_calc(var_vec, indx_val, indx_vec_val, type_compare, stddevmult = 1.6
         bool_outlier = val > np.mean(vec_val) + stddevmult*np.std(vec_val) or val < np.mean(vec_val) - stddevmult*np.std(vec_val)
     return(bool_outlier)
 
-def remove_tiling_overlaps_knn(contours, nn = 2):
+def remove_tiling_overlaps_knn(contours, nn = 5):
     if len(contours)==0: return contours, np.array([])
     # check moments arent zero or something
-    all_xy = [contour_xy(cnt_i) for cnt_i in contours if not cv2.moments(cnt_i)['m00']==0]
-    all_xy = np.array(all_xy)  
-    nbrs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(all_xy)
+    contours = [cnt_i for cnt_i in contours if not cv2.moments(cnt_i)['m00']==0]
+    all_xy   = [contour_xy(cnt_i) for cnt_i in contours if not cv2.moments(cnt_i)['m00']==0]
+    all_xy   = np.array(all_xy)  
+    nbrs     = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(all_xy)
     distances, indices = nbrs.kneighbors(all_xy)
     throw_inds = []
     for i in range(indices.shape[0]):
-        cnt = contours[i]
-        compare_cnt_num = indices[i,1]
-        inside_bool = cv2.pointPolygonTest(cnt, (all_xy[compare_cnt_num,0], all_xy[compare_cnt_num,1]), False)
-        if (not inside_bool==-1):            
-                home_area = contour_Area(cnt)
-                away_area = contour_Area(contours[compare_cnt_num])
-                if (home_area < away_area):
-                    compare_cnt_num = i
-                if (compare_cnt_num not in throw_inds):
-                    throw_inds.append(compare_cnt_num)            
+       if (i not in throw_inds):
+           for j in range(1,nn):
+               cnt = contours[i]
+               compare_cnt_num = indices[i,j]
+               if (not i==compare_cnt_num):
+                  inside_bool = cv2.pointPolygonTest(cnt, (all_xy[compare_cnt_num,0], all_xy[compare_cnt_num,1]), False)
+                  if (not inside_bool==-1):            
+                          home_area = contour_Area(cnt)
+                          away_area = contour_Area(contours[compare_cnt_num])
+                          if (home_area < away_area):
+                              compare_cnt_num = i
+                          if (compare_cnt_num not in throw_inds):
+                              throw_inds.append(compare_cnt_num)
     fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in throw_inds]
     keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )
     return fixed_contour_list, keep_inds

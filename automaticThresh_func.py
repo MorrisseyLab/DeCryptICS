@@ -50,12 +50,12 @@ def plotSizeDistribution(mean_x, prec_x, coef_mix, x):
     plt.plot(x_range, y_gauss, color = "r", linestyle = '--', linewidth=2)
 
 ## =============================================================
-def getEM_threshold_One(img, subSample = 50000,  plot_me = False, min_covar = 0.01, num_comp = 3):
+def getEM_threshold_One(th_img, subSample = 50000,  plot_me = False, min_covar = 0.01, num_comp = 3):
     # Subsample data 
-    points    = np.random.choice(img.ravel(), size=(subSample,1), replace=False, p=None)
+    points    = np.random.choice(th_img.ravel(), size=(subSample,1), replace=False, p=None)
     points    = np.sort(points, 0).astype('float', copy=False)    
     points    = points[points[:,0]<240,:] # Remove very high values
-    if (not img.dtype=='uint8'):
+    if (not th_img.dtype=='uint8'):
         points    = points[points[:,0] < (240./255.),:] # Remove very high values
     gmm = mixture.GaussianMixture(num_comp, reg_covar = min_covar).fit(points)
     if num_comp == 1:
@@ -151,9 +151,9 @@ def calculate_thresholds(big_img, deconv_mat):
     
     blurred_img_nuc       = cv2.GaussianBlur( img_deconv32[:,:,0], (37, 37), 0)
     blurred_img_nuc_small = cv2.GaussianBlur( img_deconv32[:,:,0], (11, 11), 0)
-    blurred_img_MAOA      = cv2.GaussianBlur( img_deconv32[:,:,1], (25, 25), 0)
+    blurred_img_clone      = cv2.GaussianBlur( img_deconv32[:,:,1], (11, 11), 0)
     
-    subsamp_percent = 5
+    subsamp_percent = 10
     totpix = blurred_img_nuc.shape[0]*blurred_img_nuc.shape[1]
     subsamplevel = int(totpix*subsamp_percent/100.)
     
@@ -172,7 +172,7 @@ def calculate_thresholds(big_img, deconv_mat):
     thresh_EM3 = [-999]
     kk = 0
     while (thresh_EM3[0]==-999 and kk < maxtry):
-        thresh_EM3 = getEM_threshold_One(      blurred_img_MAOA,    subSample = subsamplevel, plot_me = False, min_covar = 0.000001, num_comp=2)
+        thresh_EM3 = getEM_threshold_One(      blurred_img_clone,    subSample = subsamplevel, plot_me = False, min_covar = 0.000001, num_comp=2)
         kk += 1 
     
     # Check good separation (for crypt markers)
@@ -197,6 +197,9 @@ def calculate_thresholds(big_img, deconv_mat):
     if (thresh_EM1[0]==-999 and threepops==True):
         threepops = False
         print("Threshold failure for three populations for nuclear threshold 1, lowering to two")
+    
+    if (thresh_EM1[0][0]>0.5 and threepops==True):
+        threepops = False
         
     if (not threepops):
         thresh_EM1old = thresh_EM1 # back-up
@@ -210,7 +213,7 @@ def calculate_thresholds(big_img, deconv_mat):
             thresh_EM1 = thresh_EM1old # revert if broken
         if (thresh_EM1[0]==-999 and thresh_EM1old[0]==-999):
             print("...Cannot find threshold! Setting arbitrary value.")
-            thresh_EM1 = np.array([0.5]),
+            thresh_EM1 = np.array([0.45]),     
              
     gauss_vars  = thresh_EM2[1].covariances_[:,0,0]
     gauss_means = thresh_EM2[1].means_[:,0]    
@@ -233,6 +236,9 @@ def calculate_thresholds(big_img, deconv_mat):
     if (thresh_EM2[0]==-999 and threepops==True):
         threepops = False
         print("Threshold failure for three populations for nuclear threshold 2, lowering to two")
+   
+    if (thresh_EM2[0][0]>0.5 and threepops==True):
+        threepops = False
         
     if (not threepops):
         thresh_EM2old = thresh_EM2 # back-up
@@ -246,9 +252,48 @@ def calculate_thresholds(big_img, deconv_mat):
             thresh_EM2 = thresh_EM2old # revert if broken
         if (thresh_EM2[0]==-999 and thresh_EM2old[0]==-999):
             print("...Cannot find threshold! Setting arbitrary value.")
-            thresh_EM2 = np.array([0.6]),
-    
+            thresh_EM2 = np.array([0.45]),
+    '''    
     # Check good separation (for clone marker)
+    gauss_vars  = thresh_EM3[1].covariances_[:,0,0]
+    gauss_means = thresh_EM3[1].means_[:,0]    
+    # If mean + 2sd is larger than mean 2 .. No second dist
+    order_use   = np.argsort(gauss_means)
+    gauss_vars  = gauss_vars[order_use]
+    gauss_means = gauss_means[order_use]
+
+    threepops = True
+    two_sig_0   = gauss_means[0]+2.*np.sqrt(gauss_vars[0])
+    if two_sig_0 > gauss_means[1]:
+        threepops = False
+        print("Cannot find three distinct populations for nuclear threshold 1, lowering to two")
+        
+    two_sig_1   = gauss_means[1]+2*np.sqrt(gauss_vars[1])
+    if (two_sig_1 > gauss_means[2] and threepops==True):
+        threepops = False
+        print("Cannot find three distinct populations for nuclear threshold 1, lowering to two")
+        
+    if (thresh_EM3[0]==-999 and threepops==True):
+        threepops = False
+        print("Threshold failure for three populations for nuclear threshold 1, lowering to two")
+
+    if (thresh_EM3[0][0]>0.5 and threepops==True):
+       threepops = False
+        
+    if (not threepops):
+        thresh_EM3old = thresh_EM3 # back-up
+        thresh_EM3 = [-999]
+        kk = 0
+        while (thresh_EM3[0]==-999 and kk < maxtry):
+            thresh_EM3 = getEM_threshold_One(       blurred_img_nuc,    subSample = subsamplevel, plot_me = False, min_covar = 0.000001, num_comp=2)        
+            kk += 1
+        if (thresh_EM3[0]==-999 and not thresh_EM3old[0]==-999):
+            print("...However cannot threshold with two components; reverting to three.")
+            thresh_EM3 = thresh_EM3old # revert if broken
+        if (thresh_EM3[0]==-999 and thresh_EM3old[0]==-999):
+            print("...Cannot find threshold! Setting arbitrary value.")
+            thresh_EM3 = np.array([0.4]),
+    '''
     gauss_vars  = thresh_EM3[1].covariances_[:,0]
     gauss_means = thresh_EM3[1].means_[:,0]
     
@@ -261,21 +306,21 @@ def calculate_thresholds(big_img, deconv_mat):
 
     thresh_new = thresh_EM3[0]
     if two_sig_0 > gauss_means[1]:
-        thresh_new = np.percentile(blurred_img_MAOA, 99.9)  # mean_val + 4*np.sqrt(var_val);thresh_new = thresh_new[0]    
+        thresh_new = np.percentile(blurred_img_clone, 99.9)  # mean_val + 4*np.sqrt(var_val);thresh_new = thresh_new[0]    
     
     # Outlier threshold
-    thresh_stringent, thresh_lax  = get_mPAS_Thresholds(blurred_img_MAOA)
+    #thresh_stringent, thresh_lax  = get_mPAS_Thresholds(blurred_img_clone)
         
-    _, img_nucl_blur       = cv2.threshold(       blurred_img_nuc,  thresh_EM1[0], 255, cv2.THRESH_BINARY)
-    _, img_nucl_blur_small = cv2.threshold( blurred_img_nuc_small,  thresh_EM2[0], 255, cv2.THRESH_BINARY)
-    _, stain_thresh        = cv2.threshold(      blurred_img_MAOA,  thresh_EM3[0], 255, cv2.THRESH_BINARY)
-    _, stain_thresh2       = cv2.threshold(      blurred_img_MAOA,     thresh_new, 255, cv2.THRESH_BINARY) 
+    #_, img_nucl_blur       = cv2.threshold(       blurred_img_nuc,  thresh_EM1[0], 255, cv2.THRESH_BINARY)
+    #_, img_nucl_blur_small = cv2.threshold( blurred_img_nuc_small,  thresh_EM2[0], 255, cv2.THRESH_BINARY)
+    #_, stain_thresh        = cv2.threshold(      blurred_img_clone,  thresh_EM3[0], 255, cv2.THRESH_BINARY)
+    #_, stain_thresh2       = cv2.threshold(      blurred_img_clone,     thresh_new, 255, cv2.THRESH_BINARY) 
     
     thresh_blur       = int(thresh_EM1[0][0]*255)
     thresh_blur_small = int(thresh_EM2[0][0]*255)
     th_clone          = int(thresh_new*255)
     
-    thresh_blur        = adjust_threshold_overshoot(thresh_blur)
+    thresh_blur       = adjust_threshold_overshoot(thresh_blur)
     thresh_blur_small = adjust_threshold_overshoot(thresh_blur_small)
 
     return thresh_blur_small, thresh_blur, th_clone

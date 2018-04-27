@@ -7,8 +7,9 @@ Created on Tue Mar  6 11:30:18 2018
 """
 import cv2
 import numpy as np
+from deconv_mat                        import *
 from MiscFunctions                     import col_deconvol, col_deconvol_and_blur
-from cnt_Feature_Functions             import contour_MajorMinorAxis, st_3
+from cnt_Feature_Functions             import contour_MajorMinorAxis, st_3, plotCnt
 from classContourFeat                  import getAllFeatures
 from func_FindAndFilterLumens          import mergeAllContours, GetContAndFilter_TwoBlur
 from multicore_morphology              import getForeground_mc
@@ -18,10 +19,16 @@ from Segment_clone_from_crypt          import retrieve_clone_nuclear_features
 from Clonal_Stains.mPAS_Segment_Clone  import get_mPAS_Stains2
 
 ## If thresh_cut is None, thresholds will be calculated from the image
-def Segment_crypts(img, thresh_cut, deconv_mat):
+def Segment_crypts(img, thresh_cut, clonal_mark_type):
     
     ## Avoid problems with multicore
     cv2.setNumThreads(0)       
+          
+    ## Choose deconv mat
+    if (clonal_mark_type=="P"): deconv_mat = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
+    if (clonal_mark_type=="N"): deconv_mat = deconv_mat_KDM6A
+    if (clonal_mark_type=="PNN"): deconv_mat = deconv_mat_MPAS
+    if (clonal_mark_type=="NNN"): deconv_mat = deconv_mat_MAOA
           
     ## Colour Deconvolve to split channles into nuclear and clone stain
     ## Blur and threshold image
@@ -99,6 +106,8 @@ def Segment_crypts(img, thresh_cut, deconv_mat):
     ## Find clone channel features
     ###########################################
     clone_channel_features = retrieve_clone_nuclear_features(crypt_cnt, nuclei_ch_raw, clone_ch_raw, backgrd, smallBlur_img_nuc)
+    #thresh = (thresh_cut_nucl, th_clone)
+    #clone_channel_features = retrieve_clone_nuclear_features(crypt_cnt, img, thresh, clonal_mark_type)
     
     return crypt_cnt, clone_channel_features
     

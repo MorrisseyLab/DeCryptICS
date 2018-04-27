@@ -50,15 +50,11 @@ def SegmentFromFolder(folder_name, clonal_mark_type):
     pkl_file.close()
     
     file_name   = folder_in + "/" + file_in + ".svs"
-    
-    ## Choose deconv mat
-    if (clonal_mark_type=="P"): deconv_mat = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
-    if (clonal_mark_type=="N"): deconv_mat = deconv_mat_KDM6A
-    if (clonal_mark_type=="PNN"): deconv_mat = deconv_mat_MPAS
-    if (clonal_mark_type=="NNN"): deconv_mat = deconv_mat_MAOA
-    
+
     ## Set up storage structures
     crypt_contours  = []
+    #halo_signal  = np.array([])
+    #wedge_signal = np.array([])
     frac_halo       = np.array([])
     frac_halogap    = np.array([]) 
     clone_content   = np.array([])
@@ -70,13 +66,15 @@ def SegmentFromFolder(folder_name, clonal_mark_type):
             xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
             wh_vals     = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
             img         = getROI_img_vips(file_name, xy_vals, wh_vals)
-            crypt_cnt_ii, clone_features = Segment_crypts(img, thresh_cut, deconv_mat)    
+            crypt_cnt_ii, clone_features = Segment_crypts(img, thresh_cut, clonal_mark_type)    
                     
             ## Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
             crypt_cnt_ii        = add_offset(crypt_cnt_ii, xy_vals)
             crypt_contours     += crypt_cnt_ii
             
-            ## Add the clone channel features to the list
+            ## Add the clone channel features to the list            
+            #halo_signal    = np.hstack([halo_signal  , clone_features[0]])
+            #wedge_signal   = np.hstack([wedge_signal , clone_features[1]])
             frac_halo       = np.hstack([frac_halo    , clone_features[0]])
             frac_halogap    = np.hstack([frac_halogap , clone_features[1]])
             clone_content   = np.hstack([clone_content, clone_features[2]])
@@ -87,12 +85,17 @@ def SegmentFromFolder(folder_name, clonal_mark_type):
     print("Of %d contours..." % len(crypt_contours))
     crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
     print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
+    
+    ## Find clones
     frac_halo       =     frac_halo[kept_indices]
     frac_halogap    =  frac_halogap[kept_indices]
     clone_content   = clone_content[kept_indices]
     clone_channel_feats = (frac_halo , frac_halogap , clone_content)
-    clone_contours, full_partial_statistics = find_clones(crypt_cnt, clone_channel_feats, clonal_mark_type, numIQR=2)
-    np.savetxt(folder_name + '/clone_statistics.csv', full_partial_statistics, delimiter=",")
+    #halo_signal = halo_signal[kept_indices]
+    #wedge_signal = wedge_signal[kept_indices]
+    #clone_channel_feats = (halo_signal, wedge_signal)
+    clone_contours, full_partial_statistics = find_clones(crypt_contours, clone_channel_feats, clonal_mark_type, numIQR=2)
+    np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")   
 
     # Join neighbouring clones to make cluster (clone patches that originate via crypt fission)
     # Don't do this if more than 25% of crypts are positive as it's hom tissue

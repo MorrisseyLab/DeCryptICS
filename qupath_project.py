@@ -5,7 +5,8 @@ Created on Fri Mar  2 09:01:29 2018
 
 @author: doran
 """
-import os, time
+import os, time, glob
+import numpy as np
 
 def folder_from_image(image_num_str):
     return "/Analysed_"+str(image_num_str)+'/'
@@ -72,6 +73,7 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write('}'+'\n')
     # Write script file
     with open(path_to_project+"/scripts/load_contours.groovy", 'w') as file:
+        file.write("//guiscript=true" + '\n')
         file.write("import qupath.lib.objects.*" + '\n')
         file.write("import qupath.lib.roi.*" + '\n')
         file.write("import qupath.lib.objects.classes.PathClass;" + '\n')
@@ -113,7 +115,7 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write('\t'+"float[] x1 = lines2[2*i].tokenize(\',\') as float[]" + '\n')
         file.write('\t'+"float[] y1 = lines2[2*i+1].tokenize(\',\') as float[]" + '\n')
         file.write('\t'+"def roi = new PolygonROI(x1, y1, -300, 0, 0)" + '\n')
-        file.write('\t'+"pathObjects2 << new PathDetectionObject(roi)" + '\n')
+        file.write('\t'+"pathObjects2 << new PathDetectionObject(roi, CloneClass)" + '\n')
         file.write('}' + '\n')
         file.write("addObjects(pathObjects2)" + '\n')
         file.write("print(\"Done!\")" + '\n')

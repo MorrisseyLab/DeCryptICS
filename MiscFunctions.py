@@ -88,6 +88,20 @@ def col_deconvol(img, deconv_mat):
     img_deconv = img_deconv.astype('uint8', copy=False) 
     return(img_deconv)
 
+def col_deconvol_blur_clone(img, deconv_mat, size_blur):
+    # deconvolution
+    OD_data    = transform_OD(img)
+    deconv_mat = deconv_mat.astype('float32', copy=False) 
+    img_deconv = cv2.transform(OD_data, deconv_mat)
+    ## blur
+    nucl_blur = cv2.GaussianBlur(img_deconv[:,:,0], size_blur1, 0)
+    clone_blur      = cv2.GaussianBlur(img_deconv[:,:,1], size_blur, 0)
+    ## convert to 8 bits
+    clone_blur = np.clip(clone_blur, 0, 1, out=clone_blur)
+    clone_blur *= 255
+    clone_blur = clone_blur.astype('uint8', copy=False) 
+    return clone_blur
+
 ## If you convert to 8bit before blurring you loose resolution
 def col_deconvol_and_blur(img, deconv_mat, size_blur1, size_blur2, size_blur3):
     OD_data    = transform_OD(img)

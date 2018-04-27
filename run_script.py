@@ -64,7 +64,6 @@ def run_analysis(base_path, batch_ID, clonal_mark_type, method):
                 
         ## Perform analysis
         print("Performing analysis")
-        num_to_run = len(folders_to_analyse)
         for i in range(num_to_run):
             if (os.path.isfile(folders_to_analyse[i]+"crypt_contours.txt")):
                 print("Passing on %s, image previously analysed." % folders_to_analyse[i])
@@ -78,7 +77,7 @@ def run_analysis(base_path, batch_ID, clonal_mark_type, method):
                 print("Passing on %s, image previously analysed." % folders_to_analyse[i])
                 pass
             else:
-                predict_svs_slide_DNN(full_paths[i], folder_out, clonal_mark_type, prob_thresh = 0.5)
+                predict_svs_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_type, prob_thresh = 0.5)
                 
     ## Create QuPath project for the current batch
     path_to_project = base_path + "/qupath_projects/" + batch_ID
