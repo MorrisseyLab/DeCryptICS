@@ -151,9 +151,9 @@ def calculate_thresholds(big_img, deconv_mat):
     
     blurred_img_nuc       = cv2.GaussianBlur( img_deconv32[:,:,0], (37, 37), 0)
     blurred_img_nuc_small = cv2.GaussianBlur( img_deconv32[:,:,0], (11, 11), 0)
-    blurred_img_clone      = cv2.GaussianBlur( img_deconv32[:,:,1], (11, 11), 0)
+    blurred_img_clone     = cv2.GaussianBlur( img_deconv32[:,:,1], (15, 15), 0)
     
-    subsamp_percent = 10
+    subsamp_percent = 7
     totpix = blurred_img_nuc.shape[0]*blurred_img_nuc.shape[1]
     subsamplevel = int(totpix*subsamp_percent/100.)
     
@@ -198,8 +198,8 @@ def calculate_thresholds(big_img, deconv_mat):
         threepops = False
         print("Threshold failure for three populations for nuclear threshold 1, lowering to two")
     
-    if (thresh_EM1[0][0]>0.5 and threepops==True):
-        threepops = False
+#    if (thresh_EM1[0][0]>0.5 and threepops==True):
+#        threepops = False
         
     if (not threepops):
         thresh_EM1old = thresh_EM1 # back-up
@@ -237,8 +237,8 @@ def calculate_thresholds(big_img, deconv_mat):
         threepops = False
         print("Threshold failure for three populations for nuclear threshold 2, lowering to two")
    
-    if (thresh_EM2[0][0]>0.5 and threepops==True):
-        threepops = False
+#    if (thresh_EM2[0][0]>0.5 and threepops==True):
+#        threepops = False
         
     if (not threepops):
         thresh_EM2old = thresh_EM2 # back-up
@@ -266,12 +266,12 @@ def calculate_thresholds(big_img, deconv_mat):
     two_sig_0   = gauss_means[0]+2.*np.sqrt(gauss_vars[0])
     if two_sig_0 > gauss_means[1]:
         threepops = False
-        print("Cannot find three distinct populations for nuclear threshold 1, lowering to two")
+        print("Cannot find three distinct populations for clonal threshold, lowering to two")
         
     two_sig_1   = gauss_means[1]+2*np.sqrt(gauss_vars[1])
     if (two_sig_1 > gauss_means[2] and threepops==True):
         threepops = False
-        print("Cannot find three distinct populations for nuclear threshold 1, lowering to two")
+        print("Cannot find three distinct populations for clonal threshold, lowering to two")
         
     if (thresh_EM3[0]==-999 and threepops==True):
         threepops = False

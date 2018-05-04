@@ -29,6 +29,8 @@ def Segment_crypts(img, thresh_cut, clonal_mark_type):
     if (clonal_mark_type=="N"): deconv_mat = deconv_mat_KDM6A
     if (clonal_mark_type=="PNN"): deconv_mat = deconv_mat_MPAS
     if (clonal_mark_type=="NNN"): deconv_mat = deconv_mat_MAOA
+    if (clonal_mark_type=="BN"): deconv_mat = deconv_mat_MAOA
+    if (clonal_mark_type=="BP"): deconv_mat = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
           
     ## Colour Deconvolve to split channles into nuclear and clone stain
     ## Blur and threshold image
@@ -105,7 +107,7 @@ def Segment_crypts(img, thresh_cut, clonal_mark_type):
 
     ## Find clone channel features
     ###########################################
-    clone_channel_features = retrieve_clone_nuclear_features(crypt_cnt, nuclei_ch_raw, clone_ch_raw, backgrd, smallBlur_img_nuc)
+    #clone_channel_features = retrieve_clone_nuclear_features(crypt_cnt, nuclei_ch_raw, clone_ch_raw, backgrd, smallBlur_img_nuc)
     #thresh = (thresh_cut_nucl, th_clone)
     #clone_channel_features = retrieve_clone_nuclear_features(crypt_cnt, img, thresh, clonal_mark_type)
     

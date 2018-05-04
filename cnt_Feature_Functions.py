@@ -50,6 +50,8 @@ def joinContoursIfClose(contours, max_distance = 400):
 def joinContoursIfClose_OnlyKeepPatches(contours, max_distance = 400):
     cnt_xy   = np.array([contour_xy(cnt_i) for cnt_i in contours])
     num_cnt  = len(contours)
+    if (num_cnt<2):
+      return []
     clusters = np.arange(num_cnt)    
     for indx1 in range(num_cnt-1):
         cnt_xy_1 = cnt_xy[indx1,:]
@@ -58,7 +60,8 @@ def joinContoursIfClose_OnlyKeepPatches(contours, max_distance = 400):
             is_close = find_if_close(cnt_xy_1, cnt_xy_2, max_distance)
             if is_close:
                 val = min(clusters[indx1], clusters[indx2])
-                clusters[indx2] = clusters[indx1] = val    
+                clusters[indx2] = val
+                clusters[indx1] = val    
     cnt_joined = []
     maximum = int(clusters.max())+1
     for i in range(maximum):

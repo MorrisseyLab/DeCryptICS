@@ -23,14 +23,18 @@ def extract_counts_csv(im_folder, folder_out, save_counts_here):
     images = [name.split("/")[-1].split(".")[0] for name in images]
     contour_folders = [folder_from_image(im) for im in images]
     num = len(contour_folders)
-    slidecounts = np.zeros([num,2], dtype=np.int32)
+    slidecounts = np.zeros([num,3], dtype=np.int32)
     for i in range(num):
         cnt_file = folder_out + contour_folders[i] + "crypt_contours.txt"
+        cln_file = folder_out + contour_folders[i] + "clone_contours.txt"
         if (os.path.isfile(cnt_file)):
-            wcout = file_len(cnt_file)            
+            wcout = file_len(cnt_file)
             wcout = int(wcout/2)
+            clcnt = file_len(cln_file)
+            clcnt = int(clcnt/2)
             slidecounts[i,0] = int(images[i])
             slidecounts[i,1] = wcout
+            slidecounts[i,2] = clcnt
     np.savetxt(save_counts_here+"/slide_counts.csv", slidecounts, delimiter=",")
 
 def create_qupath_project(path_to_project, full_paths, file_in, folder_out):

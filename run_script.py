@@ -28,10 +28,14 @@ def run_analysis(base_path, batch_ID, clonal_mark_type, method):
     # N: negative nuclear
     # PNN: positive non-nuclear
     # NNN: negative non-nuclear
+    # BN: both negative
+    # BP: both positive
     if (clonal_mark_type.upper()=="P"): clonal_mark_type="P"
     if (clonal_mark_type.upper()=="N"): clonal_mark_type="N"
     if (clonal_mark_type.upper()=="PNN"): clonal_mark_type=="PNN"
     if (clonal_mark_type.upper()=="NNN"): clonal_mark_type=="NNN"
+    if (clonal_mark_type.upper()=="BN"): clonal_mark_type=="BN"
+    if (clonal_mark_type.upper()=="BP"): clonal_mark_type=="BP"
 
     ## Choose either DNN ("D") or Bayesian ("B") crypt segmentation    
     if (method.upper()=="D"): method="D"
@@ -77,13 +81,14 @@ def run_analysis(base_path, batch_ID, clonal_mark_type, method):
                 print("Passing on %s, image previously analysed." % folders_to_analyse[i])
                 pass
             else:
-                predict_svs_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_type, prob_thresh = 0.5)
+                print("Beginning segmentation on %s." % folders_to_analyse[i])
+                predict_svs_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_type)
                 
     ## Create QuPath project for the current batch
     path_to_project = base_path + "/qupath_projects/" + batch_ID
     create_qupath_project(path_to_project, full_paths, file_in, folder_out)
     ## Extract crypt counts from all analysed slides
-    extract_counts_csv(folder_in, folder_out, path_to_project)   
+    extract_counts_csv(folder_in, folder_out, path_to_project)
         
 if __name__=="__main__":
     run_analysis(base_path, batch_ID, clonal_mark_type, method)

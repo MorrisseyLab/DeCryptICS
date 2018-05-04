@@ -14,122 +14,131 @@ import DNN.model.u_net as unet
 import DNN.params as params
 from deconv_mat               import *
 from automaticThresh_func     import auto_choose_ROI, calculate_thresholds
-from MiscFunctions            import col_deconvol, col_deconvol_and_blur, simplify_contours
+from MiscFunctions            import col_deconvol, col_deconvol_and_blur, simplify_contours, col_deconvol_and_blur2
 from MiscFunctions            import getROI_img_vips, add_offset, write_cnt_text_file, plot_img
 from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt
 from multicore_morphology     import getForeground_mc
 from GUI_ChooseROI_class      import getROI_svs
-from Segment_clone_from_crypt import retrieve_clone_nuclear_features, find_clones
+#from Segment_clone_from_crypt import 
 from knn_prune                import remove_tiling_overlaps_knn
 
 # Load DNN model
 model = params.model_factory()
 model.load_weights("./DNN/weights/best_weights.hdf5")
 
-def get_tile_indices(maxvals, overlap = 175, SIZE = (1024, 1024)):
+def get_tile_indices(maxvals, overlap = 200, SIZE = (1024, 1024)):
     all_indx = []
     width = SIZE[0]
     height = SIZE[1]
     x_max = maxvals[0] # x -> cols
     y_max = maxvals[1] # y -> rows
     num_tiles_x = x_max // (width-overlap)
-    overhang_x = x_max % (width-overlap)
-    if (not overhang_x==0): num_tiles_x += 1
+    endpoint_x = num_tiles_x*(width-overlap) + overlap    
+    overhang_x = x_max - endpoint_x
+    if (overhang_x>0): num_tiles_x += 1
+    
     num_tiles_y = y_max // (height-overlap)
-    overhang_y = y_max % (height-overlap)    
-    if (not overhang_y==0): num_tiles_y += 1
+    endpoint_y = num_tiles_y*(height-overlap) + overlap    
+    overhang_y = y_max - endpoint_y
+    if (overhang_y>0): num_tiles_y += 1   
+     
     for i in range(num_tiles_x):
         x0 = i*(width - overlap)
-        if (i == (num_tiles_x-1)): x0 = i*(width - overlap) - (width - overhang_x)
+        if (i == (num_tiles_x-1)): x0 = x_max - width
         all_indx.append([])
         for j in range(num_tiles_y):
             y0 = j*(height - overlap)
-            if (j == (num_tiles_y-1)): y0 = j*(width - overlap) - (width - overhang_y)
+            if (j == (num_tiles_y-1)): y0 = y_max - height
             all_indx[i].append((x0, y0, width, height))
     return all_indx
-
-def predict_single_image(img_full, clonal_mark_type, prob_thresh = 0.25):
+    
+def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.45, upper_thresh = 0.75):
     crypt_contours  = []
-    frac_halo       = np.array([])
-    frac_halogap    = np.array([]) 
-    clone_content   = np.array([])  
     size = (1024, 1024)
-    all_indx = get_tile_indices((img_full.shape[0], img_full.shape[1]), overlap = 200, SIZE = size)
+    all_indx = get_tile_indices((img.shape[1], img.shape[0]), overlap = 200, SIZE = size)
     x_tiles = len(all_indx)
     y_tiles = len(all_indx[0])
-    signalthresh = size[0]*size[1]*0.005
+    img_nuc, img_clone = get_channel_images_for_clone_finding(img, clonal_mark_type)
+    #signalthresh = size[0]*size[1]*0.005
     for i in range(x_tiles):
         for j in range(y_tiles):            
             # Find next small tile
             xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
             wh_vals     = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
-            img         = img_full[xy_vals[0]:(xy_vals[0]+wh_vals[0]) , xy_vals[1]:(xy_vals[1]+wh_vals[1])]
+            img_s         = img[xy_vals[1]:(xy_vals[1]+wh_vals[1]) , xy_vals[0]:(xy_vals[0]+wh_vals[0]) ] # i,j rather than x,y
 
-            if (np.sum(nuclei_ch_raw/255.) > signalthresh):
-                x_batch = [img]
-                x_batch = np.array(x_batch, np.float32) / 255.
-                
-                # Perform prediction and find contours
-                predicted_mask_batch = model.predict(x_batch)
-                newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
-                newcnts = [cc for cc in newcnts if len(cc)>4] # throw away points and lines (needed in contour class)
-                newcnts = [cc for cc in newcnts if contour_Area(cc)>400]
-                
-                # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
-                newcnts = add_offset(newcnts, xy_vals)
-                crypt_contours += newcnts
+            #if (np.sum(nuclei_ch_raw/255.) > signalthresh):
+            x_batch = [img_s]
+            x_batch = np.array(x_batch, np.float32) / 255.
 
-def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.15, upper_thresh = 0.7):
+            # Perform prediction and find contours
+            predicted_mask_batch = model.predict(x_batch)
+            newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
+            newcnts = [cc for cc in newcnts if len(cc)>4] # throw away points and lines (needed in contour class)
+            newcnts = [cc for cc in newcnts if contour_Area(cc)>400]
+            newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts)
+
+            # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
+            newcnts = add_offset(newcnts, xy_vals)
+            crypt_contours += newcnts
+    ## Remove tiling overlaps and simplify remaining contours
+    print("Of %d contours..." % len(crypt_contours))
+    crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
+    print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
+
+def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.25, upper_thresh = 0.75):
     start_time = time.time()
     imnumber = file_name.split("/")[-1].split(".")[0]
     try:
         os.mkdir(folder_to_analyse)
     except:
         pass
-    # Define thresholds for clone finding
-    thresh_three, deconv_mat = clone_finding(file_name, clonal_mark_type)
+    ## Define thresholds for clone finding
+    #thresh_three, deconv_mat = clone_finding(file_name, clonal_mark_type)
     crypt_contours  = []
-    frac_halo       = np.array([])
-    frac_halogap    = np.array([]) 
-    clone_content   = np.array([])
+    #frac_halo       = np.array([])
+    #frac_halogap    = np.array([]) 
+    #clone_content   = np.array([])
     #halo_signal  = np.array([])
     #wedge_signal = np.array([])
+    ## Tiling
     obj_svs  = getROI_svs(file_name, get_roi_plot = False)
     size = (1024, 1024)
     all_indx = get_tile_indices(obj_svs.dims_slides[0], overlap = 200, SIZE = size)
     x_tiles = len(all_indx)
     y_tiles = len(all_indx[0])
-    signalthresh = size[0]*size[1]*0.005
+    #signalthresh = size[0]*size[1]*0.005
     for i in range(x_tiles):
-        for j in range(y_tiles):            
-            # Find next small tile
+        for j in range(y_tiles):
             xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
             wh_vals     = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
             img         = getROI_img_vips(file_name, xy_vals, wh_vals)
-            smallBlur_img_nuc, nuclei_ch_raw, clone_ch_raw, backgrd = get_channel_images_for_clone_finding(img, deconv_mat, thresh_three)
-            if (np.sum(nuclei_ch_raw/255.) > signalthresh):
-                x_batch = [img]
-                x_batch = np.array(x_batch, np.float32) / 255.
-                
-                # Perform prediction and find contours
-                predicted_mask_batch = model.predict(x_batch)
-                newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
-                newcnts = [cc for cc in newcnts if len(cc)>4] # throw away points and lines (needed in contour class)
-                newcnts = [cc for cc in newcnts if contour_Area(cc)>400]
-                newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts)
-                
-                ## Add the clone channel features to the list
-                #clone_features = retrieve_clone_nuclear_features(newcnts, img, clonal_mark_type)
-                #halo_signal    = np.hstack([halo_signal  , clone_features[0]])
-                #wedge_signal   = np.hstack([wedge_signal , clone_features[1]])
-                clone_features = retrieve_clone_nuclear_features(newcnts, nuclei_ch_raw, clone_ch_raw, backgrd, smallBlur_img_nuc)
-                frac_halo       = np.hstack([frac_halo    , clone_features[0]])
-                frac_halogap    = np.hstack([frac_halogap , clone_features[1]])
-                clone_content   = np.hstack([clone_content, clone_features[2]])
-                ## Check average prob score inside contours and throw ones with bad average?
-                # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
-                newcnts = add_offset(newcnts, xy_vals)
-                crypt_contours += newcnts
+            #smallBlur_img_nuc, nuclei_ch_raw, clone_ch_raw, backgrd = get_channel_images_for_clone_finding(img, deconv_mat, thresh_three)
+            #if (np.sum(nuclei_ch_raw/255.) > signalthresh):
+            x_batch = [img]
+            x_batch = np.array(x_batch, np.float32) / 255.
+
+            # Perform prediction and find contours
+            predicted_mask_batch = model.predict(x_batch)
+            newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
+            newcnts = [cc for cc in newcnts if len(cc)>4] # throw away points and lines (needed in contour class)
+            newcnts = [cc for cc in newcnts if contour_Area(cc)>400]
+            newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts)
+
+            ## Add the clone channel features to the list
+            find_clone_statistics(crypt_cnt, img_nuc, img_clone, nbins = 20)
+            
+            #clone_features = retrieve_clone_nuclear_features(newcnts, img, clonal_mark_type)
+            #halo_signal    = np.hstack([halo_signal  , clone_features[0]])
+            #wedge_signal   = np.hstack([wedge_signal , clone_features[1]])
+            #clone_features = retrieve_clone_nuclear_features(newcnts, nuclei_ch_raw, clone_ch_raw, backgrd, smallBlur_img_nuc)
+            #frac_halo       = np.hstack([frac_halo    , clone_features[0]])
+            #frac_halogap    = np.hstack([frac_halogap , clone_features[1]])
+            #clone_content   = np.hstack([clone_content, clone_features[2]])
+            ## Check average prob score inside contours and throw ones with bad average?
+            # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
+            newcnts = add_offset(newcnts, xy_vals)
+            crypt_contours += newcnts
         print("Found %d contours so far, tile %d of %d" % (len(crypt_contours), i*y_tiles+j, x_tiles*y_tiles))
         
     ## Remove tiling overlaps and simplify remaining contours
@@ -138,14 +147,15 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
     print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
     
     ## Find clones
-    frac_halo       =     frac_halo[kept_indices]
-    frac_halogap    =  frac_halogap[kept_indices]
-    clone_content   = clone_content[kept_indices]
-    clone_channel_feats = (frac_halo , frac_halogap , clone_content)
+    determine_clones(clone_feature_list, clonal_mark_type)
+    #frac_halo       =     frac_halo[kept_indices]
+    #frac_halogap    =  frac_halogap[kept_indices]
+    #clone_content   = clone_content[kept_indices]
+    #clone_channel_feats = (frac_halo , frac_halogap , clone_content)
     #halo_signal = halo_signal[kept_indices]
     #wedge_signal = wedge_signal[kept_indices]
     #clone_channel_feats = (halo_signal, wedge_signal)
-    clone_contours, full_partial_statistics = find_clones(crypt_contours, clone_channel_feats, clonal_mark_type, numIQR=2)
+    #clone_contours, full_partial_statistics = find_clones(crypt_contours, clone_channel_feats, clonal_mark_type, numIQR=2)
     np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")    
     
     # Join neighbouring clones to make cluster (clone patches that originate via crypt fission)
@@ -171,12 +181,25 @@ def clone_finding(file_name, clonal_mark_type):
     if (clonal_mark_type=="N"): deconv_mat = deconv_mat_KDM6A
     if (clonal_mark_type=="PNN"): deconv_mat = deconv_mat_MPAS
     if (clonal_mark_type=="NNN"): deconv_mat = deconv_mat_MAOA
+    if (clonal_mark_type=="BN"): deconv_mat = deconv_mat_MAOA
+    if (clonal_mark_type=="BP"): deconv_mat = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
     xyhw = auto_choose_ROI(file_name, deconv_mat, plot_images = False)
     img_for_thresh = getROI_img_vips(file_name, xyhw[0], xyhw[1])
     thresh_cut_nucl, thresh_cut_nucl_blur, th_clone = calculate_thresholds(img_for_thresh, deconv_mat)
     return [thresh_cut_nucl, thresh_cut_nucl_blur, th_clone], deconv_mat
 
-def get_channel_images_for_clone_finding(img, deconv_mat, thresh_three):
+def get_channel_images_for_clone_finding(img, clonal_mark_type):
+    ## Choose deconv mat
+    if (clonal_mark_type=="P"): deconv_mat = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
+    if (clonal_mark_type=="N"): deconv_mat = deconv_mat_KDM6A
+    if (clonal_mark_type=="PNN"): deconv_mat = deconv_mat_MPAS
+    if (clonal_mark_type=="NNN"): deconv_mat = deconv_mat_MAOA
+    if (clonal_mark_type=="BN"): deconv_mat = deconv_mat_MAOA
+    if (clonal_mark_type=="BP"): deconv_mat = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
+    img_nuc, img_clone = col_deconvol_and_blur2(img, deconv_mat, (11, 11), (13, 13))
+    return img_nuc, img_clone
+
+def get_thresholded_channel_images_for_clone_finding(img, deconv_mat, thresh_three):
     smallBlur_img_nuc, blurred_img_nuc, blurred_img_clone = col_deconvol_and_blur(img, deconv_mat, (11, 11), (37, 37), (27, 27))
     _, nuclei_ch_raw = cv2.threshold( smallBlur_img_nuc, thresh_three[0], 255, cv2.THRESH_BINARY)
     _, nucl_thresh   = cv2.threshold( blurred_img_nuc, thresh_three[1], 255, cv2.THRESH_BINARY)
