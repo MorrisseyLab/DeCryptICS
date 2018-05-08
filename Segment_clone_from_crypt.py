@@ -20,9 +20,12 @@ def find_clone_statistics(crypt_cnt, img_nuc, img_clone, nbins = 20):
    xy_coords = np.zeros([numcnts, 2], dtype=np.int32)
    halo_n = np.zeros([numcnts])
    halo_c = np.zeros([numcnts])
+   content_n = np.zeros([numcnts])
+   content_c = np.zeros([numcnts])
    out_av_sig_nucl  = np.zeros([numcnts, nbins], dtype=np.float32)
    out_av_sig_clone = np.zeros([numcnts, nbins], dtype=np.float32)
    in_av_sig_nucl   = np.zeros([numcnts, nbins], dtype=np.float32)
+   in_av_sig_clone  = np.zeros([numcnts, nbins], dtype=np.float32)
    in_av_sig_clone  = np.zeros([numcnts, nbins], dtype=np.float32)
    for i in range(numcnts):
       contour = crypt_cnt[i]
@@ -35,8 +38,60 @@ def find_clone_statistics(crypt_cnt, img_nuc, img_clone, nbins = 20):
       xy_coords[i,1]         = X[4][1]
       in_av_sig_nucl[i, :]   = X[5]
       in_av_sig_clone[i, :]  = X[6]
-   clone_feature_list = (halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone)
+      content_n[i]           = X[7]
+      content_c[i]           = X[8]
+   clone_feature_list = (halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c)
    return clone_feature_list
+
+def combine_feature_lists(clone_feature_list, numcnts, nbins = 20):
+   xy_coords = np.zeros([numcnts, 2], dtype=np.int32)
+   halo_n = np.zeros([numcnts])
+   halo_c = np.zeros([numcnts])
+   content_n = np.zeros([numcnts])
+   content_c = np.zeros([numcnts])
+   out_av_sig_nucl  = np.zeros([numcnts, nbins], dtype=np.float32)
+   out_av_sig_clone = np.zeros([numcnts, nbins], dtype=np.float32)
+   in_av_sig_nucl   = np.zeros([numcnts, nbins], dtype=np.float32)
+   in_av_sig_clone  = np.zeros([numcnts, nbins], dtype=np.float32)
+   in_av_sig_clone  = np.zeros([numcnts, nbins], dtype=np.float32)
+   cumnum = 0
+   for i in range(len(clone_feature_list)):
+      curr_num = clone_feature_list[i][0].shape[0]
+      halo_n[cumnum:(cumnum+curr_num)]              = clone_feature_list[i][0]
+      halo_c[cumnum:(cumnum+curr_num)]              = clone_feature_list[i][1]
+      out_av_sig_nucl[cumnum:(cumnum+curr_num), :]  = clone_feature_list[i][2]
+      out_av_sig_clone[cumnum:(cumnum+curr_num), :] = clone_feature_list[i][3]
+      xy_coords[cumnum:(cumnum+curr_num),0]         = clone_feature_list[i][4][:,0]
+      xy_coords[cumnum:(cumnum+curr_num),1]         = clone_feature_list[i][4][:,1]
+      in_av_sig_nucl[cumnum:(cumnum+curr_num), :]   = clone_feature_list[i][5]
+      in_av_sig_clone[cumnum:(cumnum+curr_num), :]  = clone_feature_list[i][6]
+      content_n[cumnum:(cumnum+curr_num)]           = clone_feature_list[i][7]
+      content_c[cumnum:(cumnum+curr_num)]           = clone_feature_list[i][8]
+      cumnum = cumnum + curr_num
+   clone_features = (halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c)
+   return clone_features
+
+def remove_thrown_indices_clone_features(clone_features, kept_indices):
+   halo_n           = clone_features[0][kept_indices]
+   halo_c           = clone_features[1][kept_indices]
+   out_av_sig_nucl  = clone_features[2][kept_indices, :]
+   out_av_sig_clone = clone_features[3][kept_indices, :]
+   xy_coords = np.zeros([kept_indices.shape[0], 2], dtype=np.int32)
+   for i in range(kept_indices.shape[0]):
+      xy_coords[i,0]         = clone_features[4][kept_indices[i], 0]
+      xy_coords[i,1]         = clone_features[4][kept_indices[i], 1]
+   in_av_sig_nucl   = clone_features[5][kept_indices, :]
+   in_av_sig_clone  = clone_features[6][kept_indices, :]
+   content_n        = clone_features[7][kept_indices]
+   content_c        = clone_features[8][kept_indices]   
+   clone_features2 = (halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c)
+   return clone_features
+   
+def add_xy_offset_to_clone_features(clone_features, xy_offset):
+   for i in range(clone_features[0].shape[0]):
+      clone_features[4][i, 0] = xy_offset[0]
+      clone_features[4][i, 1] = xy_offset[1]
+   return clone_features
 
 def determine_clones(clone_feature_list, clonal_mark_type):
    halo_n = clone_feature_list[0]
@@ -54,33 +109,46 @@ def determine_clones(clone_feature_list, clonal_mark_type):
    if (clonal_mark_type=="P" or clonal_mark_type=="PNN" or clonal_mark_type=="BP"):
       out_outlier_clone_vec = out_outlier_clone_vecs[1] # big outlier
       out_outlier_nucl_vec  = out_outlier_nucl_vecs[1] # big outlier
-      in_outlier_clone_vec = in_outlier_clone_vecs[1] # big outlier
-      in_outlier_nucl_vec  = in_outlier_nucl_vecs[1] # big outlier
+      in_outlier_clone_vec  = in_outlier_clone_vecs[1] # big outlier
+      in_outlier_nucl_vec   = in_outlier_nucl_vecs[1] # big outlier
+      in_extreme_outlier    = in_outlier_clone_vecs[3]
+      out_extreme_outlier   = out_outlier_clone_vecs[3]
    if (clonal_mark_type=="N" or clonal_mark_type=="NNN" or clonal_mark_type=="BN"):
       out_outlier_clone_vec = out_outlier_clone_vecs[0] # small outlier
       out_outlier_nucl_vec  = out_outlier_nucl_vecs[0] # small outlier
-      in_outlier_clone_vec = in_outlier_clone_vecs[0] # small outlier
-      in_outlier_nucl_vec  = in_outlier_nucl_vecs[0] # small outlier      
+      in_outlier_clone_vec  = in_outlier_clone_vecs[0] # small outlier
+      in_outlier_nucl_vec   = in_outlier_nucl_vecs[0] # small outlier  
+      in_extreme_outlier    = in_outlier_clone_vecs[2]
+      out_extreme_outlier   = out_outlier_clone_vecs[2]  
    # Determine signal width for clones
-   clone_signal_width = []
+   clone_signal_width = np.zeros(out_av_sig_nucl.shape[0])
+   extreme_signal_presence = np.zeros(out_av_sig_nucl.shape[0])
    if (clonal_mark_type=="BN" or clonal_mark_type=="BP"):
-      clone_signal_width_in = []
-      clone_signal_width_out = []
+      clone_signal_width_in = np.zeros(out_av_sig_nucl.shape[0])
+      extreme_signal_presence_in = np.zeros(out_av_sig_nucl.shape[0])
+      clone_signal_width_out = np.zeros(out_av_sig_nucl.shape[0])
+      extreme_signal_presence_out = np.zeros(out_av_sig_nucl.shape[0])
    for i in range(out_av_sig_nucl.shape[0]):
       if (clonal_mark_type=="P" or clonal_mark_type=="N"):
-         clone_signal_width.append(signal_width(out_av_sig_nucl[i, :], out_outlier_nucl_vec, out_av_sig_clone[i,:], out_outlier_clone_vec, clonal_mark_type))
+         clone_signal_width[i], extreme_signal_presence[i] = signal_width(out_av_sig_nucl[i, :], out_outlier_nucl_vec, out_av_sig_clone[i,:], out_outlier_clone_vec, clonal_mark_type, out_extreme_outlier)
       if (clonal_mark_type=="PNN" or clonal_mark_type=="NNN"):
-         clone_signal_width.append(signal_width(in_av_sig_nucl[i, :], in_outlier_nucl_vec, in_av_sig_clone[i,:], in_outlier_clone_vec, clonal_mark_type))
+         clone_signal_width[i], extreme_signal_presence[i] = signal_width(in_av_sig_nucl[i, :], in_outlier_nucl_vec, in_av_sig_clone[i,:], in_outlier_clone_vec, clonal_mark_type, in_extreme_outlier)
       if (clonal_mark_type=="BN" or clonal_mark_type=="BP"):
-         clone_signal_width_out.append(signal_width(out_av_sig_nucl[i, :], out_outlier_nucl_vec, out_av_sig_clone[i,:], out_outlier_clone_vec, clonal_mark_type))
-         clone_signal_width_in.append(signal_width(in_av_sig_nucl[i, :]  , in_outlier_nucl_vec , in_av_sig_clone[i,:] , in_outlier_clone_vec , clonal_mark_type))
-         clone_signal_width = np.minimum(np.asarray(clone_signal_width_out) , np.asarray(clone_signal_width_in))
-   inds = np.where(np.asarray(clone_signal_width)>0.1)[0] # throw away weak signals
-   return clone_signal_width
+         clone_signal_width_out[i], extreme_signal_presence_out[i] = signal_width(out_av_sig_nucl[i, :], out_outlier_nucl_vec, out_av_sig_clone[i,:], out_outlier_clone_vec, clonal_mark_type, out_extreme_outlier)
+         clone_signal_width_in[i], extreme_signal_presence_in[i] = signal_width(in_av_sig_nucl[i, :]  , in_outlier_nucl_vec , in_av_sig_clone[i,:] , in_outlier_clone_vec , clonal_mark_type, in_extreme_outlier)
+   if (clonal_mark_type=="BN" or clonal_mark_type=="BP"):
+      clone_signal_width = np.minimum(clone_signal_width_out , clone_signal_width_in)
+      extreme_signal_presence = np.bitwise_or(extreme_signal_presence_out, extreme_signal_presence_in)
+   inds1 = np.where(clone_signal_width>0.15)[0] # throw away narrow signals
+   inds2 = np.asarray([i for i in range(clone_signal_width.shape[0]) if clone_signal_width[i]>0 and extreme_signal_presence[i]==True]) # keep extreme signals
+   inds = np.unique(np.hstack([inds1, inds2]))
+   return inds, clone_signal_width
    
-def no_threshold_signal_collating(cnt_i, img_nuc, img_clone, nbins = 20):
-   # Find max halo contour in nuclear channel
+def no_threshold_signal_collating(cnt_i, img_nuc, img_clone, nbins):
+   # Find max halo contour in nuclear channel, and nucl/clone halo scores
    nucl_halo, clone_halo, output_cnt = max_halocnt_nucl_clone(cnt_i, img_nuc, img_clone)
+   # Find clone/nucl content
+   content_n, content_c = get_contents(cnt_i, img_nuc, img_clone)
    # Bin length of contour into ~20 bins; average pixel intensity in each bin in both nuclear and clonal channel
    av_sig_nucl = bin_intensities_flattened(output_cnt, img_nuc, nbins)
    av_sig_clone = bin_intensities_flattened(output_cnt, img_clone, nbins)
@@ -93,7 +161,7 @@ def no_threshold_signal_collating(cnt_i, img_nuc, img_clone, nbins = 20):
    inner_cnt = extractInnerRingContour(cnt_i, img_nuc, 1)
    inav_sig_nucl = bin_intensities_flattened(inner_cnt, img_nuc, nbins)
    inav_sig_clone = bin_intensities_flattened(inner_cnt, img_clone, nbins)
-   return nucl_halo, clone_halo, av_sig_nucl, av_sig_clone, centre_xy, inav_sig_nucl, inav_sig_clone
+   return nucl_halo, clone_halo, av_sig_nucl, av_sig_clone, centre_xy, inav_sig_nucl, inav_sig_clone, content_n, content_c
 
 def max_halocnt_nucl_clone(cnt_i, img_nuc, img_clone):
     # Max and min halo size to calculate
@@ -225,35 +293,63 @@ def bin_intensities_flattened(output_cnt, img1, nbins = 20):
 def outlier_vec_calculator(av_sig_mat, numIQR = 1.25):
    big_outlier = np.zeros(av_sig_mat.shape[1])
    small_outlier = np.zeros(av_sig_mat.shape[1])
+   extreme_big = np.zeros(av_sig_mat.shape[1])
+   extreme_small = np.zeros(av_sig_mat.shape[1])
    for j in range(av_sig_mat.shape[1]):
-      small_outlier[j] = tukey_lower_thresholdval(av_sig_mat[:, j], numIQR) #np.maximum(tukey_lower_thresholdval(av_sig_mat[:, j], numIQR), 20)
-      big_outlier[j] = tukey_upper_thresholdval(av_sig_mat[:, j], numIQR) #np.minimum(tukey_upper_thresholdval(av_sig_mat[:, j], numIQR), 235)
-   return small_outlier, big_outlier
-   
-def signal_width(av_sig_nucl_vec, outlier_nucl_vec, av_sig_clone_vec, outlier_clone_vec, clonal_mark_type):
+      extreme_small[j] = tukey_lower_thresholdval(av_sig_mat[:, j], 4.)
+      small_outlier[j] = tukey_lower_thresholdval(av_sig_mat[:, j], numIQR)
+      big_outlier[j] = tukey_upper_thresholdval(av_sig_mat[:, j], numIQR)
+      extreme_big[j] = tukey_upper_thresholdval(av_sig_mat[:, j], 4.)
+   return small_outlier, big_outlier, extreme_small, extreme_big
+
+def signal_width(av_sig_nucl_vec, outlier_nucl_vec, av_sig_clone_vec, outlier_clone_vec, clonal_mark_type, extreme_outlier_vec):
    if (clonal_mark_type=="N" or clonal_mark_type=="NNN" or clonal_mark_type=="BN"):
       n_tf = av_sig_nucl_vec < outlier_nucl_vec
       c_tf = av_sig_clone_vec < outlier_clone_vec
+      extreme_sig_presence = av_sig_clone_vec < extreme_outlier_vec
    if (clonal_mark_type=="P" or clonal_mark_type=="PNN" or clonal_mark_type=="BP"):
       n_tf = av_sig_nucl_vec > outlier_nucl_vec
-      c_tf = av_sig_clone_vec > outlier_clone_vec   
+      c_tf = av_sig_clone_vec > outlier_clone_vec
+      extreme_sig_presence = av_sig_clone_vec > extreme_outlier_vec
    clone_trues = np.bitwise_and(c_tf, np.bitwise_not(n_tf))
-   wedges = [ list(x[1]) for x in itertools.groupby(clone_trues, lambda x: x == True) if x[0] ]   
+   i = 0
+   wedges = []
+   for key, group in itertools.groupby(clone_trues, lambda x: x):
+           truefalse = next(group)
+           elems = len(list(group)) + 1
+           if truefalse == True and elems > 0:
+               wedges.append([key, elems, i])
+           i += elems   
    if (len(wedges)==0):
-      return 0
+      return 0, False
    if (len(wedges)>1):
       # join loop
       if (clone_trues[0]==True and clone_trues[-1]==True):
-         wedges[0] = wedges[-1]+wedges[0]
+         wedges[0][1] = wedges[0][1] + wedges[-1][1]
+         wedges[0][2] = wedges[-1][2]
          wedges = wedges[:-1]
-   maxwedge = 0
-   for i in range(len(wedges)):
-      wedge = wedges[i]
-      if (len(wedge) > maxwedge):
-         maxwedge, ind = len(wedge), i
-   normed_wedge = maxwedge/len(clone_trues)
-   return normed_wedge   
+   if (len(wedges)>0):
+      maxwedge = 0
+      for i in range(len(wedges)):
+         wedge = wedges[i]
+         if (wedge[1] > maxwedge):
+            maxwedge, ind = wedge[1], i
+      normed_wedge = maxwedge/len(clone_trues)
+      extr_sig = np.any(extreme_sig_presence[wedges[ind][2] : (wedges[ind][2]+wedges[ind][1])])
+      return normed_wedge, extr_sig
 
+def get_contents(cnt, img_nuc, img_clone):
+    # Get mean colour of object
+    roi           = cv2.boundingRect(cnt)
+    Start_ij_ROI  = np.array(roi)[0:2] # get x,y of bounding box
+    cnt_roi       = cnt - Start_ij_ROI # chnage coords to start from x,y
+    img_ROI_n     = img_nuc[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
+    img_ROI_c     = img_clone[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
+    mask_fill     = np.zeros(img_ROI_n.shape[0:2], np.uint8)
+    cv2.drawContours(mask_fill, [cnt_roi], 0, 255, -1) ## Get mask
+    content_nucl  = cv2.mean(img_ROI_n, mask_fill)[0]/255.
+    content_clone = cv2.mean(img_ROI_c, mask_fill)[0]/255.
+    return (content_nucl, content_clone)
 
 '''
 def retrieve_clone_nuclear_features(crypt_cnt, nuclei_ch_raw, clone_ch_raw, backgrd, smallBlur_img_nuc):

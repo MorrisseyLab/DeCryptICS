@@ -8,14 +8,14 @@ Created on Tue Mar  6 11:30:18 2018
 import cv2
 import numpy as np
 from deconv_mat                        import *
-from MiscFunctions                     import col_deconvol, col_deconvol_and_blur
+from MiscFunctions                     import col_deconvol, col_deconvol_and_blur, col_deconvol_and_blur2
 from cnt_Feature_Functions             import contour_MajorMinorAxis, st_3, plotCnt
 from classContourFeat                  import getAllFeatures
 from func_FindAndFilterLumens          import mergeAllContours, GetContAndFilter_TwoBlur
 from multicore_morphology              import getForeground_mc
 from automaticThresh_func              import calculate_thresholds
 from knn_prune                         import prune_contours_knn, drop_broken_runs, prune_attributes, prune_minoraxes 
-from Segment_clone_from_crypt          import retrieve_clone_nuclear_features
+from Segment_clone_from_crypt          import find_clone_statistics
 from Clonal_Stains.mPAS_Segment_Clone  import get_mPAS_Stains2
 
 ## If thresh_cut is None, thresholds will be calculated from the image
@@ -107,9 +107,8 @@ def Segment_crypts(img, thresh_cut, clonal_mark_type):
 
     ## Find clone channel features
     ###########################################
-    #clone_channel_features = retrieve_clone_nuclear_features(crypt_cnt, nuclei_ch_raw, clone_ch_raw, backgrd, smallBlur_img_nuc)
-    #thresh = (thresh_cut_nucl, th_clone)
-    #clone_channel_features = retrieve_clone_nuclear_features(crypt_cnt, img, thresh, clonal_mark_type)
+    img_nuc, img_clone = col_deconvol_and_blur2(img, deconv_mat, (11, 11), (13, 13))
+    clone_channel_features = find_clone_statistics(crypt_cnt, img_nuc, img_clone, nbins=20)
     
     return crypt_cnt, clone_channel_features
     

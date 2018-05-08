@@ -12,7 +12,7 @@ from GUI_ChooseROI_class        import getROI_svs
 from cnt_Feature_Functions      import joinContoursIfClose_OnlyKeepPatches
 from knn_prune                  import remove_tiling_overlaps_knn
 from automaticThresh_func       import auto_choose_ROI, calculate_thresholds
-from Segment_clone_from_crypt   import find_clones
+from Segment_clone_from_crypt   import find_clone_statistics, combine_feature_lists, determine_clones, remove_thrown_indices_clone_features, add_xy_offset_to_clone_features
 from SegmentCrypts              import Segment_crypts
 from deconv_mat                 import *
 
@@ -53,14 +53,11 @@ def SegmentFromFolder(folder_name, clonal_mark_type):
 
     ## Set up storage structures
     crypt_contours  = []
-    #halo_signal  = np.array([])
-    #wedge_signal = np.array([])
-    frac_halo       = np.array([])
-    frac_halogap    = np.array([]) 
-    clone_content   = np.array([])
+    clone_features_list = []
     x_tiles = len(all_indx)
     y_tiles = len(all_indx[0])
     start_time = time.time()
+    nbins = 20 # for clone finding
     for i in range(x_tiles):
         for j in range(y_tiles):
             xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
@@ -72,29 +69,22 @@ def SegmentFromFolder(folder_name, clonal_mark_type):
             crypt_cnt_ii        = add_offset(crypt_cnt_ii, xy_vals)
             crypt_contours     += crypt_cnt_ii
             
-            ## Add the clone channel features to the list            
-            #halo_signal    = np.hstack([halo_signal  , clone_features[0]])
-            #wedge_signal   = np.hstack([wedge_signal , clone_features[1]])
-            frac_halo       = np.hstack([frac_halo    , clone_features[0]])
-            frac_halogap    = np.hstack([frac_halogap , clone_features[1]])
-            clone_content   = np.hstack([clone_content, clone_features[2]])
+            ## Add the clone channel features to the list
+            add_xy_offset_to_clone_features(clone_features, xy_vals)
+            clone_features_list.append(find_clone_statistics(crypt_cnt, img_nuc, img_clone, nbins))  
             print("Done " + str(i) + '.' + str(j) + " (" + str(x_tiles-1) + '.' + str(y_tiles-1) + ")")
             del img         
     
-    ## Remove overlapping contours due to tiling effects and the corresponding clone_features
+    clone_features_list2 = combine_feature_lists(clone_feature_list, numcnts, nbins) 
+    ## Remove tiling overlaps and simplify remaining contours
     print("Of %d contours..." % len(crypt_contours))
     crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
     print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
+    clone_features_list2 = remove_thrown_indices_clone_features(clone_features_list2, kept_indices)
     
     ## Find clones
-    frac_halo       =     frac_halo[kept_indices]
-    frac_halogap    =  frac_halogap[kept_indices]
-    clone_content   = clone_content[kept_indices]
-    clone_channel_feats = (frac_halo , frac_halogap , clone_content)
-    #halo_signal = halo_signal[kept_indices]
-    #wedge_signal = wedge_signal[kept_indices]
-    #clone_channel_feats = (halo_signal, wedge_signal)
-    clone_contours, full_partial_statistics = find_clones(crypt_contours, clone_channel_feats, clonal_mark_type, numIQR=2)
+    clone_inds, full_partial_statistics = determine_clones(clone_feature_list, clonal_mark_type)
+    clone_contours = list(np.asarray(crypt_contours)[clone_inds])
     np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")   
 
     # Join neighbouring clones to make cluster (clone patches that originate via crypt fission)
