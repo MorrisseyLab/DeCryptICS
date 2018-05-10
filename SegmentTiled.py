@@ -70,20 +70,20 @@ def SegmentFromFolder(folder_name, clonal_mark_type):
             crypt_contours     += crypt_cnt_ii
             
             ## Add the clone channel features to the list
-            add_xy_offset_to_clone_features(clone_features, xy_vals)
+            clone_features = add_xy_offset_to_clone_features(clone_features, xy_vals)
             clone_features_list.append(find_clone_statistics(crypt_cnt, img_nuc, img_clone, nbins))  
             print("Done " + str(i) + '.' + str(j) + " (" + str(x_tiles-1) + '.' + str(y_tiles-1) + ")")
             del img         
     
-    clone_features_list2 = combine_feature_lists(clone_feature_list, numcnts, nbins) 
+    clone_features_list = combine_feature_lists(clone_features_list, len(crypt_cnt), nbins) 
     ## Remove tiling overlaps and simplify remaining contours
     print("Of %d contours..." % len(crypt_contours))
     crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
     print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
-    clone_features_list2 = remove_thrown_indices_clone_features(clone_features_list2, kept_indices)
+    clone_features_list = remove_thrown_indices_clone_features(clone_features_list, kept_indices)
     
     ## Find clones
-    clone_inds, full_partial_statistics = determine_clones(clone_feature_list, clonal_mark_type)
+    clone_inds, full_partial_statistics = determine_clones(clone_features_list, clonal_mark_type)
     clone_contours = list(np.asarray(crypt_contours)[clone_inds])
     np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")   
 

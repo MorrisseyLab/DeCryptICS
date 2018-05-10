@@ -18,9 +18,9 @@ We are aiming to roll these dependencies into a Conda package alongside the DeCr
 
 # Preparing input data
 
-DeCryptICS currently takes in batches of .svs slide files stored within the folder structer: ../batch\_ID/raw\_images/filename.svs
+DeCryptICS currently takes in batches of .svs slide files stored within the folder structer: base\_path/batch\_ID/raw\_images/filename.svs
 
-Output is saved in the folder structure: ../batch\_ID/Analysed\_slides/Analysed\_filename/
+Output is saved in the folder structure: base\_path/batch\_ID/Analysed\_slides/Analysed\_filename/
 
 Single/multiple images of standard types (.png, .jpg, .tiff, etc.) can also be analysed.
 

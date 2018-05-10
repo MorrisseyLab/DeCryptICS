@@ -528,7 +528,7 @@ def contour_sum_Area(cnt, img):
     # Get mean colour of object
     roi           = cv2.boundingRect(cnt)
     Start_ij_ROI  = np.array(roi)[0:2] # get x,y of bounding box
-    cnt_roi       = cnt - Start_ij_ROI # chnage coords to start from x,y
+    cnt_roi       = cnt - Start_ij_ROI # change coords to start from x,y
     img_ROI       = img[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
     mask_fill     = np.zeros(img_ROI.shape[0:2], np.uint8)
     cv2.drawContours(mask_fill, [cnt_roi], 0, 255, -1) ## Get mask    
@@ -539,7 +539,7 @@ def contour_mean_Area(cnt, img):
     # Get mean colour of object
     roi           = cv2.boundingRect(cnt)
     Start_ij_ROI  = np.array(roi)[0:2] # get x,y of bounding box
-    cnt_roi       = cnt - Start_ij_ROI # chnage coords to start from x,y
+    cnt_roi       = cnt - Start_ij_ROI # change coords to start from x,y
     img_ROI       = img[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
     mask_fill     = np.zeros(img_ROI.shape[0:2], np.uint8)
     cv2.drawContours(mask_fill, [cnt_roi], 0, 255, -1) ## Get mask
@@ -550,7 +550,7 @@ def contour_max_Area(cnt, img):
     # Get max colour of object
     roi          = cv2.boundingRect(cnt)
     Start_ij_ROI = np.array(roi)[0:2] # get x,y of bounding box
-    cnt_roi      = cnt - Start_ij_ROI # chnage coords to start from x,y
+    cnt_roi      = cnt - Start_ij_ROI # change coords to start from x,y
     img_ROI      = img[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
     mask_fill    = np.zeros(img_ROI.shape[0:2], np.uint8)
     cv2.drawContours(mask_fill, [cnt_roi], 0, 255, -1) ## Get mask    
@@ -561,7 +561,7 @@ def contour_Percentile_Area(cnt, img, perc):
     # Get max colour of object
     roi          = cv2.boundingRect(cnt)
     Start_ij_ROI = np.array(roi)[0:2] # get x,y of bounding box
-    cnt_roi      = cnt - Start_ij_ROI # chnage coords to start from x,y
+    cnt_roi      = cnt - Start_ij_ROI # change coords to start from x,y
     img_ROI      = img[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
     mask_fill    = np.zeros(img_ROI.shape[0:2], np.uint8)
     cv2.drawContours(mask_fill, [cnt_roi], 0, 255, -1) ## Get mask    
@@ -580,7 +580,7 @@ def contour_var_Area(cnt, img):
     # Get mean colour of object
     roi           = cv2.boundingRect(cnt)
     Start_ij_ROI  = np.array(roi)[0:2] # get x,y of bounding box
-    cnt_roi       = cnt - Start_ij_ROI # chnage coords to start from x,y
+    cnt_roi       = cnt - Start_ij_ROI # change coords to start from x,y
     img_ROI       = img[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
     mask_fill     = np.zeros(img_ROI.shape[0:2], np.uint8)
     cv2.drawContours(mask_fill, [cnt_roi], 0, 1, -1) ## Get mask    
@@ -592,7 +592,7 @@ def contour_entropy_Area(cnt, img):
     # Get mean colour of object
     roi           = cv2.boundingRect(cnt)
     Start_ij_ROI  = np.array(roi)[0:2] # get x,y of bounding box
-    cnt_roi       = cnt - Start_ij_ROI # chnage coords to start from x,y
+    cnt_roi       = cnt - Start_ij_ROI # change coords to start from x,y
     img_ROI       = img[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
     mask_fill     = np.zeros(img_ROI.shape[0:2], np.uint8)
     cv2.drawContours(mask_fill, [cnt_roi], 0, 1, -1) ## Get mask    

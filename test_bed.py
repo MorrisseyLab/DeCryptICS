@@ -44,7 +44,6 @@ cnt_file = imgfolder+'negspace_Clone_test_images/Analysed_slides/contours_KDM6A_
 #cnt_file = imgfolder+'negspace_Clone_test_images/Analysed_slides/contours_KDM6A_1024_quarter_partial.txt'
 cnts = read_cnt_text_file(cnt_file)
 
-
 img_file = imgfolder+'negspace_Clone_test_images/raw_images/KDM6A_quarter_threequarter_partrials_and_full.png'
 img_file = imgfolder+'negspace_Clone_test_images/raw_images/MAOA_586574_double_clone.png'
 
@@ -54,55 +53,14 @@ big_img = cv2.imread(img_file)
 img = big_img
 thresh_cut = None
 
-
+# Regions from svs slides
+img_file = imgfolder+'KDM6A_March2018/raw_images/642739.svs'
+obj_svs  = getROI_svs(img_file)
+big_img = obj_svs.getROI_img()
+img = big_img
 
        
  
-# STAG snapshots
-#img_file = imgfolder+'STAG_March2018/raw_images/601166_snapshots/img1.png'
-
-## Notes: 
-## img_mPAS_devel_PossibleWeakCell.jpg -- Larger blur for nucl?  -------------------
-
-#big_img = cv2.imread(img_file)
-#img = big_img
-#thresh_cut = None
-#uu = SegmentImage(big_img, deconv_mat_MPAS)
-#plot_img((uu[0], big_img,))
-
-## Running all the example files
-import glob, os
-from MiscFunctions import write_cnt_text_file
-batch_ID = "/mPAS_Clone_test_images/"
-folderimg = imgfolder + batch_ID + "/raw_images/"
-rawims = glob.glob(os.path.expanduser(folderimg + "*.jpg"))
-img_ids = [id[len(folderimg):-4] for id in rawims]
-folder_out = imgfolder + batch_ID + "/Analysed_slides/"
-try:
-    os.mkdir(folder_out)
-except:
-    pass
-for i in range(len(rawims)):
-    big_img = cv2.imread(rawims[i])
-    thresh_cut = None
-    folder_name = folder_out + "/" + img_ids[i] + "/"
-    try:
-        os.mkdir(folder_name)
-    except:
-        pass
-    uu = SegmentImage(big_img, deconv_mat_MPAS)
-    crypt_contours = uu[-2]
-    write_cnt_text_file(crypt_contours, folder_name + "/crypt_contours.txt")
-    
-    
-    
-
-#plot_img(img, hold_plot=True)
-plot_img((uu[0], big_img,))
-print("Crypts " + str(uu[4][0]))
-print("Clones " + str(uu[4][1]))
-print("Patches " + str(uu[4][2]))
-print("Single cell " + str(uu[4][3]))
  
 
 

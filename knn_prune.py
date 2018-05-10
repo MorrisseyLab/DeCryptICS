@@ -51,31 +51,37 @@ def outlier_calc(var_vec, indx_val, indx_vec_val, type_compare, stddevmult = 1.6
     return(bool_outlier)
 
 def remove_tiling_overlaps_knn(contours, nn = 5):
-    if len(contours)==0: return contours, np.array([])
-    # check moments arent zero or something
-    contours = [cnt_i for cnt_i in contours if not cv2.moments(cnt_i)['m00']==0]
-    all_xy   = [contour_xy(cnt_i) for cnt_i in contours if not cv2.moments(cnt_i)['m00']==0]
-    all_xy   = np.array(all_xy)  
-    nbrs     = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(all_xy)
-    distances, indices = nbrs.kneighbors(all_xy)
-    throw_inds = []
-    for i in range(indices.shape[0]):
-       if (i not in throw_inds):
-           for j in range(1,nn):
-               cnt = contours[i]
-               compare_cnt_num = indices[i,j]
-               if (not i==compare_cnt_num):
-                  inside_bool = cv2.pointPolygonTest(cnt, (all_xy[compare_cnt_num,0], all_xy[compare_cnt_num,1]), False)
-                  if (not inside_bool==-1):            
-                          home_area = contour_Area(cnt)
-                          away_area = contour_Area(contours[compare_cnt_num])
-                          if (home_area < away_area):
-                              compare_cnt_num = i
-                          if (compare_cnt_num not in throw_inds):
-                              throw_inds.append(compare_cnt_num)
-    fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in throw_inds]
-    keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )
-    return fixed_contour_list, keep_inds
+   if len(contours)==0: return contours, np.array([])
+   # check moments arent zero or something
+   throw_inds = [i for i in range(len(contours)) if cv2.moments(contours[i])['m00']==0]
+   contours = [contours[i] for i in range(len(contours)) if not i in throw_inds]    
+   all_xy   = [contour_xy(cnt_i) for cnt_i in contours if not cv2.moments(cnt_i)['m00']==0]
+   all_xy   = np.array(all_xy)
+   nbrs     = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(all_xy)
+   distances, indices = nbrs.kneighbors(all_xy)
+   for i in range(indices.shape[0]):
+      if (i not in throw_inds):
+         for j in range(1,nn):
+            cnt = contours[i]
+            compare_cnt_num = indices[i,j]
+            if (not i==compare_cnt_num):
+               inside_bool = cv2.pointPolygonTest(cnt, (all_xy[compare_cnt_num,0], all_xy[compare_cnt_num,1]), False)
+               if (not inside_bool==-1):            
+                       home_area = contour_Area(cnt)
+                       away_area = contour_Area(contours[compare_cnt_num])
+                       if (home_area < away_area):
+                           compare_cnt_num = i
+                       if (compare_cnt_num not in throw_inds):
+                           throw_inds.append(compare_cnt_num)
+   keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )
+   distance_thresh = tukey_upper_thresholdval(distances[keep_inds,1], numIQR = 2)
+   for i in keep_inds:
+      # Throw isolated contours
+      if (distances[i, 1]>distance_thresh):
+         throw_inds.append(i)
+   fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in throw_inds]
+   keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )
+   return fixed_contour_list, keep_inds
 
 def prune_contours_knn(crypt_cnt, features, nuclei_ch_raw, backgrd, smallBlur_img_nuc, stddevmult = 1.6, nn = 7):
     all_xy = [contour_xy(cnt_i) for cnt_i in crypt_cnt]

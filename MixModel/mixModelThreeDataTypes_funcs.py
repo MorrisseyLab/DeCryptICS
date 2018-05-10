@@ -56,10 +56,6 @@ def updateAlpha(gamma_i, prior_a, prior_b):
 #@jit('Tuple((double[:], double[:,:]))(double[:,:], double[:], int_, int_)') #, nopython=True)
 @jit(nopython=True)
 def GibbsMixFunnel2Clusters3d_2(xx_filt, gamma_i, num_iter, thin):
-    # D.K. test
-    #num_iter = 1000
-    #thin = 10
-    # end test
     x_halo    = xx_filt[:,0]
     y_nucl    = xx_filt[:,1] 
     Size_vec  = xx_filt[:,2]

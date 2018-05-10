@@ -87,11 +87,6 @@ def getCntsSeveralThresh(thresh_cut_nucl_blur, blurred_img_nuc, pcnt_use, backgr
     return cnt_all, indx_all
 
 def filterGibbs(feat_cnt_nuc, plot_me = False): 
-    # D.K. test
-#    feat_cnt_nuc = feat_cnt_nuc2
-#    feat_cnt_nuc = feats
-    # D.K. end test
-    
     ## Shift areas so as to start at size 1 
     xx_all          = cbind((feat_cnt_nuc.allHalo, feat_cnt_nuc.allMeanNucl, feat_cnt_nuc.allSizes-np.min(feat_cnt_nuc.allSizes)+1))
     indx_use_these  = indx_filterData(xx_all, perc_halo = 5, perc_nucl = 95, perc_area = 95, hard_lim_nucl = 0.5, hard_lim_halo = 0.3) # Remove outliers
@@ -116,13 +111,6 @@ def filterGibbs(feat_cnt_nuc, plot_me = False):
 
 ## I remove from mem matrices that are passed as input, could cuase problems...
 def GetContAndFilter_oneThresh(thresh_cut_nucl_blur, blurred_img_file, pcnt_i, mpas_cnt_eroded, indx_i, plot_me = False):
-    # D.K. test
-#    indx_i = 1
-#    thresh_cut_nucl_blur = thresh_cut_list[indx_i]
-#    blurred_img_file = blurred_img_list_files[indx_i]
-#    pcnt_i = dbl_indx[0]
-    # D.K. end test
-    
     # Load image using file name
     blurred_img_nuc     = np.load(blurred_img_file)
     # Correct for thresholds over the 255 limit
@@ -183,13 +171,6 @@ def GetContAndFilter_oneThresh(thresh_cut_nucl_blur, blurred_img_file, pcnt_i, m
     return crypt_cnt, cnt_out, indx_keep, all_probs, img_plot, means_dists
   
 def GetContAndFilter_TwoBlur(thresh_cut_list, blurred_img_list, percent_change_list, backgrd, mpas_thresh, nuclei_ch_raw, smallBlur_img_nuc, n_cores = 6):
-    # D.K. test. 
-#    thresh_cut_list = [thresh_cut_nucl_blur, thresh_cut_nucl]
-#    blurred_img_list = [blurred_img_nuc,smallBlur_img_nuc]
-#    percent_change_list = [-0.12, 0, 0.12]
-#    n_cores = 1
-    # D.K. end test
-    
     mpas_eroded        = cv2.morphologyEx(mpas_thresh, cv2.MORPH_ERODE, st_5, iterations=10)
     mpas_cnt_eroded, _ = cv2.findContours(mpas_eroded.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[-2:]
     del mpas_eroded

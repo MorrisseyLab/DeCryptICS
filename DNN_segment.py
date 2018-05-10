@@ -58,16 +58,16 @@ def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.45, upper_thres
     all_indx = get_tile_indices((img.shape[1], img.shape[0]), overlap = 200, SIZE = size)
     x_tiles = len(all_indx)
     y_tiles = len(all_indx[0])
+    crypt_contours  = []
+    clone_features_list = []
     for i in range(x_tiles):
         for j in range(y_tiles):            
             # Find next small tile
             xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
             wh_vals     = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
             img_s         = img[xy_vals[1]:(xy_vals[1]+wh_vals[1]) , xy_vals[0]:(xy_vals[0]+wh_vals[0]) ] # i,j rather than x,y
-
-            x_batch = [img]
+            x_batch = [img_s]
             x_batch = np.array(x_batch, np.float32) / 255.
-
             # Perform prediction and find contours
             predicted_mask_batch = model.predict(x_batch)
             newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
@@ -79,17 +79,24 @@ def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.45, upper_thres
             clone_features = find_clone_statistics(newcnts, img_nuc, img_clone, nbins)            
             # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
             newcnts = add_offset(newcnts, xy_vals)
-            add_xy_offset_to_clone_features(clone_features, xy_vals)
-            # Add to lists            
-            clone_features_list.append(clone_features)
-            crypt_contours += newcnts
+            clone_features = add_xy_offset_to_clone_features(clone_features, xy_vals)
+            # Add to lists
+            if (len(newcnts)>0):
+               clone_features_list.append(clone_features)
+               crypt_contours += newcnts
+            del img_nuc, img_clone, img_s, predicted_mask_batch, clone_features, newcnts
+    clone_features_list = combine_feature_lists(clone_features_list, len(crypt_contours), nbins) 
     ## Remove tiling overlaps and simplify remaining contours
     print("Of %d contours..." % len(crypt_contours))
     crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
     print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
-    clone_features_list2 = remove_thrown_indices_clone_features(clone_features_list, kept_indices)
+    clone_features_list = remove_thrown_indices_clone_features(clone_features_list, kept_indices)
+        
+    ## Find clones
+    clone_inds, full_partial_statistics = determine_clones(clone_features_list, clonal_mark_type)
+    clone_contours = list(np.asarray(crypt_contours)[clone_inds])
 
-def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.25, upper_thresh = 0.75):
+def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.45, upper_thresh = 0.75):
     start_time = time.time()
     imnumber = file_name.split("/")[-1].split(".")[0]
     try:
@@ -110,6 +117,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
             xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
             wh_vals     = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
             img         = getROI_img_vips(file_name, xy_vals, wh_vals)
+            img_nuc, img_clone = get_channel_images_for_clone_finding(img, clonal_mark_type)
             x_batch = [img]
             x_batch = np.array(x_batch, np.float32) / 255.
 
@@ -119,26 +127,27 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
             newcnts = [cc for cc in newcnts if len(cc)>4] # throw away points and lines (needed in contour class)
             newcnts = [cc for cc in newcnts if contour_Area(cc)>400]
             newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts)
-            # Find clone channel features
-            img_nuc, img_clone = get_channel_images_for_clone_finding(img, clonal_mark_type)
-            clone_features = find_clone_statistics(newcnts, img_nuc, img_clone, nbins)            
+            # Find clone channel features            
+            clone_features = find_clone_statistics(newcnts, img_nuc, img_clone, nbins)
             # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
             newcnts = add_offset(newcnts, xy_vals)
-            add_xy_offset_to_clone_features(clone_features, xy_vals)
-            # Add to lists            
-            clone_features_list.append(clone_features)
-            crypt_contours += newcnts
+            clone_features = add_xy_offset_to_clone_features(clone_features, xy_vals)
+            # Add to lists
+            if (len(newcnts)>0):
+               clone_features_list.append(clone_features)
+               crypt_contours += newcnts
+            del img_nuc, img_clone, img, predicted_mask_batch, clone_features, newcnts
         print("Found %d contours so far, tile %d of %d" % (len(crypt_contours), i*y_tiles+j, x_tiles*y_tiles))
-    
-    clone_features_list2 = combine_feature_lists(clone_feature_list, numcnts, nbins) 
+            
+    clone_features_list = combine_feature_lists(clone_features_list, len(crypt_contours), nbins) 
     ## Remove tiling overlaps and simplify remaining contours
     print("Of %d contours..." % len(crypt_contours))
     crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
     print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
-    clone_features_list2 = remove_thrown_indices_clone_features(clone_features_list2, kept_indices)
+    clone_features_list = remove_thrown_indices_clone_features(clone_features_list, kept_indices)
     
     ## Find clones
-    clone_inds, full_partial_statistics = determine_clones(clone_feature_list, clonal_mark_type)
+    clone_inds, full_partial_statistics = determine_clones(clone_features_list, clonal_mark_type)
     clone_contours = list(np.asarray(crypt_contours)[clone_inds])
     np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")    
     
@@ -198,6 +207,7 @@ def cull_bad_contours(preds, upperthresh, contours):
    # for a single prediction probability distribution
    pred = (preds[0,:,:,0]*255).astype(np.uint8)
    newconts = []
+   # Throw those with small mean probability
    for cnt_i in contours:
       roi           = cv2.boundingRect(cnt_i)
       Start_ij_ROI  = roi[0:2] # get x,y of bounding box
@@ -207,7 +217,7 @@ def cull_bad_contours(preds, upperthresh, contours):
       cv2.drawContours(mask_fill, [cnt_roi], 0, 255, -1) ## Get mask
       mean_prob   = cv2.mean(pred_ROI, mask_fill)[0]/255.
       if (mean_prob > upperthresh):
-         newconts.append(cnt_i)
+         newconts.append(cnt_i)   
    return newconts
     
 def mask_to_contours(preds, thresh):
