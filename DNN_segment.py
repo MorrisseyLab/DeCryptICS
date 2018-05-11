@@ -59,7 +59,8 @@ def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.45, upper_thres
     x_tiles = len(all_indx)
     y_tiles = len(all_indx[0])
     crypt_contours  = []
-    clone_features_list = []
+    clone_feature_list = []
+    nbins = 20 # for clone finding
     for i in range(x_tiles):
         for j in range(y_tiles):            
             # Find next small tile
@@ -82,18 +83,18 @@ def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.45, upper_thres
             clone_features = add_xy_offset_to_clone_features(clone_features, xy_vals)
             # Add to lists
             if (len(newcnts)>0):
-               clone_features_list.append(clone_features)
+               clone_feature_list.append(clone_features)
                crypt_contours += newcnts
             del img_nuc, img_clone, img_s, predicted_mask_batch, clone_features, newcnts
-    clone_features_list = combine_feature_lists(clone_features_list, len(crypt_contours), nbins) 
+    clone_feature_list = combine_feature_lists(clone_feature_list, len(crypt_contours), nbins) 
     ## Remove tiling overlaps and simplify remaining contours
     print("Of %d contours..." % len(crypt_contours))
     crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
     print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
-    clone_features_list = remove_thrown_indices_clone_features(clone_features_list, kept_indices)
+    clone_feature_list = remove_thrown_indices_clone_features(clone_feature_list, kept_indices)
         
     ## Find clones
-    clone_inds, full_partial_statistics = determine_clones(clone_features_list, clonal_mark_type)
+    clone_inds, full_partial_statistics = determine_clones(clone_feature_list, clonal_mark_type)
     clone_contours = list(np.asarray(crypt_contours)[clone_inds])
 
 def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.45, upper_thresh = 0.75):
@@ -104,7 +105,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
     except:
         pass
     crypt_contours  = []
-    clone_features_list = []
+    clone_feature_list = []
     ## Tiling
     obj_svs  = getROI_svs(file_name, get_roi_plot = False)
     size = (1024, 1024)
@@ -134,20 +135,20 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
             clone_features = add_xy_offset_to_clone_features(clone_features, xy_vals)
             # Add to lists
             if (len(newcnts)>0):
-               clone_features_list.append(clone_features)
+               clone_feature_list.append(clone_features)
                crypt_contours += newcnts
             del img_nuc, img_clone, img, predicted_mask_batch, clone_features, newcnts
         print("Found %d contours so far, tile %d of %d" % (len(crypt_contours), i*y_tiles+j, x_tiles*y_tiles))
             
-    clone_features_list = combine_feature_lists(clone_features_list, len(crypt_contours), nbins) 
+    clone_feature_list = combine_feature_lists(clone_feature_list, len(crypt_contours), nbins) 
     ## Remove tiling overlaps and simplify remaining contours
     print("Of %d contours..." % len(crypt_contours))
     crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
     print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
-    clone_features_list = remove_thrown_indices_clone_features(clone_features_list, kept_indices)
+    clone_feature_list = remove_thrown_indices_clone_features(clone_feature_list, kept_indices)
     
     ## Find clones
-    clone_inds, full_partial_statistics = determine_clones(clone_features_list, clonal_mark_type)
+    clone_inds, full_partial_statistics = determine_clones(clone_feature_list, clonal_mark_type)
     clone_contours = list(np.asarray(crypt_contours)[clone_inds])
     np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")    
     

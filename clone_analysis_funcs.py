@@ -36,7 +36,11 @@ def nucl_bin_dropout(av_sig_vec, nucl_outlier):
       use_bin_inds = np.where(av_sig_vec > nucl_outlier)[0]
       ll = use_bin_inds.shape[0] 
    return use_bin_inds
-
+   
+def local_nucl_bin_dropout(av_sig_vec, numIQR=1.25):
+   use_bin_inds = np.where(av_sig_vec > tukey_lower_thresholdval(av_sig_vec, numIQR))[0]
+   return use_bin_inds
+   
 def signal_width(av_sig_frac, outlier_vec, nuclear_sig, nuclear_outlier_val, clonal_mark_type):   
    if (clonal_mark_type=="N" or clonal_mark_type=="P"):
       # Trim av_sig_frac for where nuclear signal is missing
@@ -76,12 +80,48 @@ def signal_width(av_sig_frac, outlier_vec, nuclear_sig, nuclear_outlier_val, clo
       normed_totalsig = total_sig/len(clone_trues)
       return normed_wedge, normed_totalsig,
 
-def signal_width_ep(av_sig_frac, outlier_val, clonal_mark_type):
-   outlier_vec = np.ones(av_sig_frac.shape[0]) * outlier_val
+def signal_width_ndo(av_sig_clone, outlier_val, av_sig_nucl, clonal_mark_type):
+   outlier_vec = np.ones(av_sig_clone.shape[0]) * outlier_val
+   if (clonal_mark_type=="N" or clonal_mark_type=="P"):
+      # Trim av_sig_frac for where nuclear signal is missing
+      use_bin_inds = local_nucl_bin_dropout(av_sig_nucl)
+      av_sig_clone = av_sig_clone[use_bin_inds]
+      outlier_vec = outlier_vec[use_bin_inds]
    if (clonal_mark_type=="N" or clonal_mark_type=="NNN" or clonal_mark_type=="BN"):
-      clone_trues = av_sig_frac < outlier_vec
+      clone_trues = av_sig_clone < outlier_vec
    if (clonal_mark_type=="P" or clonal_mark_type=="PNN" or clonal_mark_type=="BP"):
-      clone_trues = av_sig_frac > outlier_vec
+      clone_trues = av_sig_clone > outlier_vec
+   i = 0
+   wedges = []
+   for key, group in itertools.groupby(clone_trues, lambda x: x):
+           truefalse = next(group)
+           elems = len(list(group)) + 1
+           if truefalse == True and elems > 0:
+               wedges.append([key, elems, i])
+           i += elems   
+   if (len(wedges)==0):
+      return 0
+   if (len(wedges)>1):
+      # join loop
+      if (clone_trues[0]==True and clone_trues[-1]==True):
+         wedges[0][1] = wedges[0][1] + wedges[-1][1]
+         wedges[0][2] = wedges[-1][2]
+         wedges = wedges[:-1]
+   if (len(wedges)>0):
+      maxwedge = 0
+      for i in range(len(wedges)):
+         wedge = wedges[i]
+         if (wedge[1] > maxwedge):
+            maxwedge, ind = wedge[1], i
+      normed_wedge = maxwedge/len(clone_trues)
+      return normed_wedge
+
+def signal_width_ep(av_sig_clone, outlier_val, clonal_mark_type):
+   outlier_vec = np.ones(av_sig_clone.shape[0]) * outlier_val
+   if (clonal_mark_type=="N" or clonal_mark_type=="NNN" or clonal_mark_type=="BN"):
+      clone_trues = av_sig_clone < outlier_vec
+   if (clonal_mark_type=="P" or clonal_mark_type=="PNN" or clonal_mark_type=="BP"):
+      clone_trues = av_sig_clone > outlier_vec
    i = 0
    wedges = []
    for key, group in itertools.groupby(clone_trues, lambda x: x):
@@ -110,57 +150,6 @@ def signal_width_ep(av_sig_frac, outlier_val, clonal_mark_type):
       normed_wedge = maxwedge/len(clone_trues)
       normed_totalsig = total_sig/len(clone_trues)
       return normed_wedge, normed_totalsig
-
-def max_halocnt_nucl_clone(cnt_i, img_nuc, img_clone):
-    # Max and min halo size to calculate
-    start_diff = 1 # min diff to check 
-    end_diff   = 8 # end_diff -1 max diff to check
-    # Expand box
-    expand_box    = 100
-    roi           = cv2.boundingRect(cnt_i)            
-    roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box))
-    roi[roi <1]   = 0
-    Start_ij_ROI  = roi[0:2] # get x,y of bounding box
-    cnt_roi       = cnt_i - Start_ij_ROI # change coords to start from x,y
-    img_ROI       = img_nuc[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
-    img_ROI_c     = img_clone[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
-    mask_fill1    = np.zeros(img_ROI.shape[0:2], np.uint8)    
-    cv2.drawContours(mask_fill1, [cnt_roi], 0, 255, -1) ## Get mask
-    max_morphs    = 15
-    sum_morphs    = np.zeros(max_morphs+1)
-    areas_morphs  = np.zeros(max_morphs+1)
-    # Area and sum pre-dilations
-    areas_morphs[0] = cv2.countNonZero(mask_fill1)
-    sum_morphs[0]   = cv2.mean(img_ROI, mask_fill1)[0]/255. * areas_morphs[0]
-    for i in range(1, max_morphs+1):
-      mask_fill1    = cv2.morphologyEx(mask_fill1, cv2.MORPH_DILATE, st_5, iterations = 1)
-      areas_morphs[i]  = cv2.countNonZero(mask_fill1)
-      sum_morphs[i]    = cv2.mean(img_ROI, mask_fill1)[0]/255. * areas_morphs[i]
-    z_ind = np.where(areas_morphs==0)[0]
-    if (z_ind.shape[0]>0):
-       areas_morphs = areas_morphs[:z_ind[0]]
-       sum_morphs = sum_morphs[:z_ind[0]]
-    # Finding maximum halo
-    num_diffs  = end_diff-start_diff
-    max_each = np.zeros(num_diffs)
-    indices = []
-    for diff_size, ii in zip(range(start_diff,end_diff), range(num_diffs)):
-      if (not (len(sum_morphs)-diff_size) <= 0):
-        indx_1    = range(diff_size,len(sum_morphs))
-        indx_2    = range(0,len(sum_morphs)-diff_size)
-        halo_mean = (sum_morphs[indx_1] - sum_morphs[indx_2])/(areas_morphs[indx_1] - areas_morphs[indx_2] + 1e-5)
-        max_each[ii] = np.max(halo_mean)
-        maxindx = np.where(halo_mean==max_each[ii])[0][0]        
-        morph_pair = (indx_1[maxindx], indx_2[maxindx])
-        indices.append(morph_pair)
-    nucl_halo = np.max(max_each)
-    maxindx_global = np.where(max_each==nucl_halo)[0][0]
-    morph_pair_m = indices[maxindx_global]
-    clone_halo = extractCloneSignal(cnt_roi, img_ROI_c, morph_pair_m)
-    maxmiddlecontour = int( np.ceil( (morph_pair_m[0]+morph_pair_m[1])/2. ) )
-    mid_halo_cnt = extractRingContour(cnt_roi, img_ROI, maxmiddlecontour, Start_ij_ROI)
-    output_cnt = mid_halo_cnt.astype(np.int32)
-    return nucl_halo, clone_halo, output_cnt
  
 def extractCloneSignal(cnt_roi, img_ROI_c, morph_pair):
     mask_fill1    = np.zeros(img_ROI_c.shape[0:2], np.uint8)
@@ -221,9 +210,7 @@ def bin_intensities_flattened(output_cnt, img1, nbins = 20):
    Start_ij_ROI  = roi[0:2] # get x,y of bounding box
    cnt_j       = output_cnt - Start_ij_ROI # change coords to start from x,y
    img_ROI       = img1[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]] # note here the use of y coord first!
-   flat_cnt = []
-   for xy_i in cnt_j[:,0,:]:
-      flat_cnt.append(img_ROI[xy_i[1],xy_i[0]])
+   flat_cnt = flatten_contour(cnt_j, img_ROI)
    numpixels = len(flat_cnt)
    overhang = numpixels % nbins
    normal_bin_width = numpixels // nbins
@@ -238,6 +225,12 @@ def bin_intensities_flattened(output_cnt, img1, nbins = 20):
       av_sig[i + nbins-overhang] = np.mean(flat_cnt[done + i*cw : done + (i+1)*cw])
    return av_sig
    
+def flatten_contour(cnt_j, img_ROI):
+   flat_cnt = []
+   for xy_i in cnt_j[:,0,:]:
+      flat_cnt.append(img_ROI[xy_i[1],xy_i[0]])
+   return flat_cnt
+   
 def get_contents(cnt, img_nuc, img_clone):
    # Get mean colour of object
    roi           = cv2.boundingRect(cnt)
@@ -250,3 +243,156 @@ def get_contents(cnt, img_nuc, img_clone):
    content_nucl  = cv2.mean(img_ROI_n, mask_fill)[0]/255.
    content_clone = cv2.mean(img_ROI_c, mask_fill)[0]/255.
    return (content_nucl, content_clone)
+
+def max_halocnt_nc(cnt_i, img_nuc, img_clone):
+    # Max and min halo size to calculate
+    start_diff = 1 # min diff to check 
+    end_diff   = 8 # end_diff -1 max diff to check
+    # Expand box
+    expand_box    = 100
+    roi           = cv2.boundingRect(cnt_i)            
+    roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box))
+    roi[roi <1]   = 0
+    Start_ij_ROI  = roi[0:2] # get x,y of bounding box
+    cnt_roi       = cnt_i - Start_ij_ROI # change coords to start from x,y
+    img_ROI       = img_nuc[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
+    img_ROI_c     = img_clone[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
+    mask_fill1    = np.zeros(img_ROI.shape[0:2], np.uint8)    
+    cv2.drawContours(mask_fill1, [cnt_roi], 0, 255, -1) ## Get mask
+    max_morphs    = 15
+    sum_morphs    = np.zeros(max_morphs+1)
+    areas_morphs  = np.zeros(max_morphs+1)
+    # Area and sum pre-dilations
+    areas_morphs[0] = cv2.countNonZero(mask_fill1)
+    sum_morphs[0]   = cv2.mean(img_ROI, mask_fill1)[0]/255. * areas_morphs[0]
+    for i in range(1, max_morphs+1):
+      mask_fill1    = cv2.morphologyEx(mask_fill1, cv2.MORPH_DILATE, st_5, iterations = 1)
+      areas_morphs[i]  = cv2.countNonZero(mask_fill1)
+      sum_morphs[i]    = cv2.mean(img_ROI, mask_fill1)[0]/255. * areas_morphs[i]
+    z_ind = np.where(areas_morphs==0)[0]
+    if (z_ind.shape[0]>0):
+       areas_morphs = areas_morphs[:z_ind[0]]
+       sum_morphs = sum_morphs[:z_ind[0]]
+    # Finding maximum halo
+    num_diffs  = end_diff-start_diff
+    max_each = np.zeros(num_diffs)
+    indices = []
+    for diff_size, ii in zip(range(start_diff,end_diff), range(num_diffs)):
+      if (not (len(sum_morphs)-diff_size) <= 0):
+        indx_1    = range(diff_size,len(sum_morphs))
+        indx_2    = range(0,len(sum_morphs)-diff_size)
+        halo_mean = (sum_morphs[indx_1] - sum_morphs[indx_2])/(areas_morphs[indx_1] - areas_morphs[indx_2] + 1e-5)
+        max_each[ii] = np.max(halo_mean)
+        maxindx = np.where(halo_mean==max_each[ii])[0][0]        
+        morph_pair = (indx_1[maxindx], indx_2[maxindx])
+        indices.append(morph_pair)
+    nucl_halo = np.max(max_each)
+    maxindx_global = np.where(max_each==nucl_halo)[0][0]
+    morph_pair_m = indices[maxindx_global]
+    clone_halo = extractCloneSignal(cnt_roi, img_ROI_c, morph_pair_m)
+    maxmiddlecontour = int( np.ceil( (morph_pair_m[0]+morph_pair_m[1])/2. ) )
+    mid_halo_cnt = extractRingContour(cnt_roi, img_ROI, maxmiddlecontour, Start_ij_ROI)
+    output_cnt = mid_halo_cnt.astype(np.int32)
+    return nucl_halo, clone_halo, output_cnt
+
+'''
+def signal_width(av_sig_frac, outlier_vec, clonal_mark_type):
+   if (clonal_mark_type=="N" or clonal_mark_type=="NNN" or clonal_mark_type=="BN"):
+      clone_trues = av_sig_frac < outlier_vec
+   if (clonal_mark_type=="P" or clonal_mark_type=="PNN" or clonal_mark_type=="BP"):
+      clone_trues = av_sig_frac > outlier_vec
+   i = 0
+   wedges = []
+   for key, group in itertools.groupby(clone_trues, lambda x: x):
+           truefalse = next(group)
+           elems = len(list(group)) + 1
+           if truefalse == True and elems > 0:
+               wedges.append([key, elems, i])
+           i += elems   
+   if (len(wedges)==0):
+      return 0, False
+   if (len(wedges)>1):
+      # join loop
+      if (clone_trues[0]==True and clone_trues[-1]==True):
+         wedges[0][1] = wedges[0][1] + wedges[-1][1]
+         wedges[0][2] = wedges[-1][2]
+         wedges = wedges[:-1]
+   if (len(wedges)>0):
+      maxwedge = 0
+      total_sig = 0
+      for i in range(len(wedges)):
+         wedge = wedges[i]
+         if (wedge[1] > 1):
+            total_sig += wedge[1]
+         if (wedge[1] > maxwedge):
+            maxwedge, ind = wedge[1], i
+      normed_wedge = maxwedge/len(clone_trues)
+      normed_totalsig = total_sig/len(clone_trues)
+      return normed_wedge, normed_totalsig
+      
+def signal_width(av_sig_nucl_vec, outlier_nucl_vec, av_sig_clone_vec, outlier_clone_vec, clonal_mark_type, extreme_outlier_vec):
+   if (clonal_mark_type=="N" or clonal_mark_type=="NNN" or clonal_mark_type=="BN"):
+      n_tf = av_sig_nucl_vec < outlier_nucl_vec
+      c_tf = av_sig_clone_vec < outlier_clone_vec
+      extreme_sig_presence = av_sig_clone_vec < extreme_outlier_vec
+   if (clonal_mark_type=="P" or clonal_mark_type=="PNN" or clonal_mark_type=="BP"):
+      n_tf = av_sig_nucl_vec > outlier_nucl_vec
+      c_tf = av_sig_clone_vec > outlier_clone_vec
+      extreme_sig_presence = av_sig_clone_vec > extreme_outlier_vec
+   clone_trues = np.bitwise_and(c_tf, np.bitwise_not(n_tf))
+   i = 0
+   wedges = []
+   for key, group in itertools.groupby(clone_trues, lambda x: x):
+           truefalse = next(group)
+           elems = len(list(group)) + 1
+           if truefalse == True and elems > 0:
+               wedges.append([key, elems, i])
+           i += elems   
+   if (len(wedges)==0):
+      return 0, False
+   if (len(wedges)>1):
+      # join loop
+      if (clone_trues[0]==True and clone_trues[-1]==True):
+         wedges[0][1] = wedges[0][1] + wedges[-1][1]
+         wedges[0][2] = wedges[-1][2]
+         wedges = wedges[:-1]
+   if (len(wedges)>0):
+      maxwedge = 0
+      for i in range(len(wedges)):
+         wedge = wedges[i]
+         if (wedge[1] > maxwedge):
+            maxwedge, ind = wedge[1], i
+      normed_wedge = maxwedge/len(clone_trues)
+      extr_sig = np.any(extreme_sig_presence[wedges[ind][2] : (wedges[ind][2]+wedges[ind][1])])
+      return normed_wedge, extr_sig
+'''
+
+'''
+def max_halocnt_nc(cnt_i, img_nuc, img_clone):
+    # Expand box
+    expand_box    = 100
+    roi           = cv2.boundingRect(cnt_i)            
+    roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box))
+    roi[roi <1]   = 0
+    Start_ij_ROI  = roi[0:2] # get x,y of bounding box
+    cnt_roi       = cnt_i - Start_ij_ROI # change coords to start from x,y
+    img_ROI_n     = img_nuc[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
+    img_ROI_c     = img_clone[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
+    mask_fill1    = np.zeros(img_ROI_n.shape[0:2], np.uint8)    
+    cv2.drawContours(mask_fill1, [cnt_roi], 0, 255, -1) ## Get mask
+    max_morphs    = 15
+    sum_morphs    = np.zeros(max_morphs+1)
+    halo_cnts     = []
+    halo_cnts.append(cnt_roi)
+    sum_morphs[0] = np.mean(flatten_contour(halo_cnts[0], img_ROI_n))
+    for i in range(1, max_morphs+1):
+      mask_fill1    = cv2.morphologyEx(mask_fill1, cv2.MORPH_DILATE, st_5, iterations = 1)
+      h_cnt, _   = cv2.findContours(mask_fill1.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2:]
+      halo_cnts.append(h_cnt[0])
+      sum_morphs[i] = np.mean(flatten_contour(halo_cnts[i], img_ROI_n))
+    maxind = np.argmax(sum_morphs)
+    nucl_halo = sum_morphs[maxind]
+    clone_halo = np.mean(flatten_contour(halo_cnts[maxind], img_ROI_c))
+    output_cnt = halo_cnts[maxind]
+    return nucl_halo, clone_halo, output_cnt
+'''
