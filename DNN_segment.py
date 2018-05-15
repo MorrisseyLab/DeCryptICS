@@ -19,7 +19,8 @@ from MiscFunctions            import getROI_img_vips, add_offset, write_cnt_text
 from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt
 from multicore_morphology     import getForeground_mc
 from GUI_ChooseROI_class      import getROI_svs
-from Segment_clone_from_crypt import find_clone_statistics, combine_feature_lists, determine_clones, remove_thrown_indices_clone_features, add_xy_offset_to_clone_features
+from Segment_clone_from_crypt import find_clone_statistics, combine_feature_lists, determine_clones, determine_clones_gridways
+from Segment_clone_from_crypt import remove_thrown_indices_clone_features, add_xy_offset_to_clone_features
 from knn_prune                import remove_tiling_overlaps_knn
 
 # Load DNN model
@@ -52,7 +53,7 @@ def get_tile_indices(maxvals, overlap = 200, SIZE = (1024, 1024)):
             all_indx[i].append((x0, y0, width, height))
     return all_indx
     
-def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.45, upper_thresh = 0.75):
+def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.24, upper_thresh = 0.75):
     crypt_contours  = []
     size = (1024, 1024)
     all_indx = get_tile_indices((img.shape[1], img.shape[0]), overlap = 200, SIZE = size)
@@ -74,6 +75,7 @@ def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.45, upper_thres
             newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
             newcnts = [cc for cc in newcnts if len(cc)>4] # throw away points and lines (needed in contour class)
             newcnts = [cc for cc in newcnts if contour_Area(cc)>400]
+            newcnts = cull_tile_edge_contours(newcnts, size)
             newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts)
             # Find clone channel features
             img_nuc, img_clone = get_channel_images_for_clone_finding(img_s, clonal_mark_type)
@@ -97,7 +99,7 @@ def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.45, upper_thres
     clone_inds, full_partial_statistics = determine_clones(clone_feature_list, clonal_mark_type)
     clone_contours = list(np.asarray(crypt_contours)[clone_inds])
 
-def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.45, upper_thresh = 0.75):
+def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.24, upper_thresh = 0.75):
     start_time = time.time()
     imnumber = file_name.split("/")[-1].split(".")[0]
     try:
@@ -127,6 +129,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
             newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
             newcnts = [cc for cc in newcnts if len(cc)>4] # throw away points and lines (needed in contour class)
             newcnts = [cc for cc in newcnts if contour_Area(cc)>400]
+            newcnts = cull_tile_edge_contours(newcnts, size)
             newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts)
             # Find clone channel features            
             clone_features = find_clone_statistics(newcnts, img_nuc, img_clone, nbins)
@@ -148,7 +151,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
     clone_feature_list = remove_thrown_indices_clone_features(clone_feature_list, kept_indices)
     
     ## Find clones
-    clone_inds, full_partial_statistics = determine_clones(clone_feature_list, clonal_mark_type)
+    clone_inds, full_partial_statistics = determine_clones_gridways(clone_feature_list, clonal_mark_type)
     clone_contours = list(np.asarray(crypt_contours)[clone_inds])
     np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")    
     
@@ -219,6 +222,18 @@ def cull_bad_contours(preds, upperthresh, contours):
       mean_prob   = cv2.mean(pred_ROI, mask_fill)[0]/255.
       if (mean_prob > upperthresh):
          newconts.append(cnt_i)   
+   return newconts
+   
+def cull_tile_edge_contours(contours, img_dims):
+   newconts = []
+   uplim = img_dims[0]-2
+   lowlim = 1
+   # Throw those contours touching the tile edge
+   for cnt_i in contours:
+      num_high = np.sum((cnt_i>=uplim).astype(int))
+      num_low = np.sum(( cnt_i<=lowlim).astype(int))
+      if (num_low+num_high < 2):
+         newconts.append(cnt_i)
    return newconts
     
 def mask_to_contours(preds, thresh):

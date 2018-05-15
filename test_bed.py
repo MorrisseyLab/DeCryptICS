@@ -55,8 +55,8 @@ thresh_cut = None
 
 # Regions from svs slides
 #deconv_mat = deconv_mat_MPAS
-clonal_mark_type = "N"
-img_file = imgfolder+'KDM6A_March2018/raw_images/642739.svs'
+clonal_mark_type = "BN"
+img_file = imgfolder+'MAOA_March2018/raw_images/586572.svs'
 obj_svs  = getROI_svs(img_file)
 big_img = obj_svs.getROI_img()
 img = big_img

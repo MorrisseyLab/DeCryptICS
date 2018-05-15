@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import matplotlib.pylab as plt
 import itertools
+import math
 from deconv_mat            import *
 from MiscFunctions         import *
 from cnt_Feature_Functions import *
@@ -52,7 +53,7 @@ def find_clone_statistics(crypt_cnt, img_nuc, img_clone, nbins = 20):
       in_av_sig_clone[i, :]  = X[6]
       content_n[i]           = X[7]
       content_c[i]           = X[8]
-   clone_feature_list = (halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c)
+   clone_feature_list = [halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c]
    return clone_feature_list
 
 def combine_feature_lists(clone_feature_list, numcnts, nbins = 20):
@@ -80,7 +81,7 @@ def combine_feature_lists(clone_feature_list, numcnts, nbins = 20):
       content_n[cumnum:(cumnum+curr_num)]           = clone_feature_list[i][7]
       content_c[cumnum:(cumnum+curr_num)]           = clone_feature_list[i][8]
       cumnum = cumnum + curr_num
-   clone_features = (halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c)
+   clone_features = [halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c]
    return clone_features
 
 def remove_thrown_indices_clone_features(clone_features, kept_indices):
@@ -95,8 +96,25 @@ def remove_thrown_indices_clone_features(clone_features, kept_indices):
    in_av_sig_nucl   = clone_features[5][kept_indices, :]
    in_av_sig_clone  = clone_features[6][kept_indices, :]
    content_n        = clone_features[7][kept_indices]
+   content_c        = clone_features[8][kept_indices]
+   glob_inds = np.where(halo_n)[0]
+   clone_features = [halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c, glob_inds]
+   return clone_features
+
+def subset_clone_features(clone_features, kept_indices):
+   halo_n           = clone_features[0][kept_indices]
+   halo_c           = clone_features[1][kept_indices]
+   out_av_sig_nucl  = clone_features[2][kept_indices, :]
+   out_av_sig_clone = clone_features[3][kept_indices, :]
+   xy_coords = np.zeros([kept_indices.shape[0], 2], dtype=np.int32)
+   for i in range(kept_indices.shape[0]):
+      xy_coords[i,0]         = clone_features[4][kept_indices[i], 0]
+      xy_coords[i,1]         = clone_features[4][kept_indices[i], 1]
+   in_av_sig_nucl   = clone_features[5][kept_indices, :]
+   in_av_sig_clone  = clone_features[6][kept_indices, :]
+   content_n        = clone_features[7][kept_indices]
    content_c        = clone_features[8][kept_indices]   
-   clone_features = (halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c)
+   clone_features = [halo_n, halo_c, out_av_sig_nucl, out_av_sig_clone, xy_coords, in_av_sig_nucl, in_av_sig_clone, content_n, content_c, kept_indices]
    return clone_features
    
 def add_xy_offset_to_clone_features(clone_features, xy_offset):
@@ -105,6 +123,41 @@ def add_xy_offset_to_clone_features(clone_features, xy_offset):
       clone_features[4][i, 1] = clone_features[4][i, 1] + xy_offset[1]
    return clone_features
 
+def determine_clones_gridways(clone_feature_list, clonal_mark_type):
+   numcnts = clone_feature_list[0].shape[0]
+   # cut up clone_feature_list into roughly equal chunks (~1000 crypts each)
+   xy_coords = clone_feature_list[4]   
+   pc_y = 100*math.sqrt(1000./numcnts)
+   num_y = int(np.ceil(100./pc_y))
+   pc_y = 100./num_y
+   highlim = 0
+   clone_signal_width = np.array([-1])
+   clone_inds = np.array([-1])
+   for i in range(1,num_y+1):
+      lowlim = highlim
+      highlim = np.percentile(xy_coords[:,1], i*pc_y)
+      inds_yl = np.where(xy_coords[:,1]>lowlim)[0]
+      inds_yh = np.where(xy_coords[:,1]<highlim)[0]
+      inds_y = np.intersect1d(inds_yl,inds_yh)
+      # divide x
+      pc_x = 1000./xy_coords[inds_y,1].shape[0] * 100
+      num_x = int(np.ceil(100./pc_x))
+      pc_x = 100./num_x
+      highlimx = 0
+      for j in range(1,num_x+1):
+         lowlimx = highlimx
+         highlimx = np.percentile(xy_coords[inds_y,0], j*pc_x)
+         inds_xl = np.where(xy_coords[inds_y,0]>lowlimx)[0]
+         inds_xh = np.where(xy_coords[inds_y,0]<highlimx)[0]
+         inds_x = np.intersect1d(inds_xl,inds_xh)
+         inds = inds_y[inds_x]
+         grid_feats = subset_clone_features(clone_feature_list, inds)
+         newinds, newwidth = determine_clones(grid_feats, clonal_mark_type)
+         clone_inds = np.hstack([clone_inds, newinds])
+         clone_signal_width = np.hstack([clone_signal_width, newwidth])
+   clone_signal_width = clone_signal_width[1:]
+   clone_inds = clone_inds[1:]
+   return clone_inds, clone_signal_width  
 
 def determine_clones(clone_feature_list, clonal_mark_type):
    halo_n           = clone_feature_list[0]
@@ -116,6 +169,18 @@ def determine_clones(clone_feature_list, clonal_mark_type):
    in_av_sig_clone  = clone_feature_list[6]
    content_n        = clone_feature_list[7]
    content_c        = clone_feature_list[8]
+   global_inds      = clone_feature_list[9]
+   '''
+   halo_n           = grid_feats[0]
+   halo_c           = grid_feats[1]
+   out_av_sig_nucl  = grid_feats[2]
+   out_av_sig_clone = grid_feats[3]
+   xy_coords        = grid_feats[4]
+   in_av_sig_nucl   = grid_feats[5]
+   in_av_sig_clone  = grid_feats[6]
+   content_n        = grid_feats[7]
+   content_c        = grid_feats[8]
+
    out_frac_nc = (1+out_av_sig_clone) / (1+out_av_sig_nucl)
    in_frac_nc = (1+in_av_sig_clone) / (1+in_av_sig_nucl)
    # Define matrix for wedge finding
@@ -134,42 +199,12 @@ def determine_clones(clone_feature_list, clonal_mark_type):
       clone_outlier_val = outlier_level_calc(out_av_sig_clone, numIQR=0.5)
    # Find nuclear dropout outlier val
    nucl_outlier_val = outlier_level_calc(out_av_sig_nucl)
-   '''
-   # Determine signal width for clones
-   frac_signal_width = np.zeros(out_av_sig_nucl.shape[0])
-   frac_signal_total = np.zeros(out_av_sig_nucl.shape[0])
-   if (clonal_mark_type=="BN" or clonal_mark_type=="BP"):
-      frac_signal_width_in = np.zeros(out_av_sig_nucl.shape[0])
-      frac_signal_total_in = np.zeros(out_av_sig_nucl.shape[0])
-      frac_signal_width_out = np.zeros(out_av_sig_nucl.shape[0])
-      frac_signal_total_out = np.zeros(out_av_sig_nucl.shape[0])
 
-   for i in range(out_av_sig_nucl.shape[0]):
-      if (clonal_mark_type=="P" or clonal_mark_type=="N"):
-         frac_signal_width[i], frac_signal_total[i] = signal_width(out_wedge[i, :], out_outlier_vec, out_av_sig_nucl[i, :], nucl_outlier_val, clonal_mark_type)
-      if (clonal_mark_type=="PNN" or clonal_mark_type=="NNN"):
-         frac_signal_width[i], frac_signal_total[i] = signal_width(in_wedge[i, :], in_outlier_vec, out_av_sig_nucl[i, :], nucl_outlier_val, clonal_mark_type)
-      if (clonal_mark_type=="BP"):
-         frac_signal_width_out[i], frac_signal_total_out[i] = signal_width(out_wedge[i, :], out_outlier_vec, out_av_sig_nucl[i, :], nucl_outlier_val, "P")
-         frac_signal_width_in[i], frac_signal_total_in[i] = signal_width(in_wedge[i, :], in_outlier_vec, out_av_sig_nucl[i, :], nucl_outlier_val, "PNN")
-      if (clonal_mark_type=="BN"):
-         frac_signal_width_out[i], frac_signal_total_out[i] = signal_width(out_wedge[i, :], out_outlier_vec, out_av_sig_nucl[i, :], nucl_outlier_val, "N")
-         frac_signal_width_in[i], frac_signal_total_in[i] = signal_width(in_wedge[i, :], in_outlier_vec, out_av_sig_nucl[i, :], nucl_outlier_val, "NNN")
-   if (clonal_mark_type=="BN" or clonal_mark_type=="BP"):
-      # this needs work
-      frac_signal_width = np.minimum(frac_signal_width_out , frac_signal_width_in)         
-
-   # Combination of three tests: halo fractions/clone content, total signal below numIQR, signal width above 1/20th? (either we lose single cells or pick up FPs with last?
-   #inds_sigtot = np.where( frac_signal_total > tukey_upper_thresholdval(frac_signal_total, numIQR=1.))[0]
-   #inds_sigwid = np.where( frac_signal_width > 0.095)[0]
-   #inds_sigwid = np.setdiff1d(inds_sigwid, np.hstack([inds_sigtot, inds_halo])) # and something to separate the clones from the noise?
-   # Now look for extreme values / widths of the out_av_sig_clone (in some way compared to out_av_sig_nucl?) to separate real from FPs
-   '''
    #TESTING
    out_wedge = out_av_sig_clone #[inds_sigwid,:]
    in_wedge = in_av_sig_clone #[inds_sigwid,:]
-   NIQR = 0.8
-   NBINS = 3.
+   NIQR = 0.45
+   NBINS = 6
    if (clonal_mark_type=="P" or clonal_mark_type=="PNN" or clonal_mark_type=="BP"):
       clone_outlier_val_out = outlier_level_calc_above(out_wedge, NIQR)
       clone_outlier_val_in = outlier_level_calc_above(in_wedge, NIQR)
@@ -194,17 +229,22 @@ def determine_clones(clone_feature_list, clonal_mark_type):
       if (clonal_mark_type=="BN"):
          clone_signal_width_out[i] = signal_width_ndo(out_av_sig_clone[i,:], clone_outlier_val_out, out_av_sig_nucl[i,:], "N")
          clone_signal_width_in[i]  = signal_width_ndo(in_av_sig_clone[i,:], clone_outlier_val_in, in_av_sig_nucl[i,:], "NNN")
+      if (clonal_mark_type=="BN" or clonal_mark_type=="BP"):
+         clone_signal_width = np.minimum(clone_signal_width_out, clone_signal_width_in)
    inds_emp = np.where(clone_signal_width >= NBINS/out_av_sig_clone.shape[1])[0]
    plotCnt(img, np.asarray(crypt_contours)[inds_emp])
-
-
+   '''
    frac_halo = halo_c/halo_n
+   numcnts = out_av_sig_nucl.shape[0]
+   numbins = out_av_sig_nucl.shape[1]
    inds_halo   = np.where( frac_halo < tukey_lower_thresholdval(frac_halo, numIQR=0.75))[0]
-   inds_cumul = np.array([-1])
+   inds_sigwidth_cumul = np.array([[-1],[-1]])
+   out_wedge = out_av_sig_clone
+   in_wedge = in_av_sig_clone
    niqr = (np.linspace(0.35, 1.25, 14))
    nbins = (np.linspace(2,8,14))[::-1]
-   zipped = zip(niqr, nbins)
-   for pair in zipped:
+   zipped_pairs = zip(niqr, nbins)
+   for pair in zipped_pairs:
       NIQR = pair[0]
       NBINS = pair[1]
       if (clonal_mark_type=="P" or clonal_mark_type=="PNN" or clonal_mark_type=="BP"):
@@ -213,13 +253,13 @@ def determine_clones(clone_feature_list, clonal_mark_type):
       if (clonal_mark_type=="N" or clonal_mark_type=="NNN" or clonal_mark_type=="BN"): 
          clone_outlier_val_out = outlier_level_calc(out_wedge, NIQR)
          clone_outlier_val_in = outlier_level_calc(in_wedge, NIQR)
-      clone_signal_width = np.zeros(out_av_sig_nucl.shape[0])
-      clone_signal_total = np.zeros(out_av_sig_nucl.shape[0])
+      clone_signal_width = np.zeros(numcnts)
+      clone_signal_total = np.zeros(numcnts)
       if (clonal_mark_type=="BN" or clonal_mark_type=="BP"):
-         clone_signal_width_in = np.zeros(out_av_sig_nucl.shape[0])
-         clone_signal_total_in = np.zeros(out_av_sig_nucl.shape[0])
-         clone_signal_width_out = np.zeros(out_av_sig_nucl.shape[0])
-         clone_signal_total_out = np.zeros(out_av_sig_nucl.shape[0])
+         clone_signal_width_in = np.zeros(numcnts)
+         clone_signal_total_in = np.zeros(numcnts)
+         clone_signal_width_out = np.zeros(numcnts)
+         clone_signal_total_out = np.zeros(numcnts)
       for i in range(out_av_sig_clone.shape[0]):
          if (clonal_mark_type=="P" or clonal_mark_type=="N"):
             clone_signal_width[i]     = signal_width_ndo(out_av_sig_clone[i,:], clone_outlier_val_out, out_av_sig_nucl[i,:], clonal_mark_type)
@@ -231,16 +271,26 @@ def determine_clones(clone_feature_list, clonal_mark_type):
          if (clonal_mark_type=="BN"):
             clone_signal_width_out[i] = signal_width_ndo(out_av_sig_clone[i,:], clone_outlier_val_out, out_av_sig_nucl[i,:], "N")
             clone_signal_width_in[i]  = signal_width_ndo(in_av_sig_clone[i,:], clone_outlier_val_in, in_av_sig_nucl[i,:], "NNN")
-      inds_emp = np.where(clone_signal_width >= NBINS/out_av_sig_clone.shape[1])[0]            
-      inds_cumul = np.hstack([inds_cumul, inds_emp])
+         if (clonal_mark_type=="BN" or clonal_mark_type=="BP"):
+            clone_signal_width = np.maximum(clone_signal_width_out, clone_signal_width_in)
+      inds_emp = np.where(clone_signal_width >= NBINS/float(numbins))[0]      
+      sig_width = clone_signal_width[inds_emp]
+      joined_vecs = np.array([inds_emp, sig_width])
+      inds_sigwidth_cumul = np.hstack([inds_sigwidth_cumul, joined_vecs])
       print(inds_emp.shape[0])
-   inds_cumul = np.unique(inds_cumul[1:])
-   
    # Cull junk crypts in whitespace
    inds_nonwhitespace = np.where( content_n>tukey_lower_thresholdval(content_n, numIQR=1.5) )[0]
-   inds = np.intersect1d(inds_cumul, inds_nonwhitespace)
-   
-   return inds, clone_signal_width[inds]
+   aggregate_sig_width = np.array([-1])
+   inds_cumul = np.array([-1])
+   for i in inds_nonwhitespace:
+      ii = np.where(inds_sigwidth_cumul[0,:]==i)[0]
+      if (ii.shape[0]>0):
+         inds_cumul = np.hstack([inds_cumul, global_inds[i]])
+         sigmax = np.max(inds_sigwidth_cumul[1,ii])
+         aggregate_sig_width = np.hstack([aggregate_sig_width, sigmax])         
+   inds_cumul = inds_cumul[1:]
+   aggregate_sig_width = aggregate_sig_width[1:]
+   return inds_cumul, aggregate_sig_width
    
 def no_threshold_signal_collating(cnt_i, img_nuc, img_clone, nbins):
    # Find max halo contour in nuclear channel, and nucl/clone halo scores
