@@ -19,18 +19,18 @@ from Segment_clone_from_crypt          import find_clone_statistics
 from Clonal_Stains.mPAS_Segment_Clone  import get_mPAS_Stains2
 
 ## If thresh_cut is None, thresholds will be calculated from the image
-def Segment_crypts(img, thresh_cut, clonal_mark_type):
+def Segment_crypts(img, thresh_cut, deconv_mat):
     
     ## Avoid problems with multicore
     cv2.setNumThreads(0)       
           
     ## Choose deconv mat
-    if (clonal_mark_type=="P"): deconv_mat = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
-    if (clonal_mark_type=="N"): deconv_mat = deconv_mat_KDM6A
-    if (clonal_mark_type=="PNN"): deconv_mat = deconv_mat_MPAS
-    if (clonal_mark_type=="NNN"): deconv_mat = deconv_mat_MAOA
-    if (clonal_mark_type=="BN"): deconv_mat = deconv_mat_MAOA
-    if (clonal_mark_type=="BP"): deconv_mat = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
+    #if (clonal_mark_type=="P"): deconv_mat = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
+    #if (clonal_mark_type=="N"): deconv_mat = deconv_mat_KDM6A
+    #if (clonal_mark_type=="PNN"): deconv_mat = deconv_mat_MPAS
+    #if (clonal_mark_type=="NNN"): deconv_mat = deconv_mat_MAOA
+    #if (clonal_mark_type=="BN"): deconv_mat = deconv_mat_MAOA
+    #if (clonal_mark_type=="BP"): deconv_mat = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
           
     ## Colour Deconvolve to split channles into nuclear and clone stain
     ## Blur and threshold image

@@ -17,6 +17,7 @@ from sklearn               import mixture
 from cnt_Feature_Functions import filterSmallArea, st_3, plotSegmented
 from deconv_mat import deconv_mat_AB, deconv_mat_betaCat, deconv_mat_MAOA, deconv_mat_MPAS
 from Clonal_Stains.mPAS_Segment_Clone import get_mPAS_Thresholds
+from EstimateStainVectors import estimateStains
 
 # Sometimes moving to 8bit can lead to a threshold above 255
 # also the algorithm will use several thresholds including one that's 10% higher
@@ -93,16 +94,23 @@ def auto_choose_ROI(file_name, deconv_mat, plot_images = False):
     scalingVals = slide.level_downsamples[-1]
     
     img_zoom   = getROI_img_vips(file_name, (0,0), slide.level_dimensions[smallImage], level = smallImage)
+    # Clip edges to get rid of slide artefacts?
+    left_edge = int(0.1*img_zoom.shape[1])
+    right_edge = int(0.9*img_zoom.shape[1])
+    top_edge = int(0.1*img_zoom.shape[0])
+    bottom_edge = int(0.9*img_zoom.shape[0])
+    img_clip = img_zoom[top_edge:bottom_edge, left_edge:right_edge]
+    
     # Plot?
     if plot_images:
-        plot_img(img_zoom, hold_plot=True)
+        plot_img(img_clip, hold_plot=True)
     
-    img_deconv  = col_deconvol(img_zoom, deconv_mat)
+    img_deconv  = col_deconvol(img_clip, deconv_mat)
     
     blurred_img = cv2.GaussianBlur(  img_deconv[:,:,0], ( 7, 7), 0)
     
     # Choose threshold from small image, get tissue outline (ie foreground)
-    thresh_EM, _, _    = calculate_thresholds(img_zoom, deconv_mat)   #getEM_threshold_One(blurred_img, subSample = 100000, plot_me = plot_images, min_covar = 1) #200000
+    thresh_EM, _, _    = calculate_thresholds(img_clip, deconv_mat)
     _, img_nucl3 = cv2.threshold( blurred_img[:,:], thresh_EM, 255, cv2.THRESH_BINARY)
     
     # Plot?
@@ -140,7 +148,8 @@ def auto_choose_ROI(file_name, deconv_mat, plot_images = False):
     ## Grid and choose a tile to zoom
     scalingVals = slide.level_downsamples[-1]
     i,j     = np.unravel_index(tile_means.argmax(), tile_means.shape)
-    xy_vals = (int(tile_list[i][j][0]*scalingVals), int(tile_list[i][j][1]*scalingVals))
+    # adjust for clipping edges
+    xy_vals = (int(tile_list[i][j][0]*scalingVals + left_edge*scalingVals), int(tile_list[i][j][1]*scalingVals + top_edge*scalingVals))
     wh_vals = (int(tile_list[i][j][2]*scalingVals), int(tile_list[i][j][3]*scalingVals))
 
     return xy_vals, wh_vals
@@ -324,4 +333,28 @@ def calculate_thresholds(big_img, deconv_mat):
     thresh_blur_small = adjust_threshold_overshoot(thresh_blur_small)
 
     return thresh_blur_small, thresh_blur, th_clone
+
+def calculate_deconvolution_matrix(file_name, clonal_mark_type):
+   if (clonal_mark_type=="P"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
+   if (clonal_mark_type=="N"): deconv_mat_ref = deconv_mat_KDM6A
+   if (clonal_mark_type=="PNN"): deconv_mat_ref = deconv_mat_MPAS
+   if (clonal_mark_type=="NNN"): deconv_mat_ref = deconv_mat_MAOA
+   if (clonal_mark_type=="BN"): deconv_mat_ref = deconv_mat_MAOA
+   if (clonal_mark_type=="BP"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
+   xy, wh = auto_choose_ROI(file_name, deconv_mat_ref)
+   img    = getROI_img_vips(file_name, xy, wh)
+   D      = estimateStains(img, deconv_mat_ref)
+   return D
+
+def calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type):
+   if (clonal_mark_type=="P"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
+   if (clonal_mark_type=="N"): deconv_mat_ref = deconv_mat_KDM6A
+   if (clonal_mark_type=="PNN"): deconv_mat_ref = deconv_mat_MPAS
+   if (clonal_mark_type=="NNN"): deconv_mat_ref = deconv_mat_MAOA
+   if (clonal_mark_type=="BN"): deconv_mat_ref = deconv_mat_MAOA
+   if (clonal_mark_type=="BP"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
+   xy, wh = auto_choose_ROI(file_name, deconv_mat_ref)
+   img    = getROI_img_vips(file_name, xy, wh)
+   D      = estimateStains(img, deconv_mat_ref)
+   return xy, wh, D
 

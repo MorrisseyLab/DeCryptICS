@@ -2,14 +2,13 @@
 """
 Created on Wed Aug 19 13:18:27 2015
 
-@author: edward
+@author: doran
 """
 import cv2
 import numpy as np
 import matplotlib.pylab as plt
 import itertools
 import math
-from deconv_mat            import *
 from MiscFunctions         import *
 from cnt_Feature_Functions import *
 from classContourFeat      import getAllFeatures

@@ -11,12 +11,12 @@ from MiscFunctions              import write_cnt_text_file, read_cnt_text_file, 
 from GUI_ChooseROI_class        import getROI_svs
 from cnt_Feature_Functions      import joinContoursIfClose_OnlyKeepPatches
 from knn_prune                  import remove_tiling_overlaps_knn
-from automaticThresh_func       import auto_choose_ROI, calculate_thresholds
+from automaticThresh_func       import auto_choose_ROI, calculate_thresholds, calculate_deconvolution_matrix_and_ROI
 from Segment_clone_from_crypt   import find_clone_statistics, combine_feature_lists, determine_clones, remove_thrown_indices_clone_features, add_xy_offset_to_clone_features
 from SegmentCrypts              import Segment_crypts
 from deconv_mat                 import *
 
-def GetThresholdsPrepareRun(folder_in, file_in, folder_out, deconv_mat):
+def GetThresholdsPrepareRun(folder_in, file_in, folder_out, clonal_mark_type):
     ## Make file name
     file_name   = folder_in + "/" + file_in + ".svs"
     
@@ -26,8 +26,9 @@ def GetThresholdsPrepareRun(folder_in, file_in, folder_out, deconv_mat):
     ROI_crop = obj_svs.roi_full_thmb
     ROI_zoom = [] # obj_svs.chosenROI
     
-    xyhw = auto_choose_ROI(file_name, deconv_mat, plot_images = False)
-    img_for_thresh = getROI_img_vips(file_name, xyhw[0], xyhw[1])
+    #xyhw = auto_choose_ROI(file_name, clonal_mark_type, plot_images = False)
+    xy, wh, deconv_mat = calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type)
+    img_for_thresh = getROI_img_vips(file_name, xy, wh)
     thresh_cut_nucl, thresh_cut_nucl_blur, th_clone = calculate_thresholds(img_for_thresh, deconv_mat)
     thresh_three = (thresh_cut_nucl, thresh_cut_nucl_blur, th_clone)
 
@@ -63,7 +64,7 @@ def SegmentFromFolder(folder_name, clonal_mark_type):
             xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
             wh_vals     = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
             img         = getROI_img_vips(file_name, xy_vals, wh_vals)
-            crypt_cnt_ii, clone_features = Segment_crypts(img, thresh_cut, clonal_mark_type)    
+            crypt_cnt_ii, clone_features = Segment_crypts(img, thresh_cut, deconv_mat)    
                     
             ## Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
             crypt_cnt_ii        = add_offset(crypt_cnt_ii, xy_vals)

@@ -80,7 +80,7 @@ def transform_OD(img):
     
 def col_deconvol(img, deconv_mat):
     OD_data    = transform_OD(img)
-    deconv_mat = deconv_mat.astype('float32', copy=False) 
+    deconv_mat = deconv_mat.astype('float32', copy=False)
     img_deconv = cv2.transform(OD_data, deconv_mat)
     ## Convert to 8 bits
     img_deconv = np.clip(img_deconv, 0, 1, out=img_deconv)
@@ -109,17 +109,6 @@ def col_deconvol_and_blur2(img, deconv_mat, size_blur1, size_blur2):
     img_deconv = cv2.transform(OD_data, deconv_mat)    
     nucl_blur  = cv2.GaussianBlur(img_deconv[:,:,0], size_blur1, 0)
     clone_blur = cv2.GaussianBlur(img_deconv[:,:,1], size_blur2, 0)
-    
-    ## Convert to 8 bits
-    #nucl_blur = np.clip(nucl_blur, 0, 1, out=nucl_blur)
-    #nucl_blur *= 255
-    #nucl_blur = nucl_blur.astype('uint8', copy=False) 
-
-    ## Convert to 8 bits
-    #clone_blur = np.clip(clone_blur, 0, 1, out=clone_blur)
-    #clone_blur *= 255
-    #clone_blur = clone_blur.astype('uint8', copy=False) 
-    
     return nucl_blur, clone_blur
 
 ## If you convert to 8bit before blurring you loose resolution
@@ -202,8 +191,7 @@ def correct_wh(max_vals, xy_vals, wh_vals):
 def writeFileVips(img, file_name):
     str_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).tostring()
     z = pyvips.Image.new_from_memory(str_img, img.shape[1], img.shape[0], 3, pyvips.BandFormat.UCHAR)
-    z.write_to_file(file_name + ".tif[bigtiff]")
-    
+    z.write_to_file(file_name + ".tif[bigtiff]")    
 
 def readFileVips(file_name):
     im      = pyvips.Image.new_from_file(file_name)

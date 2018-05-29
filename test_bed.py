@@ -47,6 +47,8 @@ cnts = read_cnt_text_file(cnt_file)
 img_file = imgfolder+'negspace_Clone_test_images/raw_images/KDM6A_quarter_threequarter_partrials_and_full.png'
 img_file = imgfolder+'negspace_Clone_test_images/raw_images/MAOA_586574_double_clone.png'
 
+img_file = imgfolder+'negspace_Clone_test_images/raw_images/KDM6A_coldeconv_sample.png'
+
 #deconv_mat = deconv_mat_MPAS
 clonal_mark_type = "PNN"
 big_img = cv2.imread(img_file)
