@@ -15,16 +15,6 @@ from classContourFeat      import getAllFeatures
 from knn_prune             import tukey_lower_thresholdval, tukey_upper_thresholdval
 from clone_analysis_funcs  import *
 
-'''
-## bounding clone finding by coordinate
-highylim = np.where(clone_feature_list[4][:,1]<36000)
-highxlim = np.where(clone_feature_list[4][:,0]<16000)
-lowylim = np.where(clone_feature_list[4][:,1]>25000)
-lowxlim = np.where(clone_feature_list[4][:,0]>10000)
-x_inds = np.intersect1d(lowxlim[0], highxlim[0])
-y_inds = np.intersect1d(lowylim[0], highylim[0])
-z_inds = np.intersect1d(x_inds, y_inds)
-'''
 
 def find_clone_statistics(crypt_cnt, img_nuc, img_clone, nbins = 20):
    # for each contour do no_threshold_signal_collating()
@@ -124,9 +114,10 @@ def add_xy_offset_to_clone_features(clone_features, xy_offset):
 
 def determine_clones_gridways(clone_feature_list, clonal_mark_type):
    # cut up clone_feature_list into roughly equal chunks (~1000 crypts each)
+   groupcryptnum = 1000.
    numcnts = clone_feature_list[0].shape[0]
-   xy_coords_all = clone_feature_list[4]   
-   pc_y = 100*math.sqrt(1000./numcnts)
+   xy_coords_all = clone_feature_list[4]
+   pc_y = 100.*math.sqrt(groupcryptnum/numcnts)
    num_y = int(np.ceil(100./pc_y))
    pc_y = 100./num_y
    highlim = 0
@@ -139,7 +130,7 @@ def determine_clones_gridways(clone_feature_list, clonal_mark_type):
       inds_yh = np.where(xy_coords_all[:,1]<highlim)[0]
       inds_y = np.intersect1d(inds_yl,inds_yh)
       # divide x
-      pc_x = 1000./xy_coords_all[inds_y,1].shape[0] * 100
+      pc_x = groupcryptnum/xy_coords_all[inds_y,1].shape[0] * 100.
       num_x = int(np.ceil(100./pc_x))
       pc_x = 100./num_x
       highlimx = 0
@@ -149,7 +140,7 @@ def determine_clones_gridways(clone_feature_list, clonal_mark_type):
          inds_xl = np.where(xy_coords_all[inds_y,0]>lowlimx)[0]
          inds_xh = np.where(xy_coords_all[inds_y,0]<highlimx)[0]
          inds_x = np.intersect1d(inds_xl,inds_xh)
-         inds = inds_y[inds_x]
+         inds = inds_y[inds_x] # note these are not the global indices
          grid_feats = subset_clone_features(clone_feature_list, inds)
          newinds, newwidth = determine_clones(grid_feats, clonal_mark_type)
          clone_inds = np.hstack([clone_inds, newinds])
@@ -271,7 +262,7 @@ def determine_clones(clone_feature_list, clonal_mark_type):
          if (clonal_mark_type=="PNN" or clonal_mark_type=="NNN"):
             clone_signal_width[k]     = signal_width_ndo(in_av_sig_clone[k,:], clone_outlier_val_in, in_av_sig_nucl[k,:], clonal_mark_type)
          if (clonal_mark_type=="BP"):
-            clone_signal_width_out[k] = signal_width_ep(out_av_sig_clone[k,:], clone_outlier_val_out, out_av_sig_nucl[k,:], "P")
+            clone_signal_width_out[k] = signal_width_ndo(out_av_sig_clone[k,:], clone_outlier_val_out, out_av_sig_nucl[k,:], "P")
             clone_signal_width_in[k]  = signal_width_ndo(in_av_sig_clone[k,:], clone_outlier_val_in, in_av_sig_nucl[k,:], "PNN")
          if (clonal_mark_type=="BN"):
             clone_signal_width_out[k] = signal_width_ndo(out_av_sig_clone[k,:], clone_outlier_val_out, out_av_sig_nucl[k,:], "N")

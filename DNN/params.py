@@ -10,4 +10,4 @@ orig_height = 1024 #4096 #1024
 
 threshold = 0.5
 
-model_factory = get_unet_1024 #get_unet_4096
+model_factory = get_unet_1024 #get_unet_4096 #get_unet_1024

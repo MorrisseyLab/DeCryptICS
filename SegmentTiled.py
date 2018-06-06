@@ -87,7 +87,11 @@ def SegmentFromFolder(folder_name, clonal_mark_type):
     clone_inds, full_partial_statistics = determine_clones(clone_features_list, clonal_mark_type)
     clone_contours = list(np.asarray(crypt_contours)[clone_inds])
     np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")   
-
+    # Now use getROI_img_vips(file_name, (xmin, ymin), (w_val, h_val))
+    # for each clone to get a jpeg image of each?
+    # How do we link these to the position in the clone contour list?
+    # output a global index linked to jpeg, and each clone contour a separate file with global index label?
+    
     # Join neighbouring clones to make cluster (clone patches that originate via crypt fission)
     # Don't do this if more than 25% of crypts are positive as it's hom tissue
     if len(clone_contours) < 0.25*len(crypt_contours) and len(crypt_contours)>0:

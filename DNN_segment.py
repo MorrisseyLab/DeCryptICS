@@ -13,8 +13,8 @@ from keras.preprocessing.image import img_to_array
 import DNN.model.u_net as unet
 import DNN.params as params
 from deconv_mat               import *
-from automaticThresh_func     import auto_choose_ROI, calculate_thresholds, calculate_deconvolution_matrix
-from MiscFunctions            import col_deconvol, col_deconvol_and_blur, simplify_contours, col_deconvol_and_blur2
+from automaticThresh_func     import calculate_deconvolution_matrix_and_ROI, find_deconmat_fromtiles
+from MiscFunctions            import simplify_contours, col_deconvol_and_blur2
 from MiscFunctions            import getROI_img_vips, add_offset, write_cnt_text_file, plot_img
 from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt
 from multicore_morphology     import getForeground_mc
@@ -34,13 +34,13 @@ def get_tile_indices(maxvals, overlap = 200, SIZE = (1024, 1024)):
     x_max = maxvals[0] # x -> cols
     y_max = maxvals[1] # y -> rows
     num_tiles_x = x_max // (width-overlap)
-    endpoint_x = num_tiles_x*(width-overlap) + overlap    
-    overhang_x = x_max - endpoint_x
+    endpoint_x  = num_tiles_x*(width-overlap) + overlap    
+    overhang_x  = x_max - endpoint_x
     if (overhang_x>0): num_tiles_x += 1
     
     num_tiles_y = y_max // (height-overlap)
-    endpoint_y = num_tiles_y*(height-overlap) + overlap    
-    overhang_y = y_max - endpoint_y
+    endpoint_y  = num_tiles_y*(height-overlap) + overlap    
+    overhang_y  = y_max - endpoint_y
     if (overhang_y>0): num_tiles_y += 1   
      
     for i in range(num_tiles_x):
@@ -52,11 +52,12 @@ def get_tile_indices(maxvals, overlap = 200, SIZE = (1024, 1024)):
             if (j == (num_tiles_y-1)): y0 = y_max - height
             all_indx[i].append((x0, y0, width, height))
     return all_indx
-    
+
 def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.24, upper_thresh = 0.75):
     crypt_contours  = []
     size = (1024, 1024)
     all_indx = get_tile_indices((img.shape[1], img.shape[0]), overlap = 200, SIZE = size)
+    deconv_mat = find_deconmat_fromtiles(img, clonal_mark_type, all_indx)
     x_tiles = len(all_indx)
     y_tiles = len(all_indx[0])
     crypt_contours  = []
@@ -65,9 +66,9 @@ def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.24, upper_thres
     for i in range(x_tiles):
         for j in range(y_tiles):            
             # Find next small tile
-            xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
-            wh_vals     = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
-            img_s         = img[xy_vals[1]:(xy_vals[1]+wh_vals[1]) , xy_vals[0]:(xy_vals[0]+wh_vals[0]) ] # i,j rather than x,y
+            xy_vals = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
+            wh_vals = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
+            img_s   = img[xy_vals[1]:(xy_vals[1]+wh_vals[1]) , xy_vals[0]:(xy_vals[0]+wh_vals[0]) ] # i,j rather than x,y
             x_batch = [img_s]
             x_batch = np.array(x_batch, np.float32) / 255.
             # Perform prediction and find contours
@@ -78,7 +79,7 @@ def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.24, upper_thres
             newcnts = cull_tile_edge_contours(newcnts, size)
             newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts)
             # Find clone channel features
-            img_nuc, img_clone = get_channel_images_for_clone_finding(img_s, clonal_mark_type) ## this is now wrong -- need to find deconv_mat
+            img_nuc, img_clone = get_channel_images_for_clone_finding(img_s, deconv_mat)
             clone_features = find_clone_statistics(newcnts, img_nuc, img_clone, nbins)            
             # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
             newcnts = add_offset(newcnts, xy_vals)
@@ -109,7 +110,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
     crypt_contours  = []
     clone_feature_list = []
     ## Find deconvolution matrix for clone/nucl channel separation
-    deconv_mat = calculate_deconvolution_matrix(file_name, clonal_mark_type)
+    _, _, deconv_mat = calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type)
     ## Tiling
     obj_svs  = getROI_svs(file_name, get_roi_plot = False)
     size = (1024, 1024)
@@ -119,9 +120,9 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
     nbins = 20 # for clone finding
     for i in range(x_tiles):
         for j in range(y_tiles):
-            xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
-            wh_vals     = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
-            img         = getROI_img_vips(file_name, xy_vals, wh_vals)
+            xy_vals = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
+            wh_vals = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
+            img     = getROI_img_vips(file_name, xy_vals, wh_vals)
             img_nuc, img_clone = get_channel_images_for_clone_finding(img, deconv_mat)
             x_batch = [img]
             x_batch = np.array(x_batch, np.float32) / 255.
@@ -155,7 +156,11 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
     ## Find clones
     clone_inds, full_partial_statistics = determine_clones_gridways(clone_feature_list, clonal_mark_type)
     clone_contours = list(np.asarray(crypt_contours)[clone_inds])
-    np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")    
+    np.savetxt(folder_to_analyse + '/.csv', full_partial_statistics, delimiter=",")
+    # Now use getROI_img_vips(file_name, (xmin, ymin), (w_val, h_val))
+    # for each clone to get a jpeg image of each?
+    # How do we link these to the position in the clone contour list?
+    # output a global index linked to jpeg, and each clone contour a separate file with global index label?
     
     # Join neighbouring clones to make cluster (clone patches that originate via crypt fission)
     # Don't do this if more than 25% of crypts are positive as it's hom tissue
@@ -175,13 +180,6 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
     print("Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")
 
 def get_channel_images_for_clone_finding(img, deconv_mat):
-    ## Choose deconv mat
-    #if (clonal_mark_type=="P"): deconv_mat = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
-    #if (clonal_mark_type=="N"): deconv_mat = deconv_mat_KDM6A
-    #if (clonal_mark_type=="PNN"): deconv_mat = deconv_mat_MPAS
-    #if (clonal_mark_type=="NNN"): deconv_mat = deconv_mat_MAOA
-    #if (clonal_mark_type=="BN"): deconv_mat = deconv_mat_MAOA
-    #if (clonal_mark_type=="BP"): deconv_mat = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
     img_nuc, img_clone = col_deconvol_and_blur2(img, deconv_mat, (11, 11), (13, 13))
     return img_nuc, img_clone
 
@@ -225,30 +223,4 @@ def mask_to_contours(preds, thresh):
       cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2:]
       contours += cnts
    return contours
-        
-'''
-def clone_finding(file_name, clonal_mark_type):
-    ## Choose deconv mat
-    if (clonal_mark_type=="P"): deconv_mat = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
-    if (clonal_mark_type=="N"): deconv_mat = deconv_mat_KDM6A
-    if (clonal_mark_type=="PNN"): deconv_mat = deconv_mat_MPAS
-    if (clonal_mark_type=="NNN"): deconv_mat = deconv_mat_MAOA
-    if (clonal_mark_type=="BN"): deconv_mat = deconv_mat_MAOA
-    if (clonal_mark_type=="BP"): deconv_mat = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
-    xyhw = auto_choose_ROI(file_name, deconv_mat, plot_images = False)
-    img_for_thresh = getROI_img_vips(file_name, xyhw[0], xyhw[1])
-    thresh_cut_nucl, thresh_cut_nucl_blur, th_clone = calculate_thresholds(img_for_thresh, deconv_mat)
-    return [thresh_cut_nucl, thresh_cut_nucl_blur, th_clone], deconv_mat
-'''
-'''
-def get_thresholded_channel_images_for_clone_finding(img, deconv_mat, thresh_three):
-    smallBlur_img_nuc, blurred_img_nuc, blurred_img_clone = col_deconvol_and_blur(img, deconv_mat, (11, 11), (37, 37), (27, 27))
-    _, nuclei_ch_raw = cv2.threshold( smallBlur_img_nuc, thresh_three[0], 255, cv2.THRESH_BINARY)
-    _, nucl_thresh   = cv2.threshold( blurred_img_nuc, thresh_three[1], 255, cv2.THRESH_BINARY)
-    _, clone_ch_raw = cv2.threshold(blurred_img_clone, thresh_three[2], 255, cv2.THRESH_BINARY)
-    nuclei_ch_raw   = cv2.morphologyEx(nuclei_ch_raw, cv2.MORPH_OPEN,  st_3, iterations=1)
-    nucl_thresh_aux = cv2.morphologyEx(  nucl_thresh, cv2.MORPH_OPEN,  st_3, iterations=1)
-    foreground = getForeground_mc(nucl_thresh_aux)    
-    backgrd    = 255 - foreground
-    return smallBlur_img_nuc, nuclei_ch_raw, clone_ch_raw, backgrd
-''' 
+

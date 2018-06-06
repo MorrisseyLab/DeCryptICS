@@ -6,3 +6,9 @@
 
 # DNN weights
 *.hdf5
+
+# Training data
+*.png
+*.jpeg
+*.jpg
+*.svs

@@ -7,6 +7,7 @@ Created on Thu May 26 17:31:49 2016
 
 import cv2
 import numpy as np
+from deconv_mat import *
 from matplotlib import pyplot as plt
 from MiscFunctions import plot_img
 from MiscFunctions import getIndexesTileImage, plot_histogram
@@ -108,10 +109,12 @@ def auto_choose_ROI(file_name, deconv_mat, plot_images = False):
     img_deconv  = col_deconvol(img_clip, deconv_mat)
     
     blurred_img = cv2.GaussianBlur(  img_deconv[:,:,0], ( 7, 7), 0)
+    clone_img = cv2.GaussianBlur(  img_deconv[:,:,1], ( 5, 5), 0)
     
     # Choose threshold from small image, get tissue outline (ie foreground)
-    thresh_EM, _, _    = calculate_thresholds(img_clip, deconv_mat)
+    thresh_EM, _, _ = calculate_thresholds(img_clip, deconv_mat)
     _, img_nucl3 = cv2.threshold( blurred_img[:,:], thresh_EM, 255, cv2.THRESH_BINARY)
+    _, img_clone3 = cv2.threshold( clone_img[:,:], np.percentile(clone_img, 99), 255, cv2.THRESH_BINARY)
     
     # Plot?
     if plot_images:
@@ -123,15 +126,33 @@ def auto_choose_ROI(file_name, deconv_mat, plot_images = False):
     foreground4     = cv2.morphologyEx( foreground3, cv2.MORPH_DILATE,    st_3, iterations =  3) 
     foreground_filt = filterSmallArea(  foreground4,              1e4)
 
+    clonebody  = cv2.morphologyEx( img_clone3,   cv2.MORPH_OPEN,    st_3, iterations =  1)
+
     ## ================================================================================================================
     # Format is t_ij = (x0, y0, w, h) and arranged in tile_list[i][j] = t_ij
     # Full image ROI
     full_image_ROI = [(0, 0), (foreground_filt.shape[1], foreground_filt.shape[0])]
     tile_list = getIndexesTileImage((foreground_filt.shape[1], foreground_filt.shape[0]), 1., 
                                     full_image_ROI, max_num_pix  = 100)    
+    i, j, cloneFind = find_tile(tile_list, foreground_filt, clonebody)
+
+    #xy_vals = (int(tile_list[i][j][0]), int(tile_list[i][j][1]))
+    #wh_vals = (int(tile_list[i][j][2]), int(tile_list[i][j][3]))
+    
+    ## Grid and choose a tile to zoom
+    scalingVals = slide.level_downsamples[-1]
+    
+    # adjust for clipping edges
+    xy_vals = (int(tile_list[i][j][0]*scalingVals + left_edge*scalingVals), int(tile_list[i][j][1]*scalingVals + top_edge*scalingVals))
+    wh_vals = (int(tile_list[i][j][2]*scalingVals), int(tile_list[i][j][3]*scalingVals))
+
+    return xy_vals, wh_vals, cloneFind
+
+def find_tile(tile_list, foreground_filt, clonebody):
     x_tiles    = len(tile_list)
     y_tiles    = len(tile_list[0])
     tile_means = np.zeros((x_tiles, y_tiles))
+    clone_sums = np.zeros((x_tiles, y_tiles))
     for i in range(x_tiles):
         for j in range(y_tiles):
             tile_ij    = tile_list[i][j]
@@ -140,20 +161,54 @@ def auto_choose_ROI(file_name, deconv_mat, plot_images = False):
             y1_ij = int(tile_ij[1])
             y2_ij = int(tile_ij[1] + tile_ij[3])
             tile_means[i,j] = np.mean(foreground_filt[y1_ij:y2_ij , x1_ij:x2_ij])
-    
-    i,j     = np.unravel_index(tile_means.argmax(), tile_means.shape)
-    xy_vals = (int(tile_list[i][j][0]), int(tile_list[i][j][1]))
-    wh_vals = (int(tile_list[i][j][2]), int(tile_list[i][j][3]))
-    
-    ## Grid and choose a tile to zoom
-    scalingVals = slide.level_downsamples[-1]
-    i,j     = np.unravel_index(tile_means.argmax(), tile_means.shape)
-    # adjust for clipping edges
-    xy_vals = (int(tile_list[i][j][0]*scalingVals + left_edge*scalingVals), int(tile_list[i][j][1]*scalingVals + top_edge*scalingVals))
-    wh_vals = (int(tile_list[i][j][2]*scalingVals), int(tile_list[i][j][3]*scalingVals))
+            clone_sums[i,j] = np.sum(clonebody[y1_ij:y2_ij , x1_ij:x2_ij])
+    tp = np.percentile(tile_means, 90)
+    cp = np.percentile(clone_sums, 90)
+    for i in range(x_tiles):
+      for j in range(y_tiles):
+        if (clone_sums[i,j]>=cp and tile_means[i,j]>=tp):
+           return i, j, True
+    i, j = np.unravel_index(tile_means.argmax(), tile_means.shape)
+    return i, j, False
 
-    return xy_vals, wh_vals
+def find_deconmat_fromtiles(img, clonal_mark_type, all_indx):
+   if (clonal_mark_type=="P"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
+   if (clonal_mark_type=="N"): deconv_mat_ref = deconv_mat_KDM6A
+   if (clonal_mark_type=="PNN"): deconv_mat_ref = deconv_mat_MPAS
+   if (clonal_mark_type=="NNN"): deconv_mat_ref = deconv_mat_MAOA
+   if (clonal_mark_type=="BN"): deconv_mat_ref = deconv_mat_MAOA
+   if (clonal_mark_type=="BP"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
+   left_edge = int(0.1*img.shape[1])
+   right_edge = int(0.9*img.shape[1])
+   top_edge = int(0.1*img.shape[0])
+   bottom_edge = int(0.9*img.shape[0])
+   img_clip = img[top_edge:bottom_edge, left_edge:right_edge]
+   img_deconv  = col_deconvol(img_clip, deconv_mat_ref)
+   blurred_img = cv2.GaussianBlur(  img_deconv[:,:,0], ( 7, 7), 0)
+   clone_img = cv2.GaussianBlur(  img_deconv[:,:,1], ( 5, 5), 0)
 
+   # Choose threshold from small image, get tissue outline (ie foreground)
+   thresh_EM, _, _ = calculate_thresholds(img_clip, deconv_mat_ref)
+   _, img_nucl3 = cv2.threshold( blurred_img[:,:], thresh_EM, 255, cv2.THRESH_BINARY)
+   _, img_clone3 = cv2.threshold( clone_img[:,:], np.percentile(clone_img, 99), 255, cv2.THRESH_BINARY)
+
+   foreground      = cv2.morphologyEx(   img_nucl3,   cv2.MORPH_OPEN,    st_3, iterations =  1) # st_5, iterations = 50)  
+   foreground2     = cv2.morphologyEx(  foreground,  cv2.MORPH_CLOSE,    st_3, iterations =  10)
+   foreground3     = cv2.morphologyEx( foreground2,   cv2.MORPH_OPEN,    st_3, iterations =  2)
+   foreground4     = cv2.morphologyEx( foreground3, cv2.MORPH_DILATE,    st_3, iterations =  3) 
+   #foreground_filt = filterSmallArea(  foreground4,              1e4)
+   clonebody  = cv2.morphologyEx( img_clone3,   cv2.MORPH_OPEN,    st_3, iterations =  1)
+   i, j, cloneFind = find_tile(all_indx, foreground4, clonebody)
+   xy_vals = (int(all_indx[i][j][0] + left_edge), int(all_indx[i][j][1] + top_edge))
+   wh_vals = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
+   
+   img_roi = img[xy_vals[1]:(xy_vals[1]+wh_vals[1]) , xy_vals[0]:(xy_vals[0]+wh_vals[0])]
+   if (cloneFind):
+      D      = estimateStains(img_roi, deconv_mat_ref)
+   if (not cloneFind):
+      D      = deconv_mat_ref
+   return D
+   
 def calculate_thresholds(big_img, deconv_mat):
     ## deconvolution and blurring all done in one by col_deconvol_and_blur()    
     img_deconv32  = col_deconvol_32(big_img, deconv_mat)
@@ -334,18 +389,6 @@ def calculate_thresholds(big_img, deconv_mat):
 
     return thresh_blur_small, thresh_blur, th_clone
 
-def calculate_deconvolution_matrix(file_name, clonal_mark_type):
-   if (clonal_mark_type=="P"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
-   if (clonal_mark_type=="N"): deconv_mat_ref = deconv_mat_KDM6A
-   if (clonal_mark_type=="PNN"): deconv_mat_ref = deconv_mat_MPAS
-   if (clonal_mark_type=="NNN"): deconv_mat_ref = deconv_mat_MAOA
-   if (clonal_mark_type=="BN"): deconv_mat_ref = deconv_mat_MAOA
-   if (clonal_mark_type=="BP"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
-   xy, wh = auto_choose_ROI(file_name, deconv_mat_ref)
-   img    = getROI_img_vips(file_name, xy, wh)
-   D      = estimateStains(img, deconv_mat_ref)
-   return D
-
 def calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type):
    if (clonal_mark_type=="P"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
    if (clonal_mark_type=="N"): deconv_mat_ref = deconv_mat_KDM6A
@@ -353,8 +396,11 @@ def calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type):
    if (clonal_mark_type=="NNN"): deconv_mat_ref = deconv_mat_MAOA
    if (clonal_mark_type=="BN"): deconv_mat_ref = deconv_mat_MAOA
    if (clonal_mark_type=="BP"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
-   xy, wh = auto_choose_ROI(file_name, deconv_mat_ref)
+   xy, wh, cloneFind = auto_choose_ROI(file_name, deconv_mat_ref)
    img    = getROI_img_vips(file_name, xy, wh)
-   D      = estimateStains(img, deconv_mat_ref)
+   if (cloneFind):
+      D      = estimateStains(img, deconv_mat_ref)
+   if (not cloneFind):
+      D      = deconv_mat_ref
    return xy, wh, D
 

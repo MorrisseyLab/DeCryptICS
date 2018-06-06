@@ -1,6 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue May 29 13:24:35 2018
+
+@author: doran
+"""
 from scipy.linalg import eig
 import numpy as np
-
+from MiscFunctions import transform_OD
+import math
 
 def pack_rgb(img):
    rgb_packed = []
@@ -12,20 +20,18 @@ def pack_rgb(img):
 def covariance(x, y):		
    n = len(x)
    if not (n == len(y)):
-	   print("Cannot compute covariance - array lengths are not the same");
+	   print("Cannot compute covariance - array lengths are not the same")
 	   return 0
-   xMean = 0;
-   for v in x:
-	   xMean += float(v)/n;
-   yMean = 0;
-   for v in y:
-	   yMean += float(v)/n;
-   result = 0;
+   xMean = 0
+   for v in x: xMean += float(v)/n
+   yMean = 0
+   for v in y: yMean += float(v)/n
+   result = 0
    for i in range(n):
       xDev = x[i] - xMean
       yDev = y[i] - yMean
-      result += xDev * yDev / n;
-   return result;
+      result += xDev * yDev / n
+   return result
 
 def unit_vector(vector):
     return vector / np.linalg.norm(vector)
@@ -38,10 +44,10 @@ def angle_between(v1, v2):
 def estimateStains(img, deconv_mat_ref):
    ''' Adapted from the Java implementation in QuPath, by Pete Bankhead:
    https://github.com/qupath/qupath/blob/master/qupath-core-processing-awt/src/main/java/qupath/lib/algorithms/color/EstimateStainVectors.java '''
-	maxStain = 1.
-	minStain = 0.05
-	ignorePercentage = 1.
-	alpha = ignorePercentage / 100.
+   maxStain = 1.
+   minStain = 0.05
+   ignorePercentage = 1.
+   alpha = ignorePercentage / 100.
 
    rgb = pack_rgb(img)
    ## Find optical density vectors
@@ -62,7 +68,7 @@ def estimateStains(img, deconv_mat_ref):
       b = blue[i]
       magSquared = r*r + g*g + b*b
       if (magSquared > maxStainSq or r < minStain or g < minStain or b < minStain):
-	      continue
+         continue
       ## Update the arrays
       red[keepCount] = r
       green[keepCount] = g
@@ -91,7 +97,7 @@ def estimateStains(img, deconv_mat_ref):
    cov[2,0] = cov[0,2]
    cov[1,0] = cov[0,1]
 
-   eigen = eig(cov)
+   eigen = np.linalg.eig(cov)
    eigenValues = eigen[0]
    eigenOrder = np.argsort(eigen[0])
    eigen1 = eigen[1][eigenOrder[2],:]
@@ -104,8 +110,8 @@ def estimateStains(img, deconv_mat_ref):
       g = green[i]
       b = blue[i]
       phi[i] = np.arctan2(r*eigen1[0] + g*eigen1[1] + b*eigen1[2], r*eigen2[0] + g*eigen2[1] + b*eigen2[2])
-	
-	## Select stain vectors from data		
+
+   ## Select stain vectors from data		
    inds = np.argsort(phi)
    ind1 = inds[int(alpha * keepCount + .5)];
    ind2 = inds[int((1 - alpha) * keepCount + .5)];
@@ -114,10 +120,10 @@ def estimateStains(img, deconv_mat_ref):
    s1 = unit_vector(np.array([red[ind1], green[ind1], blue[ind1]]))
    s2 = unit_vector(np.array([red[ind2], green[ind2], blue[ind2]]))
    s3 = unit_vector(np.cross(s1,s2))
-		
+	
    ## Check we've got the closest match - if not, switch the order
    ## (requires an approximate reference deconvolution matrix)
-   dcmi = inv(deconv_mat_ref)
+   dcmi = np.linalg.inv(deconv_mat_ref)
    dcm = dcmi.T
    stain_orig_1 = dcm[0,:]
    stain_orig_2 = dcm[1,:]
@@ -129,10 +135,10 @@ def estimateStains(img, deconv_mat_ref):
       print("yes")
       s1 = unit_vector(np.array([red[ind2], green[ind2], blue[ind2]]))
       s2 = unit_vector(np.array([red[ind1], green[ind1], blue[ind1]]))
-	   
+      
    C = np.array([s1,s2,s3])
-   D = inv(C.T)
+   D = np.linalg.inv(C.T)
    #imgd = cv2.transform(timg, D)
    return D
-		
+	
 

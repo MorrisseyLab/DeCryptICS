@@ -7,10 +7,6 @@ Created on Wed Feb 21 13:18:17 2018
 """
 
 import glob, os, sys
-import numpy as np
-from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder, predict_svs_slide_DNN
-from qupath_project   import create_qupath_project, extract_counts_csv, file_len, folder_from_image
-
 if (len(sys.argv) < 5):
         sys.stderr.write('Wrong number of arguments!\n')
         sys.stderr.write('4 required, %d found.\n' % (len(sys.argv)-1))
@@ -21,6 +17,10 @@ base_path = sys.argv[1]
 batch_ID = sys.argv[2]
 clonal_mark_type = sys.argv[3]
 method = sys.argv[4]
+
+import numpy as np
+from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder, predict_svs_slide_DNN
+from qupath_project   import create_qupath_project, extract_counts_csv, file_len, folder_from_image
 
 def run_analysis(base_path, batch_ID, clonal_mark_type, method):
     ## Clonal mark type can be either:

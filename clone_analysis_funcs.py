@@ -208,19 +208,19 @@ def extractInnerRingContour(cnt_i, img, num_morphs):
 def bin_intensities_flattened(output_cnt, img1, nbins = 20):
    roi           = cv2.boundingRect(output_cnt)
    Start_ij_ROI  = roi[0:2] # get x,y of bounding box
-   cnt_j       = output_cnt - Start_ij_ROI # change coords to start from x,y
-   img_ROI       = img1[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]] # note here the use of y coord first!
-   flat_cnt = flatten_contour(cnt_j, img_ROI)
+   cnt_j     = output_cnt - Start_ij_ROI # change coords to start from x,y
+   img_ROI   = img1[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]] # note here the use of y coord first!
+   flat_cnt  = flatten_contour(cnt_j, img_ROI)
    numpixels = len(flat_cnt)
-   overhang = numpixels % nbins
+   overhang  = numpixels % nbins
    normal_bin_width = numpixels // nbins
-   # (nbins - overhang) * normal_bin_width + overhang*(normal_bin_width + 1) == numpixles
+   # (nbins - overhang) * normal_bin_width + overhang*(normal_bin_width + 1) == numpixels
    av_sig = np.zeros(nbins)
-   cw = normal_bin_width
+   cw     = normal_bin_width
    for i in range(nbins-overhang):
       av_sig[i] = np.mean(flat_cnt[i*cw : (i+1)*cw])
    done = (nbins-overhang)*normal_bin_width
-   cw = normal_bin_width + 1
+   cw   = normal_bin_width + 1
    for i in range(overhang):
       av_sig[i + nbins-overhang] = np.mean(flat_cnt[done + i*cw : done + (i+1)*cw])
    return av_sig
@@ -283,16 +283,16 @@ def max_halocnt_nc(cnt_i, img_nuc, img_clone):
         indx_2    = range(0,len(sum_morphs)-diff_size)
         halo_mean = (sum_morphs[indx_1] - sum_morphs[indx_2])/(areas_morphs[indx_1] - areas_morphs[indx_2] + 1e-5)
         max_each[ii] = np.max(halo_mean)
-        maxindx = np.where(halo_mean==max_each[ii])[0][0]        
+        maxindx    = np.where(halo_mean==max_each[ii])[0][0]        
         morph_pair = (indx_1[maxindx], indx_2[maxindx])
         indices.append(morph_pair)
-    nucl_halo = np.max(max_each)
-    maxindx_global = np.where(max_each==nucl_halo)[0][0]
-    morph_pair_m = indices[maxindx_global]
-    clone_halo = extractCloneSignal(cnt_roi, img_ROI_c, morph_pair_m)
+    nucl_halo        = np.max(max_each)
+    maxindx_global   = np.where(max_each==nucl_halo)[0][0]
+    morph_pair_m     = indices[maxindx_global]
+    clone_halo       = extractCloneSignal(cnt_roi, img_ROI_c, morph_pair_m)
     maxmiddlecontour = int( np.ceil( (morph_pair_m[0]+morph_pair_m[1])/2. ) )
-    mid_halo_cnt = extractRingContour(cnt_roi, img_ROI, maxmiddlecontour, Start_ij_ROI)
-    output_cnt = mid_halo_cnt.astype(np.int32)
+    mid_halo_cnt     = extractRingContour(cnt_roi, img_ROI, maxmiddlecontour, Start_ij_ROI)
+    output_cnt       = mid_halo_cnt.astype(np.int32)
     return nucl_halo, clone_halo, output_cnt
 
 '''

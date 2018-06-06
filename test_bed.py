@@ -42,15 +42,12 @@ img_file = imgfolder+'negspace_Clone_test_images/raw_images/KDM6A_1024_full_and_
 cnt_file = imgfolder+'negspace_Clone_test_images/Analysed_slides/contours_KDM6A_1024_full_and_threequarter.txt'
 #img_file = imgfolder+'negspace_Clone_test_images/raw_images/KDM6A_1024_quarter_partial.png'
 #cnt_file = imgfolder+'negspace_Clone_test_images/Analysed_slides/contours_KDM6A_1024_quarter_partial.txt'
-cnts = read_cnt_text_file(cnt_file)
-
 img_file = imgfolder+'negspace_Clone_test_images/raw_images/KDM6A_quarter_threequarter_partrials_and_full.png'
 img_file = imgfolder+'negspace_Clone_test_images/raw_images/MAOA_586574_double_clone.png'
-
 img_file = imgfolder+'negspace_Clone_test_images/raw_images/KDM6A_coldeconv_sample.png'
 
-#deconv_mat = deconv_mat_MPAS
-clonal_mark_type = "PNN"
+deconv_mat = deconv_mat_MPAS
+clonal_mark_type = "P"
 big_img = cv2.imread(img_file)
 img = big_img
 thresh_cut = None
@@ -63,8 +60,32 @@ obj_svs  = getROI_svs(img_file)
 big_img = obj_svs.getROI_img()
 img = big_img
 
-       
- 
- 
+## checking zoom levels of pyramid images for different sized svs files
+img_file1 = imgfolder+'mPAS_subset_test/raw_images/575833.svs'
+img_file2 = imgfolder+'mPAS_subset_test/raw_images/643873.svs'
+img_file3 = imgfolder+'mPAS_WIMM/raw_images/575837.svs'
+img_file4 = imgfolder+'mPAS_WIMM/raw_images/620681.svs'
+img_file5 = imgfolder+'mPAS_WIMM/raw_images/643878.svs'
+obj_svs1  = getROI_svs(img_file1, get_roi_plot = False)
+obj_svs2  = getROI_svs(img_file2, get_roi_plot = False)
+obj_svs3  = getROI_svs(img_file3, get_roi_plot = False)
+obj_svs4  = getROI_svs(img_file4, get_roi_plot = False)
+obj_svs5  = getROI_svs(img_file5, get_roi_plot = False)
+print(obj_svs1.dims_slides[0][0]/obj_svs1.dims_slides[1][0])
+print(obj_svs1.dims_slides[0][1]/obj_svs1.dims_slides[1][1])
+print(obj_svs2.dims_slides[0][0]/obj_svs2.dims_slides[1][0])
+print(obj_svs2.dims_slides[0][1]/obj_svs2.dims_slides[1][1])
+print(obj_svs3.dims_slides[0][0]/obj_svs3.dims_slides[1][0])
+print(obj_svs3.dims_slides[0][1]/obj_svs3.dims_slides[1][1])
+print(obj_svs4.dims_slides[0][0]/obj_svs4.dims_slides[1][0])
+print(obj_svs4.dims_slides[0][1]/obj_svs4.dims_slides[1][1])
+print(obj_svs5.dims_slides[0][0]/obj_svs5.dims_slides[1][0])
+print(obj_svs5.dims_slides[0][1]/obj_svs5.dims_slides[1][1])
 
+
+# run several svs batches
+run run_script.py /home/doran/Work/images/ NONO_March2018 N D
+run "run_script.py" /home/doran/Work/images/ STAG_March2018 N D
+run "run_script.py" /home/doran/Work/images/ KDM6A_March2018 N D
+run "run_script.py" /home/doran/Work/images/ MAOA_March2018 N D
 
