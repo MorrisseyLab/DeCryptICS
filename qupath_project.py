@@ -5,8 +5,9 @@ Created on Fri Mar  2 09:01:29 2018
 
 @author: doran
 """
-import os, time, glob
+import os, time, glob, fileinput
 import numpy as np
+import csv
 
 def folder_from_image(image_num_str):
     return "/Analysed_"+str(image_num_str)+'/'
@@ -19,23 +20,35 @@ def file_len(fname):
     return i + 1
 
 def extract_counts_csv(im_folder, folder_out, save_counts_here):
-    images = glob.glob(im_folder + "/*.svs")
-    images = [name.split("/")[-1].split(".")[0] for name in images]
-    contour_folders = [folder_from_image(im) for im in images]
-    num = len(contour_folders)
-    slidecounts = np.zeros([num,3], dtype=np.int32)
-    for i in range(num):
-        cnt_file = folder_out + contour_folders[i] + "crypt_contours.txt"
-        cln_file = folder_out + contour_folders[i] + "clone_contours.txt"
-        if (os.path.isfile(cnt_file)):
-            wcout = file_len(cnt_file)
-            wcout = int(wcout/2)
-            clcnt = file_len(cln_file)
-            clcnt = int(clcnt/2)
-            slidecounts[i,0] = int(images[i])
-            slidecounts[i,1] = wcout
-            slidecounts[i,2] = clcnt
-    np.savetxt(save_counts_here+"/slide_counts.csv", slidecounts, delimiter=",")
+   images = glob.glob(im_folder + "/*.svs")
+   images = [name.split("/")[-1].split(".")[0] for name in images]
+   contour_folders = [folder_from_image(im) for im in images]
+   num = len(contour_folders)
+   slidecounts = np.zeros([num,3], dtype=np.int32)
+   for i in range(num):
+      cnt_file = folder_out + contour_folders[i] + "crypt_contours.txt"
+      cln_file = folder_out + contour_folders[i] + "clone_contours.txt"
+      if (os.path.isfile(cnt_file)):
+         wcout = file_len(cnt_file)
+         wcout = int(wcout/2)
+         clcnt = file_len(cln_file)
+         clcnt = int(clcnt/2)
+         slidecounts[i,0] = int(images[i])
+         slidecounts[i,1] = wcout
+         slidecounts[i,2] = clcnt
+   np.savetxt(save_counts_here+"/slide_counts.csv", slidecounts, delimiter=",")
+   # Now add column headers (messy!)
+   with open(save_counts_here+"/slide_counts.csv", newline='') as f:
+      r = csv.reader(f)
+      data = [line for line in r]
+   with open(save_counts_here+"/slide_counts.csv", 'w', newline='') as f:
+      w = csv.writer(f)
+      w.writerow(['Slide_ID', 'NCrypts', 'NClones'])
+      w.writerows(data)         
+   #for line in fileinput.input(files=[save_counts_here+"/slide_counts.csv"], inplace=True):
+   #   if fileinput.isfirstline():
+   #      print('Slide_ID,NCrypts,NClones')
+   #print(line,)
 
 def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
     num_to_run = len(file_in)

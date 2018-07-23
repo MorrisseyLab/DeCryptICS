@@ -100,6 +100,10 @@ def predict_single_image(img, clonal_mark_type,  prob_thresh = 0.24, upper_thres
     clone_inds, full_partial_statistics = determine_clones(clone_feature_list, clonal_mark_type)
     clone_contours = list(np.asarray(crypt_contours)[clone_inds])
 
+    folder_to_analyse = "/home/doran/Work/images/KDM6A_mouse_test/Analysed_slides/Analysed_147223_1_20x"
+    write_cnt_text_file(crypt_contours, folder_to_analyse + "/crypt_contours.txt")
+    write_cnt_text_file(clone_contours, folder_to_analyse + "/clone_contours.txt")
+
 def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.24, upper_thresh = 0.75):
     start_time = time.time()
     imnumber = file_name.split("/")[-1].split(".")[0]
@@ -134,7 +138,8 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
             newcnts = [cc for cc in newcnts if contour_Area(cc)>400]
             newcnts = cull_tile_edge_contours(newcnts, size)
             newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts)
-            # Find clone channel features            
+            # Find clone channel features
+            ## DO THIS IN THE HIGH RES IMAGE RATHER THAN ZOOMED OUT IMAGE! ADD SCALE FACTOR TO ALL CONTOURS
             clone_features = find_clone_statistics(newcnts, img_nuc, img_clone, nbins)
             # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 
             newcnts = add_offset(newcnts, xy_vals)

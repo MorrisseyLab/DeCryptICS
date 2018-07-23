@@ -108,6 +108,8 @@ def Segment_crypts(img, thresh_cut, deconv_mat):
     ## Find clone channel features
     ###########################################
     img_nuc, img_clone = col_deconvol_and_blur2(img, deconv_mat, (11, 11), (13, 13))
+    ## DO THIS IN THE HIGH RES IMAGE RATHER THAN ZOOMED OUT IMAGE! ADD SCALE FACTOR TO ALL CONTOURS
+    # (maybe have to move outside to SegementTiled.py and reload svs slide with adjusted contours?
     clone_channel_features = find_clone_statistics(crypt_cnt, img_nuc, img_clone, nbins=20)
     
     return crypt_cnt, clone_channel_features

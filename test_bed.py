@@ -60,6 +60,11 @@ obj_svs  = getROI_svs(img_file)
 big_img = obj_svs.getROI_img()
 img = big_img
 
+## Checking KDM6A mouse test images
+img_file1 = imgfolder+'KDM6A_mouse_test/raw_images/147223_1_20x.tiff'
+img_file2 = imgfolder+'KDM6A_mouse_test/raw_images/148275_fufi_20x.tiff'
+img = cv2.imread(img_file1)
+
 ## checking zoom levels of pyramid images for different sized svs files
 img_file1 = imgfolder+'mPAS_subset_test/raw_images/575833.svs'
 img_file2 = imgfolder+'mPAS_subset_test/raw_images/643873.svs'
