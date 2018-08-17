@@ -132,7 +132,7 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write('\t'+"float[] x1 = lines2[2*i].tokenize(\',\') as float[]" + '\n')
         file.write('\t'+"float[] y1 = lines2[2*i+1].tokenize(\',\') as float[]" + '\n')
         file.write('\t'+"def roi = new PolygonROI(x1, y1, -300, 0, 0)" + '\n')
-        file.write('\t'+"pathObjects2 << new PathDetectionObject(roi, CloneClass)" + '\n')
+        file.write('\t'+"pathObjects2 << new PathAnnotationObject(roi, CloneClass)" + '\n')
         file.write('}' + '\n')
         file.write("addObjects(pathObjects2)" + '\n')
         file.write("print(\"Done!\")" + '\n')
