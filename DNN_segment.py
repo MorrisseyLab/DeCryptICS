@@ -25,22 +25,22 @@ from Segment_clone_from_crypt import find_clone_statistics, combine_feature_list
 from Segment_clone_from_crypt import subset_clone_features, add_xy_offset_to_clone_features, write_clone_features_to_file
 from knn_prune                import remove_tiling_overlaps_knn
 
-num_cores = 16
-GPU = True
-CPU = False
-
-if GPU:
-    num_GPU = 1
-    num_CPU = 1
-if CPU:
-    num_CPU = 1
-    num_GPU = 0
-
-config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
-        inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
-        device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
-session = tf.Session(config=config)
-K.set_session(session)
+## test
+#num_cores = 16
+#GPU = True
+#CPU = False
+#if GPU:
+#    num_GPU = 1
+#    num_CPU = 1
+#if CPU:
+#    num_CPU = 1
+#    num_GPU = 0
+#
+#config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
+#        inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
+#        device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
+#session = tf.Session(config=config)
+#K.set_session(session)
 
 
 # Load DNN model
