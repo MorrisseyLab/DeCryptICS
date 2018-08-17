@@ -17,7 +17,6 @@ import openslide as osl
 from sklearn               import mixture
 from cnt_Feature_Functions import filterSmallArea, st_3, plotSegmented
 from deconv_mat import deconv_mat_AB, deconv_mat_betaCat, deconv_mat_MAOA, deconv_mat_MPAS
-from Clonal_Stains.mPAS_Segment_Clone import get_mPAS_Thresholds
 from EstimateStainVectors import estimateStains
 
 # Sometimes moving to 8bit can lead to a threshold above 255
