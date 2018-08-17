@@ -133,7 +133,7 @@ def auto_choose_ROI(file_name, deconv_mat, plot_images = False):
     # Full image ROI
     full_image_ROI = [(0, 0), (foreground_filt.shape[1], foreground_filt.shape[0])]
     tile_list = getIndexesTileImage((foreground_filt.shape[1], foreground_filt.shape[0]), 1., 
-                                    full_image_ROI, max_num_pix  = 100)    
+                                    full_image_ROI, max_num_pix = 25)    # was max_num_pix=100
     i, j, cloneFind = find_tile(tile_list, foreground_filt, clonebody)
 
     #xy_vals = (int(tile_list[i][j][0]), int(tile_list[i][j][1]))
@@ -172,12 +172,12 @@ def find_tile(tile_list, foreground_filt, clonebody):
     return i, j, False
 
 def find_deconmat_fromtiles(img, clonal_mark_type, all_indx):
-   if (clonal_mark_type=="P"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
-   if (clonal_mark_type=="N"): deconv_mat_ref = deconv_mat_KDM6A
-   if (clonal_mark_type=="PNN"): deconv_mat_ref = deconv_mat_MPAS
-   if (clonal_mark_type=="NNN"): deconv_mat_ref = deconv_mat_MAOA
-   if (clonal_mark_type=="BN"): deconv_mat_ref = deconv_mat_MAOA
-   if (clonal_mark_type=="BP"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
+   if (clonal_mark_type.upper()=="P-N"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
+   if (clonal_mark_type.upper()=="P-L"): deconv_mat_ref = deconv_mat_MPAS
+   if (clonal_mark_type.upper()=="P-B"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
+   if (clonal_mark_type.upper()=="N-N"): deconv_mat_ref = deconv_mat_KDM6A
+   if (clonal_mark_type.upper()=="N-L"): deconv_mat_ref = deconv_mat_MAOA
+   if (clonal_mark_type.upper()=="N-B"): deconv_mat_ref = deconv_mat_MAOA
    left_edge = int(0.1*img.shape[1])
    right_edge = int(0.9*img.shape[1])
    top_edge = int(0.1*img.shape[0])
@@ -366,19 +366,10 @@ def calculate_thresholds(big_img, deconv_mat):
     gauss_vars  = gauss_vars[order_use]
     gauss_means = gauss_means[order_use]
     two_sig_0   = gauss_means[0]+2*np.sqrt(gauss_vars[0])
-    
 
     thresh_new = thresh_EM3[0]
     if two_sig_0 > gauss_means[1]:
         thresh_new = np.percentile(blurred_img_clone, 99.9)  # mean_val + 4*np.sqrt(var_val);thresh_new = thresh_new[0]    
-    
-    # Outlier threshold
-    #thresh_stringent, thresh_lax  = get_mPAS_Thresholds(blurred_img_clone)
-        
-    #_, img_nucl_blur       = cv2.threshold(       blurred_img_nuc,  thresh_EM1[0], 255, cv2.THRESH_BINARY)
-    #_, img_nucl_blur_small = cv2.threshold( blurred_img_nuc_small,  thresh_EM2[0], 255, cv2.THRESH_BINARY)
-    #_, stain_thresh        = cv2.threshold(      blurred_img_clone,  thresh_EM3[0], 255, cv2.THRESH_BINARY)
-    #_, stain_thresh2       = cv2.threshold(      blurred_img_clone,     thresh_new, 255, cv2.THRESH_BINARY) 
     
     thresh_blur       = int(thresh_EM1[0][0]*255)
     thresh_blur_small = int(thresh_EM2[0][0]*255)
@@ -390,12 +381,13 @@ def calculate_thresholds(big_img, deconv_mat):
     return thresh_blur_small, thresh_blur, th_clone
 
 def calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type):
-   if (clonal_mark_type=="P"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
-   if (clonal_mark_type=="N"): deconv_mat_ref = deconv_mat_KDM6A
-   if (clonal_mark_type=="PNN"): deconv_mat_ref = deconv_mat_MPAS
-   if (clonal_mark_type=="NNN"): deconv_mat_ref = deconv_mat_MAOA
-   if (clonal_mark_type=="BN"): deconv_mat_ref = deconv_mat_MAOA
-   if (clonal_mark_type=="BP"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
+   if (clonal_mark_type.upper()=="P-N"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
+   if (clonal_mark_type.upper()=="P-L"): deconv_mat_ref = deconv_mat_MPAS
+   if (clonal_mark_type.upper()=="P-B"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
+   if (clonal_mark_type.upper()=="N-N"): deconv_mat_ref = deconv_mat_KDM6A
+   if (clonal_mark_type.upper()=="N-L"): deconv_mat_ref = deconv_mat_MAOA
+   if (clonal_mark_type.upper()=="N-B"): deconv_mat_ref = deconv_mat_MAOA
+   
    xy, wh, cloneFind = auto_choose_ROI(file_name, deconv_mat_ref)
    img    = getROI_img_vips(file_name, xy, wh)
    if (cloneFind):
@@ -404,3 +396,13 @@ def calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type):
       D      = deconv_mat_ref
    return xy, wh, D
 
+#from MiscFunctions import col_deconvol_and_blur2, col_deconvol_and_blur3
+def test_deconv(img):
+   img_nuc1, img_clone1, img_bg1 = col_deconvol_and_blur3(img, deconv_mat_MAOA, (11, 11), (13, 13))
+   img_nuc2, img_clone2, img_bg2 = col_deconvol_and_blur3(img, deconv_mat, (11, 11), (13, 13)) # 1, 0.05
+   img_nuc3, img_clone3, img_bg3 = col_deconvol_and_blur3(img, D1, (11, 11), (13, 13)) # 1.5, 0.005
+   img_nuc4, img_clone4, img_bg4 = col_deconvol_and_blur3(img, D2, (11, 11), (13, 13)) # 1.5, 0.0075
+   img_nuc5, img_clone5, img_bg5 = col_deconvol_and_blur3(img, D3, (11, 11), (13, 13)) # 1.4, 0.0075
+   img_nuc6, img_clone6, img_bg6 = col_deconvol_and_blur3(img, D4, (11, 11), (13, 13)) # 1.5, 0.01
+   
+   

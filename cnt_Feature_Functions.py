@@ -13,6 +13,7 @@ from MiscFunctions import plot_img
 st_3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
 st_5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 st_7 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)) 
+st_9 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
 
 def find_if_close(xy_1, xy_2, max_distance):   
     dist = np.linalg.norm(xy_1-xy_2)    

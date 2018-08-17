@@ -44,8 +44,9 @@ def angle_between(v1, v2):
 def estimateStains(img, deconv_mat_ref):
    ''' Adapted from the Java implementation in QuPath, by Pete Bankhead:
    https://github.com/qupath/qupath/blob/master/qupath-core-processing-awt/src/main/java/qupath/lib/algorithms/color/EstimateStainVectors.java '''
-   maxStain = 1.
-   minStain = 0.05
+   # play with these 
+   maxStain = 1.5 # 1 default
+   minStain = 0.01 # 0.05 default
    ignorePercentage = 1.
    alpha = ignorePercentage / 100.
 
@@ -132,7 +133,6 @@ def estimateStains(img, deconv_mat_ref):
    angle22 = angle_between(s2, stain_orig_2)
    angle21 = angle_between(s2, stain_orig_1)
    if (min(angle12, angle21) < min(angle11, angle22)):
-      print("yes")
       s1 = unit_vector(np.array([red[ind2], green[ind2], blue[ind2]]))
       s2 = unit_vector(np.array([red[ind1], green[ind1], blue[ind1]]))
       

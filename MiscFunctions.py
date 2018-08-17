@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 import pyvips
+import h5py
 
 def add_offset(contour_list, xy_offset):
     cnt_list_out = []
@@ -19,11 +20,76 @@ def add_offset(contour_list, xy_offset):
         cnt_list_out.append(elem_i)
     return cnt_list_out
 
+def rescale_contours(contour_list, scaling_val):
+    cnt_list_out = []
+    for cc in contour_list:
+      a = cc*int(scaling_val)
+      cnt_list_out.append(a)
+    return cnt_list_out
+
 def write_cnt_text_file(cnt_list, file_name):
     with open(file_name, 'w') as file:
         for cnt_i in cnt_list:
             file.write(','.join(['%f' % num for num in cnt_i[:,0,0]])+"\n")
             file.write(','.join(['%f' % num for num in cnt_i[:,0,1]])+"\n")
+            
+def write_score_text_file(clone_scores, file_name):
+    with open(file_name, 'w') as file:
+        for score in clone_scores:
+            file.write("%f\n" % score)
+            
+def write_cnt_hdf5(cnt_list, cnt_file_name):
+   with h5py.File(cnt_file_name, 'w', libver='latest') as f:  # use 'latest' for performance
+      for idx, arr in enumerate(cnt_list):
+         dset = f.create_dataset(str(idx), shape=arr.shape, data=arr, chunks=arr.shape,
+                                 compression='gzip', compression_opts=9)
+
+## Example hdf5 saving from SPRING -- use as template to create contour saving function?
+#def save_hdf5_genes(E, gene_list, filename):
+#    '''SPRING standard: filename = main_spring_dir + "counts_norm_sparse_genes.hdf5"'''
+#    
+#    import h5py
+#    
+#    E = E.tocsc()
+#    
+#    hf = h5py.File(filename, 'w')
+#    counts_group = hf.create_group('counts')
+#    cix_group = hf.create_group('cell_ix')
+
+#    hf.attrs['ncells'] = E.shape[0]
+#    hf.attrs['ngenes'] = E.shape[1]
+
+#    for iG, g in enumerate(gene_list):
+#        counts = E[:,iG].A.squeeze()
+#        cell_ix = np.nonzero(counts)[0]
+#        counts = counts[cell_ix]
+#        counts_group.create_dataset(g, data = counts)
+#        cix_group.create_dataset(g, data = cell_ix)
+
+#    hf.close()
+#    
+#def save_hdf5_cells(E, filename):
+#    '''SPRING standard: filename = main_spring_dir + "counts_norm_sparse_cells.hdf5" '''
+#    import h5py
+#    
+#    E = E.tocsr()
+#    
+#    hf = h5py.File(filename, 'w')
+#    counts_group = hf.create_group('counts')
+#    gix_group = hf.create_group('gene_ix')
+
+#    hf.attrs['ncells'] = E.shape[0]
+#    hf.attrs['ngenes'] = E.shape[1]
+
+#    for iC in range(E.shape[0]):
+#        counts = E[iC,:].A.squeeze()
+#        gene_ix = np.nonzero(counts)[0]
+#        counts = counts[gene_ix]
+#        counts_group.create_dataset(str(iC), data = counts)
+#        gix_group.create_dataset(str(iC), data = gene_ix)
+
+#    hf.close()
+
             
 def read_cnt_text_file(file_name):
     with open(file_name, 'r') as file:
@@ -102,7 +168,7 @@ def col_deconvol_blur_clone(img, deconv_mat, size_blur):
     clone_blur = clone_blur.astype('uint8', copy=False) 
     return clone_blur
 
-## If you convert to 8bit before blurring you loose resolution
+## If you convert to 8bit before blurring you lose resolution
 def col_deconvol_and_blur2(img, deconv_mat, size_blur1, size_blur2):
     OD_data    = transform_OD(img)
     deconv_mat = deconv_mat.astype('float32', copy=False) 
@@ -111,7 +177,16 @@ def col_deconvol_and_blur2(img, deconv_mat, size_blur1, size_blur2):
     clone_blur = cv2.GaussianBlur(img_deconv[:,:,1], size_blur2, 0)
     return nucl_blur, clone_blur
 
-## If you convert to 8bit before blurring you loose resolution
+def col_deconvol_and_blur3(img, deconv_mat, size_blur1, size_blur2):
+    OD_data    = transform_OD(img)
+    deconv_mat = deconv_mat.astype('float32', copy=False) 
+    img_deconv = cv2.transform(OD_data, deconv_mat)    
+    nucl_blur  = cv2.GaussianBlur(img_deconv[:,:,0], size_blur1, 0)
+    clone_blur = cv2.GaussianBlur(img_deconv[:,:,1], size_blur2, 0)
+    background_blur = cv2.GaussianBlur(img_deconv[:,:,2], size_blur1, 0)
+    return nucl_blur, clone_blur, background_blur
+
+## If you convert to 8bit before blurring you lose resolution
 def col_deconvol_and_blur(img, deconv_mat, size_blur1, size_blur2, size_blur3):
     OD_data    = transform_OD(img)
     deconv_mat = deconv_mat.astype('float32', copy=False) 

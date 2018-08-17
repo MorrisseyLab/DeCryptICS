@@ -40,30 +40,31 @@ if __name__=="__main__":
     ## Lowering intensity by one prior to manual masking
     ##########################################################################
     # load image list
-    file = open("/home/doran/Work/py_code/DNN_ImageMasking/input/problem_files.txt", 'r') 
-    flist = file.read() 
-    flist = flist.split('\n')[:-1]
-    train_path = "/home/doran/Work/py_code/DNN_ImageMasking/input/train/"
-    premask_folder = "/home/doran/Work/py_code/DNN_ImageMasking/input/pre-mask/"
-    mask_path = "/home/doran/Work/py_code/DNN_ImageMasking/input/train_masks/"
-    maskdump = mask_path+"/old/"
-    mkdir_p(maskdump)
-    for f in flist:
-        img_f = train_path+"/img_"+f+".png"
-        mask_f = mask_path+"/mask_"+f+".png"
-        img = load_sample2(img_f)
-        # Lower overall intensity to enable thresholding later
-        img = lower_intensity_by_one(img)
-        # Move old mask to maskdump
-        os.rename(mask_f, maskdump+"/mask_"+f+".png")
-        cv2.imwrite(premask_folder+"/premask_"+f+".png", img)
+#    file = open("/home/doran/Work/py_code/DNN_ImageMasking/input/problem_files.txt", 'r') 
+#    flist = file.read() 
+#    flist = flist.split('\n')[:-1]
+#    train_path = "/home/doran/Work/py_code/DNN_ImageMasking/input/train/"
+#    premask_folder = "/home/doran/Work/py_code/DNN_ImageMasking/input/pre-mask/"
+#    mask_path = "/home/doran/Work/py_code/DNN_ImageMasking/input/train_masks/"
+#    maskdump = mask_path+"/old/"
+#    mkdir_p(maskdump)
+#    for f in flist:
+#        img_f = train_path+"/img_"+f+".png"
+#        mask_f = mask_path+"/mask_"+f+".png"
+#        img = load_sample2(img_f)
+#        # Lower overall intensity to enable thresholding later
+#        img = lower_intensity_by_one(img)
+#        # Move old mask to maskdump
+#        os.rename(mask_f, maskdump+"/mask_"+f+".png")
+#        cv2.imwrite(premask_folder+"/premask_"+f+".png", img)
     
     ## Setting background to black for manually masked images
     ##########################################################################
     # load images
-    basepath = "/home/doran/Work/py_code/DNN_ImageMasking/input/pre-mask/"
-    outpath = "/home/doran/Work/py_code/DNN_ImageMasking/input/train_masks/"
-    imfiles = glob.glob(basepath + "*.png")
+    dnnpath = "/home/doran/Work/py_code/zoomed_out_DeCryptICS/DNN/input"
+    inpath = dnnpath + "/pre-mask/"
+    outpath = dnnpath + "/train_masks/"
+    imfiles = glob.glob(inpath + "*.png")
     
     # run processing and save
     for path in imfiles:
@@ -77,19 +78,19 @@ if __name__=="__main__":
     ## Generating masks from predictions for new ground-truth training data
     ##########################################################################
     # Find non-problem files
-    file = open("/home/doran/Work/py_code/DNN_ImageMasking/input/problem_files.txt", 'r') 
-    flist = file.read() 
-    flist = flist.split('\n')[:-1]
-    mask_path = "/home/doran/Work/py_code/DNN_ImageMasking/input/train_masks/"
-    preds_path = "/home/doran/Work/py_code/DNN_ImageMasking/test_out/preds/"
-    allfiles = glob.glob(preds_path+"*.png")
-    allfiles = [f.split("/")[-1].split(".")[0] for f in allfiles]
-    allfiles = [f[5:] for f in allfiles]
-    predfiles = ["pred_"+f+".png" for f in allfiles if f not in flist]
-    for ff in predfiles:
-        mask = generate_mask_from_prediction(preds_path + ff, p_thresh=0.45)
-        outname = "mask" + ff[4:]
-        cv2.imwrite(mask_path + outname, mask)
+#    file = open("/home/doran/Work/py_code/DNN_ImageMasking/input/problem_files.txt", 'r') 
+#    flist = file.read() 
+#    flist = flist.split('\n')[:-1]
+#    mask_path = "/home/doran/Work/py_code/DNN_ImageMasking/input/train_masks/"
+#    preds_path = "/home/doran/Work/py_code/DNN_ImageMasking/test_out/preds/"
+#    allfiles = glob.glob(preds_path+"*.png")
+#    allfiles = [f.split("/")[-1].split(".")[0] for f in allfiles]
+#    allfiles = [f[5:] for f in allfiles]
+#    predfiles = ["pred_"+f+".png" for f in allfiles if f not in flist]
+#    for ff in predfiles:
+#        mask = generate_mask_from_prediction(preds_path + ff, p_thresh=0.45)
+#        outname = "mask" + ff[4:]
+#        cv2.imwrite(mask_path + outname, mask)
     
     
     

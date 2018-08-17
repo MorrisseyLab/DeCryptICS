@@ -75,29 +75,4 @@ class getROI_svs:
                 cv2.rectangle(img_plot,self.roi1[0], self.roi1[1], (255,   0,   0), param[1])
                 cv2.imshow(param[0], img_plot)
 
-#svs_file = "/home/edward/PostDoc/MPAS/Scans/ScansFull/430125.svs"
-#obj_svs  = getROI_svs(svs_file)
-#obj_svs.chosenROI
-#img1 = obj_svs.getROI_img()
-#
-#    
-#def get_3ROI(self, win_name, size_line):
-#    global roi1,roi2,roi3,mode,drawing,img_zoom
-#    drawing = False # true if mouse is pressed
-#    roi1   = [(-1,-1), (-1,-1)]
-#    roi2   = [(-1,-1), (-1,-1)]
-#    roi3   = [(-1,-1), (-1,-1)]
-#    mode   = 1 
-#
-#    cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-#    cv2.setMouseCallback(win_name, drawRect3Colour, [win_name, size_line])
-#    cv2.imshow(win_name, img_zoom)
-#    while(1):
-#        k = cv2.waitKey(1) & 0xFF
-#        if (k == ord('1'))| (k == ord('2')) | (k == ord('3')):
-#            mode = int(chr(k))
-#        elif k == 27:
-#            break     
-#    cv2.destroyAllWindows()
-#    ROI_chosen = (correct_ROI_order(roi1), correct_ROI_order(roi2),correct_ROI_order(roi3))
-#    return(ROI_chosen)
+
