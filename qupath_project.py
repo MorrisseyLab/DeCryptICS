@@ -175,7 +175,7 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write('\t\t'+"def linesscores = filescores.readLines()" + '\n')
         file.write('\t\t'+"for (i = 0; i<num_rois; i++) {" + '\n')
         file.write('\t\t\t'+"double score = linesscores[i] as double" + '\n')
-        file.write('\t\t\t'+"f ( score >= CLONE_THRESHOLD ) {" + '\n')
+        file.write('\t\t\t'+"if ( score >= CLONE_THRESHOLD ) {" + '\n')
         file.write('\t\t\t\t'+"float[] x1 = lines2[2*i].tokenize(\',\') as float[]" + '\n')
         file.write('\t\t\t\t'+"float[] y1 = lines2[2*i+1].tokenize(\',\') as float[]" + '\n')
         file.write('\t\t\t\t'+"def roi = new PolygonROI(x1, y1, -300, 0, 0)" + '\n')
