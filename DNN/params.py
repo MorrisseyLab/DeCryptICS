@@ -1,13 +1,14 @@
-from DNN.u_net import get_unet_128, get_unet_256, get_unet_512, get_unet_1024, get_unet_1536, get_unet_2048 , get_unet_4096 , get_unet_256_for_2048
+from DNN.u_net import get_unet_128, get_unet_256, get_unet_512, get_unet_1024, get_unet_256_for_X
 
-input_size = 2048
+# Reduce input_size if GPU is running out of memory (increase if not!)
+input_size = 512
 
 max_epochs = 300
 batch_size = 18
 
-orig_width = 2048
-orig_height = 2048
+orig_width = input_size
+orig_height = input_size
 
 threshold = 0.5
 
-model_factory = get_unet_256_for_2048
+model_factory = get_unet_256_for_X

@@ -163,6 +163,7 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write("// Add clone contours" + '\n')
         file.write("def file2 = new File(base_folder+\"Analysed_\"+ff[0]+\"/clone_contours.txt\")" + '\n')
         file.write("def filescores = new File(base_folder+\"Analysed_\"+ff[0]+\"/clone_scores.txt\")" + '\n')
+        file.write("boolean scoreflag = false" + '\n')
         file.write("if( filescores.exists() ) {" + '\n')  
         file.write('\t'+"scoreflag = true" + '\n')
         file.write('}' + '\n')

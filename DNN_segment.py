@@ -17,7 +17,7 @@ import DNN.params as params
 from deconv_mat               import *
 from automaticThresh_func     import calculate_deconvolution_matrix_and_ROI, find_deconmat_fromtiles
 from MiscFunctions            import simplify_contours, col_deconvol_and_blur2
-from MiscFunctions            import getROI_img_vips, add_offset, write_cnt_text_file, plot_img, rescale_contours
+from MiscFunctions            import getROI_img_vips, add_offset, write_cnt_text_file, plot_img, rescale_contours, write_score_text_file
 from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt
 from multicore_morphology     import getForeground_mc
 from GUI_ChooseROI_class      import getROI_svs
@@ -42,10 +42,9 @@ from knn_prune                import remove_tiling_overlaps_knn
 #session = tf.Session(config=config)
 #K.set_session(session)
 
-
 # Load DNN model
-model = params.model_factory()
-model.load_weights("./DNN/weights/tile256_for_2048_best_weights.hdf5")
+model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
+model.load_weights("./DNN/weights/tile256_for_X_best_weights.hdf5")
 
 def get_tile_indices(maxvals, overlap = 50, SIZE = (2048, 2048)):
     all_indx = []
@@ -85,7 +84,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
    
    ## Find deconvolution matrix for clone/nucl channel separation
    if find_clones:
-      _, _, deconv_mat = calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type) # CLONE FINDING
+      _, _, deconv_mat = calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type)
       nbins = 20
       
    ## Tiling
@@ -100,7 +99,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
       for j in range(y_tiles):
          xy_vals = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
          wh_vals = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
-         img     = getROI_img_vips(file_name, xy_vals, wh_vals, level = 1) ## Is loading in a remote svs like this each iteration a bottleneck?  
+         img     = getROI_img_vips(file_name, xy_vals, wh_vals, level = 1)
          x_batch = [img]
          x_batch = np.array(x_batch, np.float32) / 255.
 
@@ -115,7 +114,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
          #newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts) # NOT A GOOD METHOD
 
          if find_clones:
-            # ADD CHOICE TO DO CLONE FINDING IN ZOOMED IN OR ZOOMED OUT IMAGE (ZOOMED IN WILL BE MUCH SLOWER!)
+            # ADD CHOICE TO DO CLONE FINDING IN ZOOMED IN OR ZOOMED OUT IMAGE (ZOOMED IN WILL BE MUCH SLOWER!) (mouse data may need zoomed-in for crypt finding due to size difference)
             # ALSO, THE DILATIONS USED IN clone_analysis_funcs.py SHOULD BE REDUCED IN STRENGTH IF USING ZOOMED OUT IMAGE
             # Find clone channel features
             bigxy = tuple(np.asarray([xy_vals[0]*scaling_val, xy_vals[1]*scaling_val], dtype=int))

@@ -16,7 +16,6 @@ from multicore_morphology              import getForeground_mc
 from automaticThresh_func              import calculate_thresholds
 from knn_prune                         import prune_contours_knn, drop_broken_runs, prune_attributes, prune_minoraxes 
 from Segment_clone_from_crypt          import find_clone_statistics
-from Clonal_Stains.mPAS_Segment_Clone  import get_mPAS_Stains2
 
 ## If thresh_cut is None, thresholds will be calculated from the image
 def Segment_crypts(img, thresh_cut, deconv_mat, nbins=20, find_clones = False):
