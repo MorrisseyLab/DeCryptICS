@@ -6,6 +6,7 @@ Created on Fri Mar  2 09:01:29 2018
 @author: doran
 """
 import os, time, glob, fileinput
+import pandas as pd
 import numpy as np
 import csv
 
@@ -20,7 +21,6 @@ def file_len(fname):
     return i + 1
 
 def extract_counts_csv(file_in, folder_out, save_counts_here, qupath_proj_name, find_clones = False):
-   np.set_printoptions(suppress=True)
    contour_folders = [folder_from_image(im) for im in file_in]
    num = len(contour_folders)
    if (find_clones==False):
@@ -44,20 +44,13 @@ def extract_counts_csv(file_in, folder_out, save_counts_here, qupath_proj_name, 
             ptcnt = int(ptcnt/2)
             slidecounts[i,2] = clcnt
             slidecounts[i,3] = ptcnt
+   slidecounts_p = pd.DataFrame(slidecounts)
    outname = "/slide_counts_" + qupath_proj_name + ".csv"
-   np.savetxt(save_counts_here + outname, slidecounts, delimiter=",")
-   # Now add column headers (messy!)
-   with open(save_counts_here + outname, newline='') as f:
-      r = csv.reader(f)
-      data = [line for line in r]
-   with open(save_counts_here + outname, 'w', newline='') as f:
-      w = csv.writer(f)
-      if (find_clones==False):
-         w.writerow(['Slide_ID', 'NCrypts'])
-      if (find_clones==True):
-            w.writerow(['Slide_ID', 'NCrypts', 'NClones', 'NPatches'])
-      w.writerows(data)
-   np.set_printoptions()
+   if (find_clones==False):
+      slidecounts_p.columns = ['Slide_ID', 'NCrypts']
+   if (find_clones==True):
+      slidecounts_p.columns = ['Slide_ID', 'NCrypts', 'NClones', 'NPatches']
+   slidecounts_p.to_csv(save_counts_here + outname, sep='\t', index=False)
 
 def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
     num_to_run = len(file_in)
