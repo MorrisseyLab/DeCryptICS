@@ -3,7 +3,9 @@
 
 The tool is currently a work-in-progress.
 
-Full functionality is expected to be present by June 2018.
+Crypt counting is fully functional.
+
+See the install\_instructions.txt file for a step-by-step guide that may help.
 
 External dependencies are currently:
 
@@ -18,15 +20,19 @@ We are aiming to roll these dependencies into a Conda package alongside the DeCr
 
 # Preparing input data
 
-DeCryptICS currently takes in batches of .svs slide files stored within the folder structer: base\_path/batch\_ID/raw\_images/filename.svs
+Run generate\_filepath\_list.py and point it at a folder containing the .svs slides to be analysed.
 
-Output is saved in the folder structure: base\_path/batch\_ID/Analysed\_slides/Analysed\_filename/
-
-Single/multiple images of standard types (.png, .jpg, .tiff, etc.) can also be analysed.
+This will produce an input\_files.txt listing the paths to the slides (alternatively any list of remote or local file paths can be used).
 
 ---
 
 # Running the segmenter
+
+Run run\_script.py with an action and the path to the input file list.
+
+View the help with "python run\_script.py -h" to see all available options.
+
+Manually curate a list of clones by running manual\_clone\_curation.py and pointing it at the output folder for a given slide (a folder of the form Analysed\_XXXXX).
 
 ---
 
