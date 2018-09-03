@@ -11,12 +11,13 @@ import cv2, os, time
 import numpy as np
 import pyvips
 import keras
+import pickle
 from keras.preprocessing.image import img_to_array
 import DNN.u_net as unet
 import DNN.params as params
 from deconv_mat               import *
 from automaticThresh_func     import calculate_deconvolution_matrix_and_ROI, find_deconmat_fromtiles
-from MiscFunctions            import simplify_contours, col_deconvol_and_blur2
+from MiscFunctions            import simplify_contours, col_deconvol_and_blur2, mkdir_p, write_clone_image_snips
 from MiscFunctions            import getROI_img_vips, add_offset, write_cnt_text_file, plot_img, rescale_contours, write_score_text_file
 from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt
 from multicore_morphology     import getForeground_mc
@@ -75,10 +76,7 @@ def get_tile_indices(maxvals, overlap = 50, SIZE = (2048, 2048)):
 def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clones = False, prob_thresh = 0.5):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
-   try:
-      os.mkdir(folder_to_analyse)
-   except:
-      pass
+   mkdir_p(folder_to_analyse)
    crypt_contours  = []
    clone_feature_list = []
    
@@ -143,10 +141,16 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
       
    ## Remove tiling overlaps and simplify remaining contours
    print("Of %d contours..." % len(crypt_contours))
-   crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
+   oldlen = 1
+   newlen = 0
+   while newlen!=oldlen:
+      oldlen = len(crypt_contours)
+      crypt_contours, kept_indices = remove_tiling_overlaps_knn(crypt_contours)
+      if find_clones:
+         cfl = subset_clone_features(cfl, kept_indices, keep_global_inds=False)    
+      newlen = len(crypt_contours)
    print("...Keeping only %d due to tiling overlaps." % kept_indices.shape[0])
-   if find_clones:
-      cfl = subset_clone_features(cfl, kept_indices, keep_global_inds=False)    
+
    #write_clone_features_to_file(clone_feature_list, folder_to_analyse) # output clone_feature_list matrices for analysis in R
    
    if find_clones:
@@ -161,17 +165,21 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
       clone_contours = list(np.asarray(crypt_contours)[clone_inds])
       ## Join patches
       if len(clone_contours) < 0.25*len(crypt_contours) and len(crypt_contours)>0:
-         patch_contours = joinContoursIfClose_OnlyKeepPatches(clone_contours, max_distance = 400)
+         patch_contours, patch_sizes, patch_indices = joinContoursIfClose_OnlyKeepPatches(cfl, crypt_contours, clone_inds)
+         patch_indices = convert_to_local_clone_indices(patch_indices, clone_inds)
       else:
-         patch_contours = []
+         patch_contours, patch_sizes, patch_indices = [], [], []
 
    write_cnt_text_file(crypt_contours, folder_to_analyse + "/crypt_contours.txt")
    if find_clones:
       write_cnt_text_file(clone_contours, folder_to_analyse + "/clone_contours.txt")
       write_cnt_text_file(patch_contours, folder_to_analyse + "/patch_contours.txt")
       write_score_text_file(clone_scores, folder_to_analyse + "/clone_scores.txt")
-
-   print("Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")
+      write_score_text_file(patch_sizes, folder_to_analyse + "/patch_sizes.txt")
+      pickle.dump(patch_indices, open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
+      write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scaling_val)
+      
+   print("Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")   
 
 def get_channel_images_for_clone_finding(img, deconv_mat):
     img_nuc, img_clone = col_deconvol_and_blur2(img, deconv_mat, (11, 11), (13, 13))

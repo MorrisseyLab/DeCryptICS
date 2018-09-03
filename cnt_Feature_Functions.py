@@ -8,12 +8,24 @@ Created on Wed Jul 22 14:43:39 2015
 import cv2
 import numpy as np
 from MiscFunctions import plot_img
+from sklearn.neighbors import NearestNeighbors
 
 ## Define standard structuring elements
 st_3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
 st_5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 st_7 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)) 
 st_9 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+
+def get_centre_coords(cnts):
+   numcnts = len(cnts)
+   xy_coords = np.zeros([numcnts, 2], dtype=np.int32)
+   for i in range(numcnts):
+      M = cv2.moments(cnts[i])
+      cX = int(M["m10"] / M["m00"])
+      cY = int(M["m01"] / M["m00"])
+      xy_coords[i,0] = cX
+      xy_coords[i,1] = cY
+   return xy_coords
 
 def find_if_close(xy_1, xy_2, max_distance):   
     dist = np.linalg.norm(xy_1-xy_2)    
@@ -46,32 +58,86 @@ def joinContoursIfClose(contours, max_distance = 400):
             cnt_joined.append(hull)
     return cnt_joined
 
+def add_nearby_clones(patch, indices, clone_inds, i, j):
+   patch.append(i)
+   for k in indices[i, 1:]:
+      if k in clone_inds:
+         if k not in patch:
+            add_nearby_clones(patch, indices, clone_inds, k, j)
+   return patch
+
+def joinContoursIfClose_OnlyKeepPatches(cfl, contours, clone_inds):
+   nn = 7
+   nbrs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(cfl['xy_coords'])
+   distances, indices = nbrs.kneighbors(cfl['xy_coords'])
+   patches = []
+   j = 0
+   for i in clone_inds:
+      patches.append([])
+      patches[j] = add_nearby_clones(patches[j], indices, clone_inds, i, j)
+      j += 1
+   # remove length 1 patches and repeated indices
+   cut_patches = []
+   addflag = True
+   for ll in patches:
+      if len(ll)>1:
+         addflag = True
+         newpatch = set(ll)
+         for pp in cut_patches:
+            if (newpatch==pp):
+               addflag = False
+         if addflag == True:
+            cut_patches.append(newpatch)
+   # join any repeated subsets
+   cut2_patches = []
+   j = 0
+   joined_patch_ids = []
+   for s in cut_patches:
+      if j not in joined_patch_ids:
+         curr_set = s.copy()
+         joined_patch_ids.append(j)
+         for ind in s:
+            for i in range(j+1, len(cut_patches)):
+               s2 = cut_patches[i]
+               if ind in s2:
+                  curr_set |= s2
+                  joined_patch_ids.append(i)
+         cut2_patches.append(curr_set)
+         j += 1
+   patch_size = [len(s) for s in cut2_patches]
+   cnt_joined = []
+   for patch in cut2_patches:
+      cont = np.vstack(np.array(contours[i]) for i in patch)
+      hull = cv2.convexHull(cont)
+      cnt_joined.append(hull)
+   return cnt_joined, patch_size, cut2_patches
+         
+
 ## Modified version of 
 ## http://dsp.stackexchange.com/questions/2564/opencv-c-connect-nearby-contours-based-on-distance-between-them
-def joinContoursIfClose_OnlyKeepPatches(contours, max_distance = 400):
-    cnt_xy   = np.array([contour_xy(cnt_i) for cnt_i in contours])
-    num_cnt  = len(contours)
-    if (num_cnt<2):
-      return []
-    clusters = np.arange(num_cnt)    
-    for indx1 in range(num_cnt-1):
-        cnt_xy_1 = cnt_xy[indx1,:]
-        for indx2 in range(indx1+1, num_cnt):
-            cnt_xy_2 = cnt_xy[indx2,:]
-            is_close = find_if_close(cnt_xy_1, cnt_xy_2, max_distance)
-            if is_close:
-                val = min(clusters[indx1], clusters[indx2])
-                clusters[indx2] = val
-                clusters[indx1] = val    
-    cnt_joined = []
-    maximum = int(clusters.max())+1
-    for i in range(maximum):
-        pos = np.where(clusters==i)[0]
-        if (pos.size > 1):
-            cont = np.vstack(contours[i] for i in pos)
-            hull = cv2.convexHull(cont)
-            cnt_joined.append(hull)
-    return cnt_joined
+#    cnt_xy   = np.array([contour_xy(cnt_i) for cnt_i in contours])
+#    num_cnt  = len(contours)
+#    if (num_cnt<2):
+#      return []
+#    clusters = np.arange(num_cnt)    
+#    for indx1 in range(num_cnt-1):
+#        cnt_xy_1 = cnt_xy[indx1,:]
+#        for indx2 in range(indx1+1, num_cnt):
+#            cnt_xy_2 = cnt_xy[indx2,:]
+#            is_close = find_if_close(cnt_xy_1, cnt_xy_2, max_distance)
+#            if is_close:
+#                val = min(clusters[indx1], clusters[indx2])
+#                clusters[indx2] = val
+#                clusters[indx1] = val    
+#    cnt_joined = []
+#    maximum = int(clusters.max())+1
+#    for i in range(maximum):
+#        pos = np.where(clusters==i)[0]
+#        if (pos.size > 1):
+#            cont = np.vstack(contours[i] for i in pos)
+#            hull = cv2.convexHull(cont)
+#            cnt_joined.append(hull)
+#    return cnt_joined
 
 ## Giving cv2.drawContours all contours is slower than looping 
 def drawAllCont(img_new, all_cnt, cnt_num, col, line_width):

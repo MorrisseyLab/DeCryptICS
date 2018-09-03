@@ -1,23 +1,34 @@
 from keras.losses import binary_crossentropy
 import keras.backend as K
-
+import tensorflow as tf
 
 def dice_coeff(y_true, y_pred):
+    #bool_finite = tf.is_finite(y_true)
     smooth = 1.
+    #y_true_f = K.flatten(tf.boolean_mask(y_true, bool_finite))
+    #y_pred_f = K.flatten(tf.boolean_mask(y_pred, bool_finite))
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
     intersection = K.sum(y_true_f * y_pred_f)
     score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
     return score
 
-
 def dice_loss(y_true, y_pred):
     loss = 1 - dice_coeff(y_true, y_pred)
     return loss
 
+#def custom_error_function(y_true, y_pred):
+#    bool_finite = T.is_finite(y_true)
+#    return K.mean(K.square( - ), axis=-1)
 
 def bce_dice_loss(y_true, y_pred):
-    loss = binary_crossentropy(y_true, y_pred) + dice_loss(y_true, y_pred)
+    print('Slicing first 5 entries, shape is', K.int_shape(y_true))
+    y_true_s = y_true[:,:,0]
+    print('Slicing first 5 entries, shape is', K.int_shape(y_true_s))
+    y_pred_s = y_pred[:,:,0]
+    #bool_finite = tf.is_finite(y_true)
+    #loss = binary_crossentropy(tf.boolean_mask(y_true, bool_finite), tf.boolean_mask(y_pred, bool_finite)) + dice_loss(tf.boolean_mask(y_true, bool_finite), tf.boolean_mask(y_pred, bool_finite))
+    loss = binary_crossentropy(y_true_s, y_pred_s) + dice_loss(y_true_s, y_pred_s)
     return loss
 
 

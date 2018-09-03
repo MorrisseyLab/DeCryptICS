@@ -11,6 +11,15 @@ import numpy as np
 from matplotlib import pyplot as plt
 import pyvips
 import h5py
+import os, errno
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
 
 def add_offset(contour_list, xy_offset):
     cnt_list_out = []
@@ -23,9 +32,17 @@ def add_offset(contour_list, xy_offset):
 def rescale_contours(contour_list, scaling_val):
     cnt_list_out = []
     for cc in contour_list:
-      a = cc*int(scaling_val)
+      a = (cc*scaling_val).astype(np.int32)
       cnt_list_out.append(a)
     return cnt_list_out
+
+def convert_to_local_clone_indices(patch_indices, clone_inds):
+   newpatchinds = []
+   for patch in patch_indices:
+      patch = list(patch)
+      patch = [np.where(clone_inds==i)[0][0] for i in patch]
+      newpatchinds.append(patch)
+   return newpatchinds
 
 def write_cnt_text_file(cnt_list, file_name):
     with open(file_name, 'w') as file:
@@ -43,6 +60,21 @@ def write_cnt_hdf5(cnt_list, cnt_file_name):
       for idx, arr in enumerate(cnt_list):
          dset = f.create_dataset(str(idx), shape=arr.shape, data=arr, chunks=arr.shape,
                                  compression='gzip', compression_opts=9)
+
+def write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scaling_val):
+   imgout = folder_to_analyse + "/clone_images/"
+   mkdir_p(imgout)
+   #smallcnts = rescale_contours(clone_contours, 1./scaling_val) #for level=1
+   i = 0
+   for cc in clone_contours: # smallcnts here if level=1
+      expand_box    = 25*scaling_val #remove scaling val here if level=1
+      roi           = cv2.boundingRect(cc)
+      roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box))
+      roi[roi<1]   = 0
+      img_ROI       = getROI_img_vips(file_name, (roi[0],roi[1]), (roi[2],roi[3]), level=0) # or level=1?
+      outfile = "/clone_" + str(i) + ".png"
+      cv2.imwrite(imgout + outfile, img_ROI)
+      i += 1
 
 ## Example hdf5 saving from SPRING -- use as template to create contour saving function?
 #def save_hdf5_genes(E, gene_list, filename):

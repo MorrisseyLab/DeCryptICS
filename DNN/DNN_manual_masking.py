@@ -40,28 +40,21 @@ if __name__=="__main__":
     ## Lowering intensity by one prior to manual masking
     ##########################################################################
     # load image list
-#    file = open("/home/doran/Work/py_code/DNN_ImageMasking/input/problem_files.txt", 'r') 
-#    flist = file.read() 
-#    flist = flist.split('\n')[:-1]
-#    train_path = "/home/doran/Work/py_code/DNN_ImageMasking/input/train/"
-#    premask_folder = "/home/doran/Work/py_code/DNN_ImageMasking/input/pre-mask/"
-#    mask_path = "/home/doran/Work/py_code/DNN_ImageMasking/input/train_masks/"
-#    maskdump = mask_path+"/old/"
-#    mkdir_p(maskdump)
-#    for f in flist:
-#        img_f = train_path+"/img_"+f+".png"
-#        mask_f = mask_path+"/mask_"+f+".png"
-#        img = load_sample2(img_f)
-#        # Lower overall intensity to enable thresholding later
-#        img = lower_intensity_by_one(img)
-#        # Move old mask to maskdump
-#        os.rename(mask_f, maskdump+"/mask_"+f+".png")
-#        cv2.imwrite(premask_folder+"/premask_"+f+".png", img)
+   train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/train/"
+   flist = glob.glob(train_path+"*.png")
+   mlist = ['/' + os.path.join(*f.split('/')[:-2]) + '/pre-mask/premask_' + f.split('/')[-1] for f in flist]
+   for i in range(len(flist)):
+      img_f = flist[i]
+      mask_f = mlist[i]
+      img = load_sample2(img_f)
+      # Lower overall intensity to enable thresholding later
+      img = lower_intensity_by_one(img)
+      cv2.imwrite(mask_f, img)
     
     ## Setting background to black for manually masked images
     ##########################################################################
     # load images
-    dnnpath = "/home/doran/Work/py_code/zoomed_out_DeCryptICS/DNN/input"
+    dnnpath = "/home/doran/Work/py_code/DeCryptICS/DNN/input/"
     inpath = dnnpath + "/pre-mask/"
     outpath = dnnpath + "/train_masks/"
     imfiles = glob.glob(inpath + "*.png")
@@ -70,9 +63,8 @@ if __name__=="__main__":
     for path in imfiles:
         img = cv2.imread(path, cv2.IMREAD_COLOR)
         mask = set_background_to_black(img)
-        im_number = path.split("/")[-1].split(".")[0]
-        im_number = im_number[8:] # remove "premask"
-        outfile = "mask_" + im_number + ".png"
+        im_number = path.split("/")[-1][8:] # remove "premask_"
+        outfile = "mask_" + im_number
         cv2.imwrite(outpath + outfile, mask)
         
     ## Generating masks from predictions for new ground-truth training data

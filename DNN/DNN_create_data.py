@@ -41,24 +41,24 @@ if __name__=="__main__":
    folder_cnt = []
 
    # mPAS .svs slides:
-   batch_ID1 = "/mPAS_WIMM/"
-   folder_im += [base_path + batch_ID1 +"/raw_images/"]
-   folder_cnt += [base_path + batch_ID1 + "/Analysed_slides/Analysed_"]
-   training_dat += [base_path + batch_ID1 +"/raw_images/575845.svs"]
-   batch_ID1b = "/mPAS_subset_test/"
-   folder_im += [base_path + batch_ID1b +"/raw_images/"]
-   folder_cnt += [base_path + batch_ID1b + "/Analysed_slides/Analysed_"]
-   training_dat += [base_path + batch_ID1b +"/raw_images/575833.svs"]
+#   batch_ID1 = "/mPAS_WIMM/"
+#   folder_im += [base_path + batch_ID1 +"/raw_images/"]
+#   folder_cnt += [base_path + batch_ID1 + "/Analysed_slides/Analysed_"]
+#   training_dat += [base_path + batch_ID1 +"/raw_images/575845.svs"]
+#   batch_ID1b = "/mPAS_subset_test/"
+#   folder_im += [base_path + batch_ID1b +"/raw_images/"]
+#   folder_cnt += [base_path + batch_ID1b + "/Analysed_slides/Analysed_"]
+#   training_dat += [base_path + batch_ID1b +"/raw_images/575833.svs"]
 
-   # MAOA .svs slides:
-   batch_ID2 = "/MAOA_slides/"
-   folder_im += [base_path + batch_ID2 +"/raw_images/"]
-   folder_cnt += [base_path + batch_ID2 + "/Analysed_slides/Analysed_"]
-   training_dat += [base_path + batch_ID2 +"/raw_images/540796.svs"]
-   batch_ID2b = "/MAOA_March2018/"
-   folder_im += [base_path + batch_ID2b +"/raw_images/"]
-   folder_cnt += [base_path + batch_ID2b + "/Analysed_slides/Analysed_"]
-   training_dat += [base_path + batch_ID2b +"/raw_images/586574.svs"]
+#   # MAOA .svs slides:
+#   batch_ID2 = "/MAOA_slides/"
+#   folder_im += [base_path + batch_ID2 +"/raw_images/"]
+#   folder_cnt += [base_path + batch_ID2 + "/Analysed_slides/Analysed_"]
+#   training_dat += [base_path + batch_ID2 +"/raw_images/540796.svs"]
+#   batch_ID2b = "/MAOA_March2018/"
+#   folder_im += [base_path + batch_ID2b +"/raw_images/"]
+#   folder_cnt += [base_path + batch_ID2b + "/Analysed_slides/Analysed_"]
+#   training_dat += [base_path + batch_ID2b +"/raw_images/586574.svs"]
 
    # mPAS jpg test images
    #batch_ID3 = "/mPAS_Clone_test_images/"
@@ -66,22 +66,22 @@ if __name__=="__main__":
    #folder_cnt += [base_path + batch_ID3 + "/Analysed_slides/"]
    #training_dat += glob.glob(folder_im3 + "*.jpg")
 
-   # KDM6A .svs slides:
-   batch_ID4 = "/KDM6A_March2018/"
-   folder_im += [base_path + batch_ID4 +"/raw_images/"]
-   folder_cnt += [base_path + batch_ID4 + "/Analysed_slides/Analysed_"]
-   training_dat += [base_path + batch_ID4 +"/raw_images/642708.svs"]
+#   # KDM6A .svs slides:
+#   batch_ID4 = "/KDM6A_March2018/"
+#   folder_im += [base_path + batch_ID4 +"/raw_images/"]
+#   folder_cnt += [base_path + batch_ID4 + "/Analysed_slides/Analysed_"]
+#   training_dat += [base_path + batch_ID4 +"/raw_images/642708.svs"]
 
-   # Possible slides for NONO, STAG, etc.
-   batch_ID5 = "/NONO_March2018/"
-   folder_im += [base_path + batch_ID5 +"/raw_images/"]
-   folder_cnt += [base_path + batch_ID5 + "/Analysed_slides/Analysed_"]
-   training_dat += [base_path + batch_ID5 +"/raw_images/627193.svs", base_path + batch_ID5 +"/raw_images/627187.svs"]
+#   # Possible slides for NONO, STAG, etc.
+#   batch_ID5 = "/NONO_March2018/"
+#   folder_im += [base_path + batch_ID5 +"/raw_images/"]
+#   folder_cnt += [base_path + batch_ID5 + "/Analysed_slides/Analysed_"]
+#   training_dat += [base_path + batch_ID5 +"/raw_images/627193.svs", base_path + batch_ID5 +"/raw_images/627187.svs"]
 
-   batch_ID6 = "/STAG_March2018/"
-   folder_im += [base_path + batch_ID6 +"/raw_images/"]
-   folder_cnt += [base_path + batch_ID6 + "/Analysed_slides/Analysed_"]
-   training_dat += [base_path + batch_ID6 +"/raw_images/601160.svs", base_path + batch_ID6 +"/raw_images/601177.svs"]
+#   batch_ID6 = "/STAG_March2018/"
+#   folder_im += [base_path + batch_ID6 +"/raw_images/"]
+#   folder_cnt += [base_path + batch_ID6 + "/Analysed_slides/Analysed_"]
+#   training_dat += [base_path + batch_ID6 +"/raw_images/601160.svs", base_path + batch_ID6 +"/raw_images/601177.svs"]
 
    ###############################################################
 
