@@ -40,10 +40,12 @@ View the help with "python run\_script.py -h" to see all available options.
 
 Note: if running on a GPU and you receive an out-of-memory error, try reducing the "input\_size" in DNN/params.py (in nice powers of 2 so that downsampling always creates an integer size: 128, 256, 512, 1024...)
 
-Manually curate a list of clones by running manual\_clone\_curation.py and pointing it at the output folder for a given slide (a folder of the form Analysed\_XXXXX).
-
-Again, "python manual\_clone\_curation.py -h" will show the help text.
-
 ---
 
+# Analysing the output
 
+Manually curate a list of clones by running manual\_clone\_curation.py and pointing it at the output folder for a given slide (a folder of the form Analysed\_XXXXX). Again, "python manual\_clone\_curation.py -h" will show the help text.
+
+Crypt, clone and clone patch counts can be found in /path/to/svs/slides/slide\_counts.csv and the clone counts will be updated when manual curation is performed using manual\_clone\_curation.py.
+
+Contours for crypts, clones and patches can be loaded into QuPath using the automatically generated project script load\_contours.groovy within which a variable CLONE\_THRESHOLD can be tweaked to plot clones about which the algorithm was either more certain (CLONE\_THRESHOLD -> 1) or less certain (CLONE\_THRESHOLD -> 0.05). Setting a clone threshold of CLONE\_THRESHOLD = 0 will plot even those clones that were removed during manual curation. 
