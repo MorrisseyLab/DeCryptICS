@@ -9,7 +9,7 @@ import tensorflow as tf
 from keras import backend as K
 import cv2, os, time
 import numpy as np
-import pyvips
+#import pyvips
 import keras
 import pickle
 from keras.preprocessing.image import img_to_array
@@ -18,30 +18,13 @@ import DNN.params as params
 from deconv_mat               import *
 from automaticThresh_func     import calculate_deconvolution_matrix_and_ROI, find_deconmat_fromtiles
 from MiscFunctions            import simplify_contours, col_deconvol_and_blur2, mkdir_p, write_clone_image_snips
-from MiscFunctions            import getROI_img_vips, add_offset, write_cnt_text_file, plot_img, rescale_contours, write_score_text_file
+from MiscFunctions            import getROI_img_osl, add_offset, write_cnt_text_file, plot_img, rescale_contours, write_score_text_file
 from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt
 from multicore_morphology     import getForeground_mc
 from GUI_ChooseROI_class      import getROI_svs
 from Segment_clone_from_crypt import find_clone_statistics, combine_feature_lists, determine_clones, determine_clones_gridways
 from Segment_clone_from_crypt import subset_clone_features, add_xy_offset_to_clone_features, write_clone_features_to_file
 from knn_prune                import remove_tiling_overlaps_knn
-
-## test
-#num_cores = 16
-#GPU = True
-#CPU = False
-#if GPU:
-#    num_GPU = 1
-#    num_CPU = 1
-#if CPU:
-#    num_CPU = 1
-#    num_GPU = 0
-#
-#config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
-#        inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
-#        device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
-#session = tf.Session(config=config)
-#K.set_session(session)
 
 # Load DNN model
 model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
@@ -97,7 +80,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
       for j in range(y_tiles):
          xy_vals = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
          wh_vals = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
-         img     = getROI_img_vips(file_name, xy_vals, wh_vals, level = 1)
+         img     = getROI_img_osl(file_name, xy_vals, wh_vals, level = 1)
          x_batch = [img]
          x_batch = np.array(x_batch, np.float32) / 255.
 
@@ -118,7 +101,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
             bigxy = tuple(np.asarray([xy_vals[0]*scaling_val, xy_vals[1]*scaling_val], dtype=int))
             bigwh = tuple(np.asarray([wh_vals[0]*scaling_val, wh_vals[1]*scaling_val], dtype=int))
             rs_cnts = rescale_contours(newcnts, scaling_val)
-            img = getROI_img_vips(file_name, bigxy, bigwh, level = 0)
+            img = getROI_img_osl(file_name, bigxy, bigwh, level = 0)
             img_nuc, img_clone = get_channel_images_for_clone_finding(img, deconv_mat)
             clone_features = find_clone_statistics(rs_cnts, img_nuc, img_clone, nbins)
             clone_features = add_xy_offset_to_clone_features(clone_features, bigxy) # xy now untiled and in original unscaled coordinates

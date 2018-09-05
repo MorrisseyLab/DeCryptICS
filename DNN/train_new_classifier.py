@@ -24,7 +24,6 @@ from PIL import Image
 import io
 import keras.callbacks as KC
 
-
 num_cores = 12
 GPU = True
 CPU = False
@@ -104,7 +103,7 @@ def make_image(tensor):
     Copied from https://github.com/lanpa/tensorboard-pytorch/
     """
     height, width, channel = tensor.shape
-    image = Image.fromarray(tensor)
+    image = Image.fromarray((tensor*255).astype(np.uint8))
     output = io.BytesIO()
     image.save(output, format='PNG')
     image_string = output.getvalue()
@@ -126,15 +125,16 @@ class TensorBoardImage(KC.Callback):
       for i in range(len(self.tags)):
          batch = self.test_image_batches[i]
          tag = self.tags[i]
-         pred = model.predict(batch)         
-         image = make_image(batch[0])
-         pp = make_image(pred[0,:,:,:])
-         
+         pred = model.predict(batch)
+         pred1 = np.zeros(batch[0].shape, dtype=np.float32)
+         pred2 = np.zeros(batch[0].shape, dtype=np.float32)
+         for i in range(3):
+            pred1[:,:,i] = pred[0,:,:,0]
+            pred2[:,:,i] = pred[0,:,:,1]
+         output = np.hstack([batch[0], pred1, pred2])
+         image = make_image(output)
          summary_i = tf.Summary(value=[tf.Summary.Value(tag=tag, image=image)])
          writer.add_summary(summary_i, epoch)
-         summary_p = tf.Summary(value=[tf.Summary.Value(tag="pred_"+tag, image=pp)])
-         writer.add_summary(summary_p, epoch)
-         
       writer.close()
       return
 
@@ -142,28 +142,28 @@ if __name__=="__main__":
    base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
    
    ## Loading old weights into all but the final layer
-   #model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
-   #model.load_weights("./DNN/weights/tile256_for_X_best_weights.hdf5")
+   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
+   model.load_weights("./DNN/weights/tile256_for_X_best_weights.hdf5")
 
    # Getting weights layer by layer
-   #weights_frozen = [l.get_weights() for l in model.layers]
+   weights_frozen = [l.get_weights() for l in model.layers]
 
    # Redefine new network with new classification
    model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=2)
-   model.load_weights(base_folder+"/weights/cryptandfufi_weights_masking.hdf5")
+   #model.load_weights(base_folder+"/weights/cryptandfufi_weights_masking2.hdf5")
 
-#   # Add in old weights
-#   numlayers = len(model.layers)
-#   for i in range(numlayers-1):
-#      model.layers[i].set_weights(weights_frozen[i])
+   # Add in old weights
+   numlayers = len(model.layers)
+   for i in range(numlayers-1):
+      model.layers[i].set_weights(weights_frozen[i])
 
-#   w_elems = []
-#   w_f_elems = weights_frozen[-1]
-#   for i in range(len(model.layers[-1].get_weights())):
-#      w_elems.append(model.layers[-1].get_weights()[i])   
-#   w_elems[0][:,:,:,0] = w_f_elems[0][:,:,:,0]
-#   w_elems[1][0] = w_f_elems[1][0]   
-#   model.layers[-1].set_weights(w_elems)
+   w_elems = []
+   w_f_elems = weights_frozen[-1]
+   for i in range(len(model.layers[-1].get_weights())):
+      w_elems.append(model.layers[-1].get_weights()[i])   
+   w_elems[0][:,:,:,0] = w_f_elems[0][:,:,:,0]
+   w_elems[1][0] = w_f_elems[1][0]   
+   model.layers[-1].set_weights(w_elems)
 
    # Freeze all layer but the last classification convolution (as difficult to freeze a subset of parameters within a layer -- but can load them back in afterwards)
 #   for layer in model.layers[:-1]:
@@ -199,7 +199,12 @@ if __name__=="__main__":
       test_batches.append(np.array([test_images[i]], np.float32) / 255.)
    test_tags = list(np.asarray(range(len(test_batches))).astype(str))
    
+   ## subset samples for tensorboard test
+   images = [base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png", base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png", base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png", base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png", base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png"]
+   
+   
    weights_name = base_folder+'/weights/cryptandfufi_weights_masking3.hdf5'
+   #weights_name = base_folder+'/weights/tensorboardimagetest.hdf5'
    
    callbacks = [EarlyStopping(monitor='loss', patience=10, verbose=1, min_delta=1e-8),
                 ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, epsilon=1e-8),

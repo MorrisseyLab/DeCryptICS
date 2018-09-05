@@ -7,7 +7,7 @@ Created on Tue Aug  7 10:06:10 2018
 """
 import cv2, glob, os, errno
 import numpy as np
-import pyvips
+#import pyvips
 
 def get_tile_indices(maxvals, overlap = 200, SIZE = (1024, 1024)):
     all_indx = []
@@ -81,44 +81,5 @@ if __name__=="__main__":
             wh_vals = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
             img1    = img[xy_vals[1]:(xy_vals[1]+wh_vals[1]) , xy_vals[0]:(xy_vals[0]+wh_vals[0])]
             outfile = name + '_tile' + str(i) + '_' + str(j) + '.png'
-            cv2.imwrite(outpath_i + outfile, img1)
-
-
-   # Pyvips SLOW IMPLEMENTATION
-#   # load pre-masks
-#   dnnpath = "/home/doran/Work/py_code/zoomed_out_DeCryptICS/DNN/input"
-#   outpath = dnnpath + "/pre-mask/"
-#   inpath = outpath + "all_stains/"
-#   imfiles = glob.glob(inpath + "*.png")
-#   # run processing and save
-#   for path in imfiles:
-#      img = pyvips.Image.new_from_file(path)
-#      name = path.split('/')[-1].split('.')[0]
-#      n = int(img.width/float(newsize))
-#      for x in range(n):
-#         for y in range(n):
-#            img1 = img.crop(x*newsize, y*newsize , newsize , newsize)
-#            outfile = name + '_tile' + str(x) + str(y) + '.png'
-#            img1.write_to_file(outpath + outfile)
-#            
-#   # load training images
-#   dnnpath = "/home/doran/Work/py_code/zoomed_out_DeCryptICS/DNN/input"
-#   outpath = dnnpath + "/train/"
-#   inpath = outpath + "all_stains/"
-#   imfiles = glob.glob(inpath + "*.png")
-
-#   # run processing and save
-#   for path in imfiles:
-#      img = pyvips.Image.new_from_file(path)
-#      name = path.split('/')[-1].split('.')[0]
-#      n = int(img.width/float(newsize))
-#      for x in range(n):
-#         for y in range(n):
-#            img1 = img.crop(x*newsize, y*newsize , newsize , newsize)
-#            outfile = name + '_tile' + str(x) + str(y) + '.png'
-#            img1.write_to_file(outpath + outfile)
-#            
-#            
-            
-            
+            cv2.imwrite(outpath_i + outfile, img1)            
 

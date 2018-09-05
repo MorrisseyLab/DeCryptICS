@@ -72,7 +72,7 @@ def dice_loss(y_true, y_pred):
     return loss
 
 def bce_dice_loss(y_true, y_pred):
-    loss = binary_crossentropy(y_true_s, y_pred_s) + dice_loss(y_true_s, y_pred_s)
+    loss = binary_crossentropy(y_true, y_pred) + dice_loss(y_true, y_pred)
     return loss
 
 

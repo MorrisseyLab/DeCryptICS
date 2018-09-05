@@ -2,7 +2,7 @@ import tensorflow as tf
 from keras import backend as K
 import cv2, os, time
 import numpy as np
-import pyvips
+#import pyvips
 import keras
 import pickle
 from keras.preprocessing.image import img_to_array

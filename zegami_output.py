@@ -8,7 +8,7 @@ Created on Thurs July 26 11:24:02 2018
 ## Outputting data for Zugami
 
 import cv2, os
-from MiscFunctions import getROI_img_vips, plot_img, read_cnt_text_file
+from MiscFunctions import getROI_img_osl, plot_img, read_cnt_text_file
 from GUI_ChooseROI_class      import getROI_svs
 
 def zegami_output(crypt_contours, cfl, signal_width, local_scores, file_name, folder_to_analyse, save_images=False):
@@ -45,7 +45,7 @@ def zegami_output(crypt_contours, cfl, signal_width, local_scores, file_name, fo
          roi           = cv2.boundingRect(cnt_i)
          roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box))
          roi[roi<1]   = 0
-         img_ROI       = getROI_img_vips(file_name, (roi[0],roi[1]), (roi[2],roi[3]))
+         img_ROI       = getROI_img_osl(file_name, (roi[0],roi[1]), (roi[2],roi[3]))
          outfile = img_filenames + str(i) + ".png"
          cv2.imwrite(outfile, img_ROI)
          i += 1

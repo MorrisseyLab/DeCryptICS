@@ -6,7 +6,7 @@ Created on Fri Jul 24 10:49:10 2015
 """
 import numpy as np
 import pickle, os, time
-from MiscFunctions              import getROI_img_vips, getIndexesTileImage, add_offset
+from MiscFunctions              import getROI_img_osl, getIndexesTileImage, add_offset
 from MiscFunctions              import write_cnt_text_file, read_cnt_text_file, simplify_contours
 from GUI_ChooseROI_class        import getROI_svs
 from cnt_Feature_Functions      import joinContoursIfClose_OnlyKeepPatches
@@ -25,7 +25,7 @@ def GetThresholdsPrepareRun(full_path, file_in, folder_out, clonal_mark_type):
     
     #xyhw = auto_choose_ROI(full_path, clonal_mark_type, plot_images = False)
     xy, wh, deconv_mat = calculate_deconvolution_matrix_and_ROI(full_path, clonal_mark_type)
-    img_for_thresh = getROI_img_vips(full_path, xy, wh)
+    img_for_thresh = getROI_img_osl(full_path, xy, wh)
     thresh_cut_nucl, thresh_cut_nucl_blur, th_clone = calculate_thresholds(img_for_thresh, deconv_mat)
     thresh_three = (thresh_cut_nucl, thresh_cut_nucl_blur, th_clone)
 
@@ -63,7 +63,7 @@ def SegmentFromFolder(folder_name, clonal_mark_type, find_clones = False):
       for j in range(y_tiles):
          xy_vals     = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
          wh_vals     = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
-         img         = getROI_img_vips(full_path, xy_vals, wh_vals)
+         img         = getROI_img_osl(full_path, xy_vals, wh_vals)
          newcnts, clone_features = Segment_crypts(img, thresh_cut, deconv_mat, nbins, find_clones)    
                  
          ## Add x, y tile offset to all contours (which have been calculated from a tile) for use in full image 

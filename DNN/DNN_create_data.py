@@ -7,7 +7,7 @@ Created on Fri Mar  2 13:49:03 2018
 """
 
 from GUI_ChooseROI_class import getROI_svs
-from MiscFunctions import getROI_img_vips, plot_img, read_cnt_text_file
+from MiscFunctions import getROI_img_osl, plot_img, read_cnt_text_file
 import os, glob
 import cv2
 import numpy as np
@@ -112,8 +112,8 @@ if __name__=="__main__":
        # Read on whole .svs slide
        filename = training_dat[i]
        if (filename[-4:]==".svs"):
-           obj_svs  = getROI_svs(filename , get_roi_plot = False)
-           img      = getROI_img_vips(filename, (0,0),  obj_svs.dims_slides[0])
+           obj_svs  = getROI_svs(filename, get_roi_plot = False)
+           img      = getROI_img_osl(filename, (0,0),  obj_svs.dims_slides[0])
            xshape = obj_svs.dims_slides[0][1] # cols
            yshape = obj_svs.dims_slides[0][0] # rows
            xshape_unzoom = obj_svs.dims_slides[1][1] # cols

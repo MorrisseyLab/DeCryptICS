@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 from MiscFunctions import plot_img
 from MiscFunctions import getIndexesTileImage, plot_histogram
 from MiscFunctions import col_deconvol, col_deconvol_32, plot_img
-from MiscFunctions import getROI_img_vips, col_deconvol_and_blur
+from MiscFunctions import getROI_img_osl, col_deconvol_and_blur
 import openslide as osl
 from sklearn               import mixture
 from cnt_Feature_Functions import filterSmallArea, st_3, plotSegmented
@@ -93,7 +93,7 @@ def auto_choose_ROI(file_name, deconv_mat, plot_images = False):
     smallImage  = len(dims_slides) - 1 
     scalingVals = slide.level_downsamples[-1]
     
-    img_zoom   = getROI_img_vips(file_name, (0,0), slide.level_dimensions[smallImage], level = smallImage)
+    img_zoom   = getROI_img_osl(file_name, (0,0), slide.level_dimensions[smallImage], level = smallImage)
     # Clip edges to get rid of slide artefacts?
     left_edge = int(0.1*img_zoom.shape[1])
     right_edge = int(0.9*img_zoom.shape[1])
@@ -388,7 +388,7 @@ def calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type):
    if (clonal_mark_type.upper()=="N-B"): deconv_mat_ref = deconv_mat_MAOA
    
    xy, wh, cloneFind = auto_choose_ROI(file_name, deconv_mat_ref)
-   img    = getROI_img_vips(file_name, xy, wh)
+   img    = getROI_img_osl(file_name, xy, wh)
    if (cloneFind):
       D      = estimateStains(img, deconv_mat_ref)
    if (not cloneFind):

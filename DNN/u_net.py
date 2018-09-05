@@ -702,10 +702,11 @@ def get_unet_256_for_X(input_shape=(512, 512, 3),
     classify = Conv2D(num_classes, (1, 1), activation='sigmoid')(up0)
 
     model = Model(inputs=inputs, outputs=classify)
-
-    #model.compile(optimizer=RMSprop(lr=0.0001), loss=bce_dice_loss, metrics=[dice_coeff])
-    #model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), metrics=[masked_dice_coeff])
-    model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), metrics=[masked_dice_coeff_perchannel1,masked_dice_coeff_perchannel2])
+    if (num_classes==1):
+      model.compile(optimizer=RMSprop(lr=0.0001), loss=bce_dice_loss, metrics=[dice_coeff])
+    else:
+       #model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), metrics=[masked_dice_coeff])
+       model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), metrics=[masked_dice_coeff_perchannel1,masked_dice_coeff_perchannel2])
 
     return model    
     

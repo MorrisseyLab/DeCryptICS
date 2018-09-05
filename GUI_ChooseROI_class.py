@@ -4,7 +4,7 @@ Created on Fri Jul 24 11:48:24 2015
 
 @author: edward
 """
-from MiscFunctions import getROI_img_vips
+from MiscFunctions import getROI_img_osl
 import openslide as osl
 import cv2
 import numpy as np
@@ -23,7 +23,7 @@ class getROI_svs:
         self.roi_full_thmb = [(0, 0), slide.level_dimensions[smallImage]] ## Start wi
         self.roi1          = [(0, 0), slide.level_dimensions[smallImage]] ## Start wi       
         self.scalingVal    = slide.level_downsamples[smallImage]
-        self.img_zoom      = getROI_img_vips(svs_filename, (0,0), slide.level_dimensions[smallImage], level = smallImage)
+        self.img_zoom      = getROI_img_osl(svs_filename, (0,0), slide.level_dimensions[smallImage], level = smallImage)
 #        self.img_zoom      = slide.read_region((0,0), smallImage, slide.level_dimensions[smallImage])
 #        self.img_zoom      = cv2.cvtColor(np.asarray(self.img_zoom)[:,:,0:3], cv2.COLOR_RGB2BGR)
         self.chosenROI = []
@@ -35,7 +35,7 @@ class getROI_svs:
 #        ROI_zoom      = self.getROI('Zoom', 5, minSize)
         start_indx    = (int(self.chosenROI[0][0]*self.scalingVal), int(self.chosenROI[0][1]*self.scalingVal))
         delta_s       = (int(self.chosenROI[1][0]*self.scalingVal) - start_indx[0], int(self.chosenROI[1][1]*self.scalingVal) - start_indx[1])
-        img_big       = getROI_img_vips(self.svs_filename, start_indx, delta_s)
+        img_big       = getROI_img_osl(self.svs_filename, start_indx, delta_s)
         return(img_big)
         
     def getROI(self, win_name, size_line, minSize):

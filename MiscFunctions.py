@@ -9,7 +9,8 @@ from __future__ import division
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-import pyvips
+#import pyvips
+import openslide as osl
 import h5py
 import os, errno
 
@@ -71,7 +72,7 @@ def write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scalin
       roi           = cv2.boundingRect(cc)
       roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box))
       roi[roi<1]   = 0
-      img_ROI       = getROI_img_vips(file_name, (roi[0],roi[1]), (roi[2],roi[3]), level=0) # or level=1?
+      img_ROI       = getROI_img_osl(file_name, (roi[0],roi[1]), (roi[2],roi[3]), level=0) # or level=1?
       outfile = "/clone_" + str(i) + ".png"
       cv2.imwrite(imgout + outfile, img_ROI)
       i += 1
@@ -295,27 +296,23 @@ def correct_wh(max_vals, xy_vals, wh_vals):
     if final_y > max_vals[1] : new_wh_y = max_vals[1] - xy_vals[1]
     return new_wh_x, new_wh_y
 
-def writeFileVips(img, file_name):
-    str_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).tostring()
-    z = pyvips.Image.new_from_memory(str_img, img.shape[1], img.shape[0], 3, pyvips.BandFormat.UCHAR)
-    z.write_to_file(file_name + ".tif[bigtiff]")    
+#def getROI_img_vips(file_name, x_y, w_h, level = 0):
+#    vim           = pyvips.Image.openslideload(file_name, level = level)   #openslideload
+#    max_vals      = (vim.width, vim.height)
+#    max_vals      = vim.dimensions
+#    wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors 
+#    area          = vim.extract_area(x_y[0], x_y[1], wh_vals_final[0], wh_vals_final[1])
+#    size          = (area.width, area.height)
+#    data          = area.write_to_memory()
+#    new_img       = np.fromstring(data, dtype=np.uint8).reshape(size[1], size[0], 4)  ## Remove alpha channel  
+#    new_img       = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
+#    return new_img
 
-def readFileVips(file_name):
-    im      = pyvips.Image.new_from_file(file_name)
-    area    = im.extract_area(0, 0, im.width, im.height)
-    data    = area.write_to_memory()
-    new_img = np.fromstring(data, dtype=np.uint8).reshape(im.height, im.width, im.bands)  ## Remove alpha channel  
-    new_img = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
-    return new_img
-
-def getROI_img_vips(file_name, x_y, w_h, level = 0):
-    vim           = pyvips.Image.openslideload(file_name, level = level)   #openslideload
-    max_vals      = (vim.width, vim.height)
+def getROI_img_osl(file_name, x_y, w_h, level = 0):
+    vim           = osl.OpenSlide(file_name)
+    max_vals      = vim.dimensions
     wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors 
-    area          = vim.extract_area(x_y[0], x_y[1], wh_vals_final[0], wh_vals_final[1])
-    size          = (area.width, area.height)
-    data          = area.write_to_memory()
-    new_img       = np.fromstring(data, dtype=np.uint8).reshape(size[1], size[0], 4)  ## Remove alpha channel  
+    new_img = np.array(vim.read_region(location = x_y, level = level, size = w_h))
     new_img       = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
     return new_img
     
@@ -378,10 +375,3 @@ def plotImageAndFit(indx_True, indx_on, crypt_cnt_raw, img, indx_subset = None):
     cv2.drawContours(img_plot, crypt_cnt_mine, -1, (255,  0,   0),  6) 
     plot_img(img_plot, hold_plot=True)
 
-#def write_cnt_binary_file(cnt_list, file_name):
-#    with open(file_name, 'wb') as outfile:
-#        for i in range(len(cnt_list)):
-#            cnt_i_bytes_x = bytearray(cnt_list[i][:,0,0])
-#            cnt_i_bytes_y = bytearray(cnt_list[i][:,0,1])
-#            outfile.write(cnt_i_bytes_x)
-#            outfile.write(cnt_i_bytes_y)    
