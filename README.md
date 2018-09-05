@@ -1,11 +1,9 @@
 # DeCryptICS
 # Deep Crypt Image Classifier and Segmenter
 
-The tool is currently a work-in-progress.
+The tool is currently a work-in-progress.  Crypt counting is fully functional.
 
-Crypt counting is fully functional.
-
-See the install\_instructions.txt file for a step-by-step guide that may help.
+See the install\_instructions.txt file for a step-by-step (Linux) guide that may help.
 
 External dependencies are currently:
 
@@ -33,6 +31,8 @@ Run run\_script.py with an action and the path to the input file list.
 View the help with "python run\_script.py -h" to see all available options.
 
 Manually curate a list of clones by running manual\_clone\_curation.py and pointing it at the output folder for a given slide (a folder of the form Analysed\_XXXXX).
+
+Again, "python manual\_clone\_curation.py -h" will show the help text.
 
 ---
 

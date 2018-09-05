@@ -6,20 +6,24 @@ Created on Tue Mar  6 09:16:23 2018
 @author: doran
 """
 import tensorflow as tf
-from keras import backend as K
-#import keras
+import keras.backend as K
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import DNN.u_net as unet
 import DNN.params as params
+from random           import shuffle
 from DNN.augmentation import plot_img, randomHueSaturationValue, randomShiftScaleRotate, randomHorizontalFlip, fix_mask
-from DNN.losses       import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss, dice_coeff
+from DNN.losses       import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss
+from DNN.losses       import dice_coeff, MASK_VALUE, build_masked_loss, masked_accuracy, masked_dice_coeff
 from keras.callbacks  import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
-from keras.preprocessing.image import img_to_array
 from keras.optimizers import RMSprop
-from random import shuffle
+from keras.preprocessing.image import img_to_array
+from PIL import Image
+import io
+import keras.callbacks as KC
+
 
 num_cores = 12
 GPU = True
@@ -44,28 +48,19 @@ epochs = params.max_epochs
 batch_size = params.batch_size
 
 # Processing function for the training data
-def train_process(data, check_class=True):
+def train_process(data):
    img_f, mask_f = data
    img = cv2.imread(img_f, cv2.IMREAD_COLOR)
    if (not img.shape==SIZE): img = cv2.resize(img, SIZE)
-   if (not check_class==True):
-      mask = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
-      if (not mask.shape==SIZE): mask = cv2.resize(mask, SIZE)
-   if (check_class==True):
-      mask = np.zeros([img.shape[0], img.shape[1], 2]) # for two classifications
-      mc = cv2.imread(mask_f+"crypt.png", cv2.IMREAD_GRAYSCALE)
-      mf = cv2.imread(mask_f+"fufi.png", cv2.IMREAD_GRAYSCALE)
-      mfb = cv2.imread(mask_f+"fufi_black.png", cv2.IMREAD_GRAYSCALE)
-      mask[:,:,0] = mc # 1 is reversed
-      #mask[:,:,0] = mf # 0 is reversed
-      mask[:,:,1].fill(np.nan) # 0 is reversed
-      
-#      if (mask_f.split('/')[-1][:4]=="mask"):
-#         mask[:,:,0] = mm
-#         mask[:,:,1].fill(np.nan)
-#      elif (mask_f.split('/')[-1][:4]=="fufi"):
-#         mask[:,:,0].fill(np.nan)
-#         mask[:,:,1] = mm
+   
+   mask = np.zeros([img.shape[0], img.shape[1], 2]) # for two classifications
+   
+   # choose which channel to load mask into
+   if (mask_f.split('/')[-1].split('.')[-2][-5:]=="crypt"):
+      mask[:,:,0] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+   elif (mask_f.split('/')[-1].split('.')[-2][-4:]=="fufi"):
+      mask[:,:,1] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+
    img = randomHueSaturationValue(img,
                                 hue_shift_limit=(-100, 100),
                                 sat_shift_limit=(0, 0),
@@ -75,8 +70,17 @@ def train_process(data, check_class=True):
                                     scale_limit=(-0.1, 0.1),
                                     rotate_limit=(-20, 20))
    img, mask = randomHorizontalFlip(img, mask)
-   fix_mask(mask)
+   #fix_mask(mask)
    #mask = np.expand_dims(mask, axis=2)
+   
+   ## Need to make masking values on outputs in float32 space, as uint8 arrays can't deal with it
+   img = img.astype(np.float32) / 255
+   mask = mask.astype(np.float32) / 255
+   # choose which channel to mask (i.e. all other channels are masked)
+   if (mask_f.split('/')[-1].split('.')[-2][-5:]=="crypt"):
+      mask[:,:,1].fill(MASK_VALUE)
+   elif (mask_f.split('/')[-1].split('.')[-2][-4:]=="fufi"):
+      mask[:,:,0].fill(MASK_VALUE)   
    return (img, mask)
 
 def train_generator():
@@ -90,144 +94,119 @@ def train_generator():
                 img, mask = train_process(ids)
                 x_batch.append(img)
                 y_batch.append(mask)
-            x_batch = np.array(x_batch, np.float32) / 255
-            y_batch = np.array(y_batch, np.float32) / 255
+            x_batch = np.array(x_batch)
+            y_batch = np.array(y_batch)
             yield x_batch, y_batch
+
+def make_image(tensor):
+    """
+    Convert an numpy representation image to Image protobuf.
+    Copied from https://github.com/lanpa/tensorboard-pytorch/
+    """
+    height, width, channel = tensor.shape
+    image = Image.fromarray(tensor)
+    output = io.BytesIO()
+    image.save(output, format='PNG')
+    image_string = output.getvalue()
+    output.close()
+    return tf.Summary.Image(height=height,
+                            width=width,
+                            colorspace=channel,
+                            encoded_image_string=image_string)
+
+class TensorBoardImage(KC.Callback):
+   def __init__(self, log_dir='./logs', tags=[], test_image_batches=[]):
+      super().__init__()
+      self.tags = tags
+      self.log_dir = log_dir
+      self.test_image_batches = test_image_batches
+
+   def on_epoch_end(self, epoch, logs=None):
+      writer = tf.summary.FileWriter(self.log_dir)
+      for i in range(len(self.tags)):
+         batch = self.test_image_batches[i]
+         tag = self.tags[i]
+         pred = model.predict(batch)         
+         image = make_image(batch[0])
+         pp = make_image(pred[0,:,:,:])
+         
+         summary_i = tf.Summary(value=[tf.Summary.Value(tag=tag, image=image)])
+         writer.add_summary(summary_i, epoch)
+         summary_p = tf.Summary(value=[tf.Summary.Value(tag="pred_"+tag, image=pp)])
+         writer.add_summary(summary_p, epoch)
+         
+      writer.close()
+      return
 
 if __name__=="__main__":
    base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
    
    ## Loading old weights into all but the final layer
-   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
-   model.load_weights("./DNN/weights/tile256_for_X_best_weights.hdf5")
+   #model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
+   #model.load_weights("./DNN/weights/tile256_for_X_best_weights.hdf5")
 
    # Getting weights layer by layer
-   weights_frozen = [l.get_weights() for l in model.layers]
+   #weights_frozen = [l.get_weights() for l in model.layers]
 
-   # Redefine new network with new classification (here we are using just one class, to then copy into a 2-class network later)
+   # Redefine new network with new classification
    model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=2)
+   model.load_weights(base_folder+"/weights/cryptandfufi_weights_masking.hdf5")
 
-   # Add in old weights, not including final layer
-   numlayers = len(model.layers)
-   for i in range(numlayers-1):
-      model.layers[i].set_weights(weights_frozen[i])
+#   # Add in old weights
+#   numlayers = len(model.layers)
+#   for i in range(numlayers-1):
+#      model.layers[i].set_weights(weights_frozen[i])
 
-   w_elems = []
-   w_f_elems = weights_frozen[-1]
-   for i in range(len(model.layers[-1].get_weights())):
-      w_elems.append(model.layers[-1].get_weights()[i])   
-   w_elems[0][:,:,:,0] = w_f_elems[0][:,:,:,0]
-   w_elems[1][0] = w_f_elems[1][0]
-   # set new class weights to zero as known base line
-   w_elems[0][:,:,:,1] = 0
-   w_elems[1][1] = 0
-   # and cryptfinding to zero for test
-   w_elems[0][:,:,:,0] = 0
-   w_elems[1][0] = 0
-   
-   model.layers[-1].set_weights(w_elems)
-   old_weights = model.layers[-1].get_weights()
+#   w_elems = []
+#   w_f_elems = weights_frozen[-1]
+#   for i in range(len(model.layers[-1].get_weights())):
+#      w_elems.append(model.layers[-1].get_weights()[i])   
+#   w_elems[0][:,:,:,0] = w_f_elems[0][:,:,:,0]
+#   w_elems[1][0] = w_f_elems[1][0]   
+#   model.layers[-1].set_weights(w_elems)
 
    # Freeze all layer but the last classification convolution (as difficult to freeze a subset of parameters within a layer -- but can load them back in afterwards)
-   for layer in model.layers[:-1]:
-      layer.trainable = False
-   # To check whether we have successfully frozen layers, check model.summary() before and after re-compiling
-   model.compile(optimizer=RMSprop(lr=0.0001), loss=bce_dice_loss, metrics=[dice_coeff])
-
-   # testing missing data masking
-   test_img_f = "/home/doran/Work/py_code/DeCryptICS/DNN/input/test_img.png"
-   test_mask_f = "/home/doran/Work/py_code/DeCryptICS/DNN/input/test_mask_"
-   test_img             = cv2.imread("./DNN/input/test_img.png")
-   test_mask_crypt      = cv2.imread("./DNN/input/test_mask_crypt.png", cv2.IMREAD_GRAYSCALE)
-   test_mask_fufi       = cv2.imread("./DNN/input/test_mask_fufi.png", cv2.IMREAD_GRAYSCALE)
-   test_mask_fufi_black = cv2.imread("./DNN/input/test_mask_fufi_black.png", cv2.IMREAD_GRAYSCALE)
-   samples = [(test_img_f, test_mask_f)]
-   
-   model.load_weights(base_folder+'/weights/fufi_weights_nan.hdf5')
-   nanweights = model.layers[-1].get_weights()
-   model.load_weights(base_folder+'/weights/fufi_weights_f.hdf5')
-   fweights = model.layers[-1].get_weights()
-   #model.load_weights(base_folder+'/weights/fufi_weights_fb.hdf5')
-   #fbweights = model.layers[-1].get_weights()
-   model.load_weights(base_folder+'/weights/fufi_weights_nan_r.hdf5')
-   nanweights_r = model.layers[-1].get_weights()
-   model.load_weights(base_folder+'/weights/fufi_weights_f_r.hdf5')
-   fweights_r = model.layers[-1].get_weights()
-   #model.load_weights(base_folder+'/weights/fufi_weights_fb_r.hdf5')
-   #fbweights_r = model.layers[-1].get_weights()
-   
-   diffnan1 = old_weights[0][0,0,:,1] - nanweights[0][0,0,:,1]
-   diffnan2 = old_weights[1][1] - nanweights[1][1]
-   difff1 = old_weights[0][0,0,:,1] - fweights[0][0,0,:,1]
-   difff2 = old_weights[1][1] - fweights[1][1]
-   #difffb1 = old_weights[0][0,0,:,1] - fbweights[0][0,0,:,1]
-   #difffb2 = old_weights[1][1] - fbweights[1][1]
-   
-   diffnan1_r = old_weights[0][0,0,:,1] - nanweights_r[0][0,0,:,1]
-   diffnan2_r = old_weights[1][1] - nanweights_r[1][1]
-   difff1_r = old_weights[0][0,0,:,1] - fweights_r[0][0,0,:,1]
-   difff2_r = old_weights[1][1] - fweights_r[1][1]
-   #difffb1_r = old_weights[0][0,0,:,1] - fbweights_r[0][0,0,:,1]
-   #difffb2_r = old_weights[1][1] - fbweights_r[1][1]
-   
-   cdiffnan1 = old_weights[0][0,0,:,0] - nanweights[0][0,0,:,0]
-   cdiffnan2 = old_weights[1][0] - nanweights[1][0]
-   cdifff1 = old_weights[0][0,0,:,0] - fweights[0][0,0,:,0]
-   cdifff2 = old_weights[1][0] - fweights[1][0]
-   #cdifffb1 = old_weights[0][0,0,:,0] - fbweights[0][0,0,:,0]
-   #cdifffb2 = old_weights[1][0] - fbweights[1][0]   
-
-   cdiffnan1_r = old_weights[0][0,0,:,0] - nanweights_r[0][0,0,:,0]
-   cdiffnan2_r = old_weights[1][0] - nanweights_r[1][0]
-   cdifff1_r = old_weights[0][0,0,:,0] - fweights_r[0][0,0,:,0]
-   cdifff2_r = old_weights[1][0] - fweights_r[1][0]
-   #cdifffb1_r = old_weights[0][0,0,:,0] - fbweights_r[0][0,0,:,0]
-   #cdifffb2_r = old_weights[1][0] - fbweights_r[1][0]   
-
-   # We see that for the NaN output masking, both end weights are changed
-   # by the same amount, whereas for the non NaN ouputs the change in the
-   # weights is different.  Then-- is the NaN masking doing what we want,
-   # and the relative change of zero is to preserve the gradients in the
-   # classification?
-
-   # Set up training data
-   
-   imgfolder = base_folder + "/input/fufis/train/"
-   maskfolder = base_folder + "/input/fufis/train_masks/"
+#   for layer in model.layers[:-1]:
+#      layer.trainable = False
+#   # To check whether we have successfully frozen layers, check model.summary() before and after re-compiling
+#   model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), metrics=[masked_dice_coeff])
+  
+   # Set up training data   
+   imgfolder = base_folder + "/input/train/"
+   maskfolder = base_folder + "/input/train_masks/"
    images = glob.glob(imgfolder + "*.png")
-   #masks = glob.glob(maskfolder + "*.png")
    samples = []
+   #masks = glob.glob(maskfolder + "*.png")
    #for i in range(len(masks)):
-   for i in range(len(images)):
-      #mask = maskfolder+"mask"+images[i][(len(imgfolder)+3):] # when images have "img_" prefix
-      #sample = (images[i], mask)
       #img = imgfolder+"img"+masks[i][(len(maskfolder)+4):]
       #sample = (img, masks[i])
-      mask = maskfolder+"mask_"+images[i][len(imgfolder):] # when images don't have "img_" prefix
+      #samples.append(sample)
+   for i in range(len(images)):
+      mask = maskfolder+"mask"+images[i][(len(imgfolder)+3):]
       sample = (images[i], mask)
       samples.append(sample)
    shuffle(samples)
+   
+   # Define test image batches for TensorBoard checking
+   test_img1 = cv2.imread(base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png")
+   test_img2 = cv2.imread(base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png")
+   test_img3 = cv2.imread(base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png")
+   test_img4 = cv2.imread(base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png")
+   test_img5 = cv2.imread(base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png")
+   test_images = [test_img1, test_img2, test_img3, test_img4, test_img5]
+   test_batches = []
+   for i in range(len(test_images)):
+      test_batches.append(np.array([test_images[i]], np.float32) / 255.)
+   test_tags = list(np.asarray(range(len(test_batches))).astype(str))
+   
+   weights_name = base_folder+'/weights/cryptandfufi_weights_masking3.hdf5'
+   
+   callbacks = [EarlyStopping(monitor='loss', patience=10, verbose=1, min_delta=1e-8),
+                ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, epsilon=1e-8),
+                ModelCheckpoint(monitor='loss', filepath=weights_name, save_best_only=True, save_weights_only=True),
+                TensorBoard(log_dir=base_folder+'logs'),
+                TensorBoardImage(log_dir=base_folder+'logs', tags=test_tags, test_image_batches=test_batches)]
+                
+   model.fit_generator(generator=train_generator(), steps_per_epoch=np.ceil(float(len(samples)) / float(batch_size)), epochs=epochs, verbose=1, callbacks=callbacks, validation_data=None)
+   model.save_weights(weights_name)
 
-   callbacks = [EarlyStopping(monitor='loss',
-                            patience=10,
-                            verbose=1,
-                            min_delta=1e-8),
-              ReduceLROnPlateau(monitor='loss',
-                                factor=0.1,
-                                patience=20,
-                                verbose=1,
-                                epsilon=1e-8),
-              ModelCheckpoint(monitor='loss',
-                              filepath=base_folder+'/weights/fufi_weights_nansubset.hdf5',
-                              save_best_only=True,
-                              save_weights_only=True),
-              TensorBoard(log_dir='logs')]
-
-   model.fit_generator(generator=train_generator(),
-                     steps_per_epoch=np.ceil(float(len(samples)) / float(batch_size)),
-                     epochs=epochs,
-                     verbose=1,
-                     callbacks=callbacks,
-                     validation_data=None
-                     )
-     

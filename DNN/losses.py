@@ -2,11 +2,65 @@ from keras.losses import binary_crossentropy
 import keras.backend as K
 import tensorflow as tf
 
-def dice_coeff(y_true, y_pred):
-    #bool_finite = tf.is_finite(y_true)
+MASK_VALUE = -1
+
+def build_masked_loss(loss_function, mask_value=MASK_VALUE):
+    """Builds a loss function that masks based on targets
+
+    Args:
+        loss_function: The loss function to mask
+        mask_value: The value to mask in the targets
+
+    Returns:
+        function: a loss function that acts like loss_function with masked inputs
+    """
+
+    def masked_loss_function(y_true, y_pred):
+        mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+        return loss_function(y_true * mask, y_pred * mask)
+
+    return masked_loss_function
+
+def masked_accuracy(y_true, y_pred, mask_value=MASK_VALUE):
+    mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+    total = K.sum(y_true * mask)
+    correct = K.sum(K.equal(y_true * mask, K.round(y_pred) * mask))
+    return correct / total
+
+def masked_dice_coeff(y_true, y_pred, mask_value=MASK_VALUE):
     smooth = 1.
-    #y_true_f = K.flatten(tf.boolean_mask(y_true, bool_finite))
-    #y_pred_f = K.flatten(tf.boolean_mask(y_pred, bool_finite))
+    mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+    y_true_f = K.flatten(y_true * mask)
+    y_pred_f = K.flatten(y_pred * mask)
+    intersection = K.sum(y_true_f * y_pred_f)
+    score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+    return score
+
+def masked_dice_coeff_perchannel1(y_true, y_pred, mask_value=MASK_VALUE):
+   y_true = y_true[:,:,:,0]
+   y_pred = y_pred[:,:,:,0]
+   smooth = 1.
+   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+   y_true_f = K.flatten(y_true * mask)
+   y_pred_f = K.flatten(y_pred * mask)
+   intersection = K.sum(y_true_f * y_pred_f)
+   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+   return score
+   
+def masked_dice_coeff_perchannel2(y_true, y_pred, mask_value=MASK_VALUE):
+   y_true = y_true[:,:,:,1]
+   y_pred = y_pred[:,:,:,1]
+   smooth = 1.
+   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+   y_true_f = K.flatten(y_true * mask)
+   y_pred_f = K.flatten(y_pred * mask)
+   intersection = K.sum(y_true_f * y_pred_f)
+   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+   return score
+
+
+def dice_coeff(y_true, y_pred):
+    smooth = 1.
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
     intersection = K.sum(y_true_f * y_pred_f)
@@ -17,17 +71,7 @@ def dice_loss(y_true, y_pred):
     loss = 1 - dice_coeff(y_true, y_pred)
     return loss
 
-#def custom_error_function(y_true, y_pred):
-#    bool_finite = T.is_finite(y_true)
-#    return K.mean(K.square( - ), axis=-1)
-
 def bce_dice_loss(y_true, y_pred):
-    print('Slicing first 5 entries, shape is', K.int_shape(y_true))
-    y_true_s = y_true[:,:,0]
-    print('Slicing first 5 entries, shape is', K.int_shape(y_true_s))
-    y_pred_s = y_pred[:,:,0]
-    #bool_finite = tf.is_finite(y_true)
-    #loss = binary_crossentropy(tf.boolean_mask(y_true, bool_finite), tf.boolean_mask(y_pred, bool_finite)) + dice_loss(tf.boolean_mask(y_true, bool_finite), tf.boolean_mask(y_pred, bool_finite))
     loss = binary_crossentropy(y_true_s, y_pred_s) + dice_loss(y_true_s, y_pred_s)
     return loss
 

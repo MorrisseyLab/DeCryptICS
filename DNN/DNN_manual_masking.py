@@ -40,9 +40,11 @@ if __name__=="__main__":
     ## Lowering intensity by one prior to manual masking
     ##########################################################################
     # load image list
-   train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/train/"
+   #train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/train/"
+   train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/pre-mask/"
    flist = glob.glob(train_path+"*.png")
-   mlist = ['/' + os.path.join(*f.split('/')[:-2]) + '/pre-mask/premask_' + f.split('/')[-1] for f in flist]
+   #mlist = ['/' + os.path.join(*f.split('/')[:-2]) + '/pre-mask/premask_' + f.split('/')[-1] for f in flist]
+   mlist = flist
    for i in range(len(flist)):
       img_f = flist[i]
       mask_f = mlist[i]
@@ -58,7 +60,7 @@ if __name__=="__main__":
     inpath = dnnpath + "/pre-mask/"
     outpath = dnnpath + "/train_masks/"
     imfiles = glob.glob(inpath + "*.png")
-    
+
     # run processing and save
     for path in imfiles:
         img = cv2.imread(path, cv2.IMREAD_COLOR)

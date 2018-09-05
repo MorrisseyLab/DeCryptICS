@@ -13,3 +13,6 @@
 *.jpeg
 *.jpg
 *.svs
+
+# Tensorboard logs
+events.out.tfevents.*

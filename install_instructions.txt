@@ -27,17 +27,6 @@ alias shortcut_name="source /full/path/to/install-dir/bin/activate name_of_env"
 source ~/.bashrc
 # now, just typing shortcut_name will activate your new conda environment
 
-## install libvips:
-###################
-git clone git://github.com/jcupitt/libvips.git
-# dependencies:
-sudo apt-get install gtk-doc-tools swig libtool libglib2.0-dev gobject-introspection
-# install:
-./autogen.sh
-make
-sudo make install
-sudo ldconfig
-
 ## install openslide:
 ###################
 wget https://github.com/openslide/openslide/releases/download/v3.4.1/openslide-3.4.1.tar.gz
@@ -47,6 +36,17 @@ cd openslide-3.4.1
 sudo apt-get install libopenjp2-7 libopenjp2-7-dev libtiff5-dev libcairo2-dev libgdk-pixbuf2.0-dev libxml2-dev libsqlite3-dev
 # install:
 ./configure
+make
+sudo make install
+sudo ldconfig
+
+## install libvips:
+###################
+git clone git://github.com/jcupitt/libvips.git
+# dependencies:
+sudo apt-get install gtk-doc-tools swig libtool libglib2.0-dev gobject-introspection
+# install:
+./autogen.sh
 make
 sudo make install
 sudo ldconfig

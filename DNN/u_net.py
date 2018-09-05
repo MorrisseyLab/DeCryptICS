@@ -1,7 +1,9 @@
 from keras.models       import Model
 from keras.layers       import Input, concatenate, Conv2D, MaxPooling2D, Activation, UpSampling2D, BatchNormalization
 from keras.optimizers   import RMSprop
-from DNN.losses       import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss, dice_coeff
+from DNN.losses         import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss, dice_coeff
+from DNN.losses         import build_masked_loss, masked_accuracy, masked_dice_coeff, masked_dice_coeff_perchannel1, masked_dice_coeff_perchannel2
+import keras.backend as K
 
 
 def get_unet_128(input_shape=(128, 128, 3),
@@ -701,7 +703,9 @@ def get_unet_256_for_X(input_shape=(512, 512, 3),
 
     model = Model(inputs=inputs, outputs=classify)
 
-    model.compile(optimizer=RMSprop(lr=0.0001), loss=bce_dice_loss, metrics=[dice_coeff])
+    #model.compile(optimizer=RMSprop(lr=0.0001), loss=bce_dice_loss, metrics=[dice_coeff])
+    #model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), metrics=[masked_dice_coeff])
+    model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), metrics=[masked_dice_coeff_perchannel1,masked_dice_coeff_perchannel2])
 
     return model    
     
