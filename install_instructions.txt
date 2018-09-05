@@ -37,6 +37,7 @@ conda install openslide opencv keras matplotlib scikit-learn numba joblib pandas
 pip install xlrd
 pip install openslide-python
 
+# (More instructions below the optional GPU part -- scroll down!)
 *******************START OPTIONAL*************************
 
 ### install GPU:

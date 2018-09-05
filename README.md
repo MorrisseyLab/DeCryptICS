@@ -3,7 +3,15 @@
 
 The tool is currently a work-in-progress.  Crypt counting is fully functional.
 
-See the install\_instructions.txt file for a step-by-step (Linux) guide that may help.
+Install instructions in brief:
+
+* Install Miniconda and create a conda environment with Python 3.6
+* Run: conda install openslide opencv keras matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
+* Run: pip install xlrd openslide-python
+* Git clone this repository, https://github.com/MorrisseyLab/DeCryptICS.git
+* Download the neural network weights from the Dropbox link listed in install\_instructions.txt and put them in ./DNN/weights/
+
+And that's it! See the install\_instructions.txt file for a step-by-step (Linux) guide that may help, and for details on how to get the nerual network running on your GPU.
 
 Main dependencies are currently:
 
@@ -12,7 +20,7 @@ Main dependencies are currently:
 * TensorFlow / Keras
 * ~~PyVips~~
 
-We are aiming to roll these dependencies into a Conda package alongside the DeCryptICS tool. (GPU drivers and CUDA/CUDNN need to be installed separately, see install\_instructions.txt.)
+We are aiming to roll these dependencies into a Conda package alongside the DeCryptICS tool. (GPU drivers and CUDA/CUDNN need to be installed separately.)
 
 ---
 
