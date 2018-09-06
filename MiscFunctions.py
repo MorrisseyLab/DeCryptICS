@@ -70,7 +70,7 @@ def write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scalin
    for cc in clone_contours: # smallcnts here if level=1
       expand_box    = 25*scaling_val #remove scaling val here if level=1
       roi           = cv2.boundingRect(cc)
-      roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box))
+      roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box), dtype=uint)
       roi[roi<1]   = 0
       img_ROI       = getROI_img_osl(file_name, (roi[0],roi[1]), (roi[2],roi[3]), level=0) # or level=1?
       outfile = "/clone_" + str(i) + ".png"
