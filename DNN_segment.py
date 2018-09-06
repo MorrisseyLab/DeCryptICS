@@ -18,7 +18,7 @@ import DNN.params as params
 from deconv_mat               import *
 from automaticThresh_func     import calculate_deconvolution_matrix_and_ROI, find_deconmat_fromtiles
 from MiscFunctions            import simplify_contours, col_deconvol_and_blur2, mkdir_p, write_clone_image_snips, convert_to_local_clone_indices
-from MiscFunctions            import getROI_img_osl, add_offset, write_cnt_text_file, plot_img, rescale_contours, write_score_text_file
+from MiscFunctions            import getROI_img_osl, add_offset, write_cnt_text_file, plot_img, rescale_contours, write_score_text_file #, getROI_img_vips,
 from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt
 from multicore_morphology     import getForeground_mc
 from GUI_ChooseROI_class      import getROI_svs
@@ -71,8 +71,9 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
    ## Tiling
    obj_svs  = getROI_svs(file_name, get_roi_plot = False)
    scaling_val = obj_svs.dims_slides[0][0] / float(obj_svs.dims_slides[1][0])
-   size = (params.input_size, params.input_size)
-   all_indx = get_tile_indices(obj_svs.dims_slides[1], overlap = 50, SIZE = size)
+     
+   imsize = (params.input_size, params.input_size)
+   all_indx = get_tile_indices(obj_svs.dims_slides[1], overlap = 50, SIZE = imsize)
    x_tiles = len(all_indx)
    y_tiles = len(all_indx[0])
    
@@ -80,7 +81,8 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
       for j in range(y_tiles):
          xy_vals = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
          wh_vals = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
-         img     = getROI_img_osl(file_name, xy_vals, wh_vals, level = 1)
+         img      = getROI_img_osl(file_name, xy_vals, wh_vals, level = 1)
+         
          x_batch = [img]
          x_batch = np.array(x_batch, np.float32) / 255.
 
@@ -91,7 +93,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
          newcnts = [cc for cc in newcnts if len(cc)>4] # throw away points and lines (needed in contour class)
          
          #newcnts = [cc for cc in newcnts if contour_Area(cc)>(500./(scaling_val*scaling_val))] # areas are scaled down by a scale_factor^2
-         #newcnts = cull_tile_edge_contours(newcnts, size) # REMOVING TOO MANY CONTOURS
+         #newcnts = cull_tile_edge_contours(newcnts, imsize) # REMOVING TOO MANY CONTOURS
          #newcnts = cull_bad_contours(predicted_mask_batch, upper_thresh, newcnts) # NOT A GOOD METHOD
 
          if find_clones:
@@ -100,7 +102,8 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, find_clone
             # Find clone channel features
             bigxy = tuple(np.asarray([xy_vals[0]*scaling_val, xy_vals[1]*scaling_val], dtype=int))
             bigwh = tuple(np.asarray([wh_vals[0]*scaling_val, wh_vals[1]*scaling_val], dtype=int))
-            rs_cnts = rescale_contours(newcnts, scaling_val)
+            rs_cnts = newcnts
+            rs_cnts = rescale_contours(rs_cnts, scaling_val)            
             img = getROI_img_osl(file_name, bigxy, bigwh, level = 0)
             img_nuc, img_clone = get_channel_images_for_clone_finding(img, deconv_mat)
             clone_features = find_clone_statistics(rs_cnts, img_nuc, img_clone, nbins)

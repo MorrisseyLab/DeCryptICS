@@ -4,7 +4,7 @@ Created on Fri Jul 24 11:48:24 2015
 
 @author: edward
 """
-from MiscFunctions import getROI_img_osl
+from MiscFunctions import getROI_img_osl #, getROI_img_vips
 import openslide as osl
 import cv2
 import numpy as np
@@ -74,5 +74,4 @@ class getROI_svs:
                 img_plot = self.img_zoom.copy()
                 cv2.rectangle(img_plot,self.roi1[0], self.roi1[1], (255,   0,   0), param[1])
                 cv2.imshow(param[0], img_plot)
-
 

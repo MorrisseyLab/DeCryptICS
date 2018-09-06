@@ -299,20 +299,20 @@ def correct_wh(max_vals, xy_vals, wh_vals):
 #def getROI_img_vips(file_name, x_y, w_h, level = 0):
 #    vim           = pyvips.Image.openslideload(file_name, level = level)   #openslideload
 #    max_vals      = (vim.width, vim.height)
-#    max_vals      = vim.dimensions
 #    wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors 
 #    area          = vim.extract_area(x_y[0], x_y[1], wh_vals_final[0], wh_vals_final[1])
 #    size          = (area.width, area.height)
 #    data          = area.write_to_memory()
-#    new_img       = np.fromstring(data, dtype=np.uint8).reshape(size[1], size[0], 4)  ## Remove alpha channel  
-#    new_img       = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
-#    return new_img
+#    new_img1       = np.fromstring(data, dtype=np.uint8).reshape(size[1], size[0], 4)  ## Remove alpha channel  
+#    new_img1       = cv2.cvtColor(new_img1[:,:,0:3], cv2.COLOR_RGB2BGR)
+#    return new_img1
 
 def getROI_img_osl(file_name, x_y, w_h, level = 0):
     vim           = osl.OpenSlide(file_name)
-    max_vals      = vim.dimensions
-    wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors 
-    new_img = np.array(vim.read_region(location = x_y, level = level, size = w_h))
+    max_vals      = vim.level_dimensions[level]
+    wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors    
+    newxy = tuple([int(vim.level_downsamples[level])*f for f in x_y])
+    new_img = np.array(vim.read_region(location = newxy, level = level, size = wh_vals_final))
     new_img       = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
     return new_img
     
