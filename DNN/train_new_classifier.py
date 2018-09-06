@@ -141,29 +141,29 @@ class TensorBoardImage(KC.Callback):
 if __name__=="__main__":
    base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
    
-   ## Loading old weights into all but the final layer
-   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
-   model.load_weights("./DNN/weights/tile256_for_X_best_weights.hdf5")
+#   ## Loading old weights into all but the final layer
+#   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
+#   model.load_weights("./DNN/weights/tile256_for_X_best_weights.hdf5")
 
-   # Getting weights layer by layer
-   weights_frozen = [l.get_weights() for l in model.layers]
+#   # Getting weights layer by layer
+#   weights_frozen = [l.get_weights() for l in model.layers]
 
    # Redefine new network with new classification
    model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=2)
-   #model.load_weights(base_folder+"/weights/cryptandfufi_weights_masking2.hdf5")
+   model.load_weights(base_folder+"/weights/cryptandfufi_weights_masking3.hdf5")
 
    # Add in old weights
-   numlayers = len(model.layers)
-   for i in range(numlayers-1):
-      model.layers[i].set_weights(weights_frozen[i])
+#   numlayers = len(model.layers)
+#   for i in range(numlayers-1):
+#      model.layers[i].set_weights(weights_frozen[i])
 
-   w_elems = []
-   w_f_elems = weights_frozen[-1]
-   for i in range(len(model.layers[-1].get_weights())):
-      w_elems.append(model.layers[-1].get_weights()[i])   
-   w_elems[0][:,:,:,0] = w_f_elems[0][:,:,:,0]
-   w_elems[1][0] = w_f_elems[1][0]   
-   model.layers[-1].set_weights(w_elems)
+#   w_elems = []
+#   w_f_elems = weights_frozen[-1]
+#   for i in range(len(model.layers[-1].get_weights())):
+#      w_elems.append(model.layers[-1].get_weights()[i])   
+#   w_elems[0][:,:,:,0] = w_f_elems[0][:,:,:,0]
+#   w_elems[1][0] = w_f_elems[1][0]   
+#   model.layers[-1].set_weights(w_elems)
 
    # Freeze all layer but the last classification convolution (as difficult to freeze a subset of parameters within a layer -- but can load them back in afterwards)
 #   for layer in model.layers[:-1]:
@@ -200,10 +200,10 @@ if __name__=="__main__":
    test_tags = list(np.asarray(range(len(test_batches))).astype(str))
    
    ## subset samples for tensorboard test
-   images = [base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png", base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png", base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png", base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png", base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png"]
+#   images = [base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png", base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png", base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png", base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png", base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png"]
    
    
-   weights_name = base_folder+'/weights/cryptandfufi_weights_masking3.hdf5'
+   weights_name = base_folder+'/weights/cryptandfufi_weights_masking4.hdf5'
    #weights_name = base_folder+'/weights/tensorboardimagetest.hdf5'
    
    callbacks = [EarlyStopping(monitor='loss', patience=10, verbose=1, min_delta=1e-8),

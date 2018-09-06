@@ -17,7 +17,7 @@ import DNN.u_net as unet
 import DNN.params as params
 from deconv_mat               import *
 from automaticThresh_func     import calculate_deconvolution_matrix_and_ROI, find_deconmat_fromtiles
-from MiscFunctions            import simplify_contours, col_deconvol_and_blur2, mkdir_p, write_clone_image_snips
+from MiscFunctions            import simplify_contours, col_deconvol_and_blur2, mkdir_p, write_clone_image_snips, convert_to_local_clone_indices
 from MiscFunctions            import getROI_img_osl, add_offset, write_cnt_text_file, plot_img, rescale_contours, write_score_text_file
 from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt
 from multicore_morphology     import getForeground_mc
