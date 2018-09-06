@@ -68,7 +68,7 @@ def write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scalin
    #smallcnts = rescale_contours(clone_contours, 1./scaling_val) #for level=1
    i = 0
    for cc in clone_contours: # smallcnts here if level=1
-      expand_box    = 25*scaling_val #remove scaling val here if level=1
+      expand_box    = 60*scaling_val #remove scaling val here if level=1
       roi           = cv2.boundingRect(cc)
       roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box), dtype=np.uint64)
       roi[roi<1]   = 0
@@ -311,7 +311,7 @@ def getROI_img_osl(file_name, x_y, w_h, level = 0):
     vim           = osl.OpenSlide(file_name)
     max_vals      = vim.level_dimensions[level]
     wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors    
-    newxy = tuple([int(vim.level_downsamples[level])*f for f in x_y])
+    newxy = tuple([int(vim.level_downsamples[level]*f) for f in x_y])
     new_img = np.array(vim.read_region(location = newxy, level = level, size = wh_vals_final))
     new_img       = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
     return new_img
