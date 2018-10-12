@@ -44,7 +44,9 @@ from knn_prune                import remove_tiling_overlaps_knn
 
 # Load DNN model
 model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
-model.load_weights("./DNN/weights/tile256_for_X_best_weights.hdf5")
+maindir = os.path.dirname(os.path.abspath(__file__))
+weightsin = os.path.join(maindir, 'DNN', 'weights', 'tile256_for_X_best_weights.hdf5')
+model.load_weights(weightsin)
 
 def get_tile_indices(maxvals, overlap = 50, SIZE = (2048, 2048)):
     all_indx = []
