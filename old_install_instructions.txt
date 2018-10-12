@@ -4,8 +4,7 @@ mkdir /your/folder
 cd /your/folder
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh -b -p /full/path/to/install-dir
-
-# config
+# config:
 export PATH=/full/path/to/your/folder/bin:$PATH
 cd ./bin
 conda config --add channels conda-forge
@@ -14,33 +13,62 @@ conda config --add channels r
 conda config --add channels bioconda
 conda update -n base conda
 
-# create a conda environment, where you can choose the NAME_OF_ENV
-./conda create -n NAME_OF_ENV python=3.6
+# create a conda environment, where you can choose the name_of_env
+./conda create -n name_of_env
 
 # activate environment
-source activate NAME_OF_ENV
+source /full/path/to/install-dir/bin/activate name_of_env
 
-# add shortcut to activate env by:
-# opening the "~/.bashrc" file with any text editor (I'm using vim)
+# add shortcut to activate env
 vim ~/.bashrc
-# then adding the following line at bottom of the "~/.bashrc" file, where you can choose the SHORTCUT_NAME:
-alias SHORTCUT_NAME="source /full/path/to/install-dir/bin/activate NAME_OF_ENV"
-
+# add the following line at bottom of file, where you can choose the shortcut_name:
+alias shortcut_name="source /full/path/to/install-dir/bin/activate name_of_env"
 # save the file and quit, then source:
 source ~/.bashrc
+# now, just typing shortcut_name will activate your new conda environment
 
-# now, just typing SHORTCUT_NAME will activate your new conda environment!
+## install openslide:
+###################
+wget https://github.com/openslide/openslide/releases/download/v3.4.1/openslide-3.4.1.tar.gz
+tar -xvzf openslide-3.4.1.tar.gz
+cd openslide-3.4.1
+# dependencies:
+sudo apt-get install libopenjp2-7 libopenjp2-7-dev libtiff5-dev libcairo2-dev libgdk-pixbuf2.0-dev libxml2-dev libsqlite3-dev
+# install:
+./configure
+make
+sudo make install
+sudo ldconfig
 
-## python dependencies
-##################
-conda install openslide opencv keras matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
-pip install xlrd
+## install libvips:
+###################
+git clone git://github.com/jcupitt/libvips.git
+# dependencies:
+sudo apt-get install gtk-doc-tools swig libtool libglib2.0-dev gobject-introspection
+# install:
+./autogen.sh
+make
+sudo make install
+sudo ldconfig
+
+## installing python requirements
+###################
+conda install opencv
+conda install -c defaults libprotobuf protobuf
+conda install keras (if you intend to follow the GPU installation below, this will be removed and replaced with keras-gpu)
+conda install matplotlib
+conda update ffmpeg
+pip install --user pyvips
 pip install openslide-python
+conda install scikit-learn
+conda install numba
+conda install joblib
+conda install pandas numpy scipy
+pip install xlrd
 
-# (More instructions below the optional GPU part -- scroll down!)
-*******************START OPTIONAL*************************
+## If you just want to run DeCryptICS on your CPU, then the follow installation of CUDA, CUDNN and tensorflow can be skipped. Scroll down to "Final touches".
 
-### install GPU:
+## install GPU:
 ###################
 # CUDA 9.0
 # CUDNN 7.0.4
@@ -129,8 +157,6 @@ from tensorflow.python.client import device_lib
 print(device_lib.list_local_devices())
 # which should show device information about your GPU and CPU
 
-*******************END OPTIONAL*************************
-
 ## Final touches
 ##################
 # All that remains is to clone DeCryptICS from github and download the optimised weights for the neural network:
@@ -140,5 +166,7 @@ git clone https://github.com/MorrisseyLab/DeCryptICS.git
 mkdir ./DeCryptICS/DNN/weights
 wget "https://www.dropbox.com/s/6nlqsed99x5ourl/tile256_for_X_best_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/tile256_for_X_best_weights.hdf5
 
-# Then, when your run DeCryptICS, make sure to activate your conda environment first, using SHORTCUT_NAME or "source /full/path/to/install-dir/bin/activate NAME_OF_ENV".
+# Then, when your run DeCryptICS, make sure to activate your conda environment first.
 # That's it!
+
+

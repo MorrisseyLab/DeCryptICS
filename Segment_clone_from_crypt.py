@@ -441,7 +441,12 @@ def determine_clones(cfl, clonal_mark_type, crypt_contours = 0):
    new_inds_clone = np.unique(np.hstack([new_inds_clone, missedinds]))     
    local_clone_inds = goodsizeinds2[new_inds_clone]
    all_clone_inds = np.hstack([global_clone_inds, local_clone_inds])
-   return all_clone_inds, globscores[all_clone_inds]
+   all_clone_scores = globscores[all_clone_inds]
+   # below here is broken, indexing incorrect
+   order = np.argsort(all_clone_scores)[::-1]
+   all_clone_inds = all_clone_inds[order]
+   all_clone_scores = all_clone_scores[order]
+   return all_clone_inds, all_clone_scores
               
 def no_threshold_signal_collating(cnt_i, img_nuc, img_clone, nbins):
    # Find max halo contour in nuclear channel, and nucl/clone halo scores

@@ -9,6 +9,7 @@ import os, time, glob, fileinput
 import pandas as pd
 import numpy as np
 import csv
+from MiscFunctions import mkdir_p
 
 def folder_from_image(image_num_str):
     return "/Analysed_"+str(image_num_str)+'/'
@@ -20,7 +21,7 @@ def file_len(fname):
             pass
     return i + 1
 
-def extract_counts_csv(file_in, folder_out, save_counts_here, qupath_proj_name, find_clones = False):
+def extract_counts_csv(file_in, folder_out, find_clones = False):
    contour_folders = [folder_from_image(im) for im in file_in]
    num = len(contour_folders)
    if (find_clones==False):
@@ -45,32 +46,20 @@ def extract_counts_csv(file_in, folder_out, save_counts_here, qupath_proj_name, 
             slidecounts[i,2] = clcnt
             slidecounts[i,3] = ptcnt
    slidecounts_p = pd.DataFrame(slidecounts)
-   outname = "/slide_counts_" + qupath_proj_name + ".csv"
+   outname = "/slide_counts.csv"
    if (find_clones==False):
       slidecounts_p.columns = ['Slide_ID', 'NCrypts']
    if (find_clones==True):
       slidecounts_p.columns = ['Slide_ID', 'NCrypts', 'NClones', 'NPatches']
-   slidecounts_p.to_csv(save_counts_here + outname, sep='\t', index=False)
+   slidecounts_p.to_csv(folder_out + outname, sep=',', index=False)
 
 def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
     num_to_run = len(file_in)
     # Create directory and essential sub-directories
-    try:
-        os.mkdir(path_to_project)
-    except:
-        pass
-    try:
-        os.mkdir(path_to_project+"/data")
-    except:
-        pass
-    try:
-        os.mkdir(path_to_project+"/thumbnails")
-    except:
-        pass
-    try:
-        os.mkdir(path_to_project+"/scripts")
-    except:
-        pass
+    mkdir_p(path_to_project)
+    mkdir_p(path_to_project+"/data")
+    mkdir_p(path_to_project+"/thumbnails")
+    mkdir_p(path_to_project+"/scripts")
     # Write project file
     with open(path_to_project+"/project.qpproj", 'w') as file:
         file.write('{' + '\n')
@@ -133,11 +122,11 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write("def base_folder = \"" + folder_out + "\"" + '\n')
         file.write("def cur_file = getCurrentImageData().getServer().getPath()" + '\n')
         file.write("print cur_file" + '\n')
-        file.write("def ff = cur_file.tokenize(\'/\')[-1].tokenize(\'.\')" + '\n')
+        file.write("def ff = cur_file.tokenize(\'/\')[-1].tokenize(\'.\')[0]" + '\n')
         file.write('\n')
                                
         file.write("// Add crypt contours" + '\n')
-        file.write("def file1 = new File(base_folder+\"Analysed_\"+ff[0]+\"/crypt_contours.txt\")" + '\n')
+        file.write("def file1 = new File(base_folder+\"Analysed_\"+ff+\"/crypt_contours.txt\")" + '\n')
         file.write("if( file1.exists() ) {" + '\n') 
         file.write('\t'+"def lines1 = file1.readLines()" + '\n')
         file.write('\t'+"num_rois = lines1.size/2" + '\n')
@@ -154,8 +143,8 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write('\n')
         
         file.write("// Add clone contours" + '\n')
-        file.write("def file2 = new File(base_folder+\"Analysed_\"+ff[0]+\"/clone_contours.txt\")" + '\n')
-        file.write("def filescores = new File(base_folder+\"Analysed_\"+ff[0]+\"/clone_scores.txt\")" + '\n')
+        file.write("def file2 = new File(base_folder+\"Analysed_\"+ff+\"/clone_contours.txt\")" + '\n')
+        file.write("def filescores = new File(base_folder+\"Analysed_\"+ff+\"/clone_scores.txt\")" + '\n')
         file.write("boolean scoreflag = false" + '\n')
         file.write("if( filescores.exists() ) {" + '\n')  
         file.write('\t'+"scoreflag = true" + '\n')
@@ -190,7 +179,7 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write('\n')
         
         file.write("// Add patch contours" + '\n')
-        file.write("def file3 = new File(base_folder+\"Analysed_\"+ff[0]+\"/patch_contours.txt\")" + '\n')
+        file.write("def file3 = new File(base_folder+\"Analysed_\"+ff+\"/patch_contours.txt\")" + '\n')
         file.write("if( file3.exists() ) {" + '\n')         
         file.write('\t'+"def lines3 = file3.readLines()" + '\n')
         file.write('\t'+"num_rois = lines3.size/2" + '\n')

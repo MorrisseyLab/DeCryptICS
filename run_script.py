@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import argparse, datetime
 from qupath_project import create_qupath_project, extract_counts_csv, file_len, folder_from_image
+from MiscFunctions import mkdir_p
 
 def run_analysis():
    parser = argparse.ArgumentParser(description = "This script takes as input a list of full paths (local or remote) to .svs files, "
@@ -89,7 +90,7 @@ def run_analysis():
    linux_test = len(input_file.split('/'))
    windows_test = len(input_file.split('\\'))
    if (linux_test==1 and windows_test>1):
-      base_path = '/' + os.path.join(*input_file.split('\\')[:-1]) + '/'
+      base_path = '\\' + os.path.join(*input_file.split('\\')[:-1]) + '\\'
    if (linux_test>1 and windows_test==1):
       base_path = '/' + os.path.join(*input_file.split('/')[:-1]) + '/'
    if (linux_test==1 and windows_test==1):
@@ -99,17 +100,17 @@ def run_analysis():
    ftype = input_file.split('.')[-1]   
 
    # check if we loaded a value as a header
-   if (ftype=="csv"):                       a = pd.read_csv(input_file)
+   if (ftype=="csv"):    a = pd.read_csv(input_file)
    if (ftype[:2]=="xl"): a = pd.read_excel(input_file)
-   else:                                    a = pd.read_table(input_file)
+   else:                 a = pd.read_table(input_file)
    heads = list(a.columns.values)
    svs_sum = 0
    for hh in heads:
       if (hh.split('.')[-1]=="svs"): svs_sum += 1
    if svs_sum>0:
-      if (ftype=="csv"):                       a = pd.read_csv(input_file  , header=None)
+      if (ftype=="csv"):    a = pd.read_csv(input_file  , header=None)
       if (ftype[:2]=="xl"): a = pd.read_excel(input_file, header=None)
-      else:                                    a = pd.read_table(input_file, header=None)
+      else:                 a = pd.read_table(input_file, header=None)
    a = np.asarray(a)
    
    # extract file paths
@@ -141,10 +142,7 @@ def run_analysis():
    
    ## Define file structures
    folder_out = base_path + '/' + "Analysed_slides/" 
-   try:
-      os.mkdir(folder_out)
-   except:
-      pass
+   mkdir_p(folder_out)
          
    ## Create QuPath project for the current batch
    qupath_project_path = base_path + '/' + args.qp_proj_name
@@ -187,10 +185,8 @@ def run_analysis():
                SegmentFromFolder(folders_to_analyse[i], clonal_mark_type, find_clones)
                 
       ## Extract crypt counts from all analysed slides into base path
-      extract_counts_csv(file_in, folder_out, base_path, args.qp_proj_name, find_clones)
-            
-
-        
+      extract_counts_csv(file_in, folder_out, find_clones)
+                    
 if __name__=="__main__":
    run_analysis()
         
