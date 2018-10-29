@@ -122,6 +122,37 @@ def extractInnerRingContour(cnt_i, img, num_morphs):
         maxarea = np.where(areas==np.max(areas))[0][0]
         return ((np.asarray(halo_cnt[maxarea]) + Start_ij_ROI).astype(np.int32))
 
+#def test_for_inner_ring_NaNs(crypt_contours):
+#    for i in range(len(crypt_contours)):
+#       cnt_i = crypt_contours[i]       
+#       expand_box    = 100
+#       roi           = cv2.boundingRect(cnt_i)            
+#       roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box))
+#       roi[roi <1]   = 0
+#       Start_ij_ROI  = roi[0:2] # get x,y of bounding box
+#       cnt_roi       = cnt_i - Start_ij_ROI # change coords to start
+#       mask_fill1    = np.zeros((roi[3], roi[2]), np.uint8)
+#       cv2.drawContours(mask_fill1, [cnt_roi], 0, 255, -1)
+#       mask_fill1 = cv2.morphologyEx(mask_fill1, cv2.MORPH_CLOSE, st_5, iterations = 1) # get rid of inner black blobs
+#       mask_fill1 = cv2.morphologyEx(mask_fill1, cv2.MORPH_ERODE, st_3, iterations = 1)
+#       halo_cnt, _ = cv2.findContours(mask_fill1.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2:]
+#       num_hal = len(halo_cnt)
+#       if (num_hal==0):        
+#           NEWCNT = cnt_i.astype(np.int32)
+#       elif (num_hal==1):
+#           NEWCNT = ((np.asarray(halo_cnt) + Start_ij_ROI).astype(np.int32))[0]
+#       else:        
+#           areas = []
+#           for i in range(num_hal):
+#               areas.append(contour_Area(halo_cnt[i]))
+#           maxarea = np.where(areas==np.max(areas))[0][0]
+#           NEWCNT = ((np.asarray(halo_cnt[maxarea]) + Start_ij_ROI).astype(np.int32))
+#       print(i)
+#       print(len(cnt_i))
+#       print(len(NEWCNT))
+#       inav_sig_nucl = bin_intensities_flattened(NEWCNT, mask_fill1, 20)
+   
+   
 def bin_intensities_flattened(output_cnt, img1, nbins = 20):
    roi           = cv2.boundingRect(output_cnt)
    Start_ij_ROI  = roi[0:2] # get x,y of bounding box
@@ -130,17 +161,27 @@ def bin_intensities_flattened(output_cnt, img1, nbins = 20):
    flat_cnt  = flatten_contour(cnt_j, img_ROI)
    numpixels = len(flat_cnt)
    flat_cnt = np.asarray(flat_cnt)
-   overhang  = numpixels % nbins
-   normal_bin_width = numpixels // nbins
-   # (nbins - overhang) * normal_bin_width + overhang*(normal_bin_width + 1) == numpixels
    av_sig = np.zeros(nbins)
-   cw     = normal_bin_width
-   for i in range(nbins-overhang):
-      av_sig[i] = np.mean(flat_cnt[i*cw : (i+1)*cw])
-   done = (nbins-overhang)*normal_bin_width
-   cw   = normal_bin_width + 1
-   for i in range(overhang):
-      av_sig[i + nbins-overhang] = np.mean(flat_cnt[done + i*cw : done + (i+1)*cw])
+   if numpixels>=nbins:
+      overhang  = numpixels % nbins
+      normal_bin_width = numpixels // nbins
+      # (nbins - overhang) * normal_bin_width + overhang*(normal_bin_width + 1) == numpixels
+      cw     = normal_bin_width
+      for i in range(nbins-overhang):
+         av_sig[i] = np.mean(flat_cnt[i*cw : (i+1)*cw])
+      done = (nbins-overhang)*normal_bin_width
+      cw   = normal_bin_width + 1
+      for i in range(overhang):
+         av_sig[i + nbins-overhang] = np.mean(flat_cnt[done + i*cw : done + (i+1)*cw])
+   if numpixels<nbins:
+      div = nbins // numpixels
+      overhang = nbins - div*numpixels
+      j = 0
+      for i in range(nbins-overhang):
+         if (i%div==0 and i!=0): j += 1
+         av_sig[i] = flat_cnt[j]
+      for i in range(overhang):
+         av_sig[i + nbins-overhang] = flat_cnt[-1] 
    return av_sig
    
 def flatten_contour(cnt_j, img_ROI):

@@ -33,18 +33,15 @@ def run_analysis():
                         default = "qupath_project_"+datetime.datetime.now().strftime("%d-%m-%Y_%H-%M"),
                         help = "Optionally set the name of the QuPath project folder to be created. "
                                "Defaults to 'qupath_project_DATE_TIME'. ")
-                       
-   parser.add_argument('-c', choices = ["None" , "P-N" , "P-L" , "P-B" , "N-N" , "N-L" , "N-B"],
-                             default = "None", 
+
+   parser.add_argument('-c', choices = ["1" , "2" , "3"],
+                             default = "1", 
                              dest    = "clonal_mark",
                              help    = "Clonal mark type, if clones are to be counted. "
-                                       "Input format is X-Y, where: "
-                                       "X = P (positive) / N (negative); and "
-                                       "Y = N (nuclear) / L (lumen) / B (both). "
-                                       "For example, mPAS is a positive stain expressed in the cytoplasm and "
-                                       "should be indicated as P-L, whereas MAOA is a negative stain that appears "
-                                       "in the nucleus and cytoplasm and should be indicated as N-B. "
-                                       "Defaults to None if -c is not passed, meaning clone finding will not be performed. "
+                                       "1 for KDM6A/NONO/MAOA type (brown clone on blue nuclear). "
+                                       "2 for STAG2 type (brown clone on grey-brown-blue nuclear). "
+                                       "3 for mPAS type (purple clone in cytoplasm). "
+                                       "Defaults to '1' if -c is not passed, meaning clones assumed KDM6A/NONO/MAOA type. "
                                        "Note: all slides in input list will be analysed using the same clonal mark type. ")
 
    parser.add_argument('-m', choices = ["D" , "B"],
@@ -71,14 +68,9 @@ def run_analysis():
    
    ## Standardise clonal mark type string
    clonal_mark_type = args.clonal_mark
-   find_clones = False
-   if (clonal_mark_type.upper()=="P-N"): clonal_mark_type="P-N"
-   if (clonal_mark_type.upper()=="P-L"): clonal_mark_type="P-L"
-   if (clonal_mark_type.upper()=="P-B"): clonal_mark_type="P-B"
-   if (clonal_mark_type.upper()=="N-N"): clonal_mark_type="N-N"
-   if (clonal_mark_type.upper()=="N-L"): clonal_mark_type="N-L"
-   if (clonal_mark_type.upper()=="N-B"): clonal_mark_type="N-B"
-   if (clonal_mark_type!="None"): find_clones = True
+   if (clonal_mark_type=="1"): clonal_mark_type = 1 # KDM6A/MAOA/NONO
+   if (clonal_mark_type=="2"): clonal_mark_type = 2 # STAG2
+   if (clonal_mark_type=="3"): clonal_mark_type = 3 # mPAS
 
    ## Standardise method string
    method = args.method
@@ -148,8 +140,7 @@ def run_analysis():
    qupath_project_path = base_path + '/' + args.qp_proj_name
    create_qupath_project(qupath_project_path, full_paths, file_in, folder_out)
    print("QuPath project created in %s" % qupath_project_path)
-     
-   ## CHANGE BELOW HERE
+
    if args.action == "count":
       from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder, predict_svs_slide_DNN
       num_to_run = len(file_in)
@@ -164,7 +155,7 @@ def run_analysis():
                pass
             else:
                print("Beginning segmentation on %s." % folders_to_analyse[i])
-               predict_svs_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_type, find_clones = find_clones, prob_thresh = 0.5)
+               predict_svs_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_type, prob_thresh = 0.4)
                
       if (method=="B"):    
          ## Get parameters and pickle for all desired runs
@@ -182,10 +173,10 @@ def run_analysis():
                print("Passing on %s, image previously analysed." % folders_to_analyse[i])
                pass
             else:
-               SegmentFromFolder(folders_to_analyse[i], clonal_mark_type, find_clones)
+               SegmentFromFolder(folders_to_analyse[i], clonal_mark_type, False)
                 
       ## Extract crypt counts from all analysed slides into base path
-      extract_counts_csv(file_in, folder_out, find_clones)
+      extract_counts_csv(file_in, folder_out)
                     
 if __name__=="__main__":
    run_analysis()

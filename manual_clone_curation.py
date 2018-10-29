@@ -113,9 +113,9 @@ def main():
    counts_folder = '/'+os.path.join(*folder_to_analyse.split('/')[:-1])
    counts = np.asarray(pd.read_csv(counts_folder+"/slide_counts.csv"))
    slide_ind = np.where(counts[:,0]==int(slide_number))[0][0]
-   counts[slide_ind, 2] = len(good_inds)
-   counts[slide_ind, 3] = len(patch_sizes)
-   counts = pd.DataFrame(counts, columns=['Slide_ID', 'NCrypts', 'NClones', 'NPatches'])
+   counts[slide_ind, 3] = len(good_inds)
+   counts[slide_ind, 4] = len(patch_sizes)
+   counts = pd.DataFrame(counts, columns=['Slide_ID', 'NCrypts', 'NFufis', 'NClones', 'NPatches'])
    counts.to_csv(counts_folder + 'slide_counts.csv', sep=',', index=False)
 
 if __name__=="__main__":

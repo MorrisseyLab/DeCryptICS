@@ -84,12 +84,19 @@ if __name__=="__main__":
    folder_im = []
    folder_cnt = []
 
-   batch_ID = "/mPAS_WIMM/"
-   slidelist = ["618446", "618451"]
+   batch_ID = "/Mouse_June2018_HE/"
+   slidelist = ["668524"]
    for slide in slidelist:
-      folder_im += [base_path + batch_ID +"/raw_images/"]
+      folder_im += [base_path + batch_ID]
       folder_cnt += [base_path + batch_ID + "/Analysed_slides/Analysed_"]
-      training_dat += [base_path + batch_ID +"/raw_images/" + slide + ".svs"]
+      training_dat += [base_path + batch_ID + slide + ".svs"]
+
+#   batch_ID = "/mPAS_WIMM/"
+#   slidelist = ["618446", "618451"]
+#   for slide in slidelist:
+#      folder_im += [base_path + batch_ID +"/raw_images/"]
+#      folder_cnt += [base_path + batch_ID + "/Analysed_slides/Analysed_"]
+#      training_dat += [base_path + batch_ID +"/raw_images/" + slide + ".svs"]
    
 #   batch_ID = "/mPAS_WIMM/"
 #   slidelist = ["618445", "578367", "620694", "643868", "643870"] # 618446, 618451
@@ -135,7 +142,7 @@ if __name__=="__main__":
    
    ###############################################################
 
-   dnnfolder = "/home/doran/Work/py_code/zoomed_out_DeCryptICS/DNN/input/"
+   dnnfolder = "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/input/"
    imgout = dnnfolder + "/train/"
    maskout = dnnfolder + "/pre-mask/"
    try:
@@ -152,8 +159,8 @@ if __name__=="__main__":
    #folder_cnt = folder_cnt4
    #folder_im = folder_im4
    n_slides = len(training_dat) # shift = 0
-   tile_x = 2048
-   tile_y = 2048
+   tile_x = 256
+   tile_y = 256
    maskthresh = 255 * 250 # throw away masks with fewer than 1000 white pixels
 
    for i in range(n_slides):
@@ -186,7 +193,7 @@ if __name__=="__main__":
       # Read in slide contours
       im_number = filename[:-4] # remove extension
       im_number = im_number[len(folder_im[i]):] # remove full path
-      contours = read_cnt_text_file(folder_cnt[i] + im_number + "/crypt_contours_1168.txt")
+      contours = read_cnt_text_file(folder_cnt[i] + im_number + "/crypt_contours.txt")
       # Draw contours to make mask
       big_mask = np.zeros([img.shape[0], img.shape[1]], dtype=np.uint8)
       for j in range(len(contours)):

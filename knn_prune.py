@@ -15,6 +15,142 @@ from cnt_Feature_Functions    import joinContoursIfClose, contour_MajorMinorAxis
 from classContourFeat         import getAllFeatures
 import cv2
 
+def remove_tiling_overlaps_knn(contours, nn = 4):
+   if len(contours)==0: return contours, np.array([])
+   # check moments arent zero or something
+   throw_inds = [i for i in range(len(contours)) if cv2.moments(contours[i])['m00']==0]
+   contours = [contours[i] for i in range(len(contours)) if not i in throw_inds]    
+   distances, indices, all_xy, _ = nn2(contours, contours, nn)
+   inside_compare = np.zeros(indices.shape)
+   for i in range(indices.shape[0]):
+      for j in range(1,indices.shape[1]):
+         ii = indices[i,0]
+         jj = indices[i,j]
+         inside_compare[i,j] = cv2.pointPolygonTest(contours[ii], (all_xy[jj,0], all_xy[jj,1]), False)
+   insides = np.asarray(np.where(inside_compare[:,1:]>=0)).T
+   insides[:,1] = insides[:,1] + 1 # shift as ignored `self' column in above test
+   for pair in insides:
+      ii = indices[pair[0],0]
+      jj = indices[pair[0],pair[1]]
+      if (ii not in throw_inds and jj not in throw_inds):
+         aA = contour_Area(contours[ii])
+         aB = contour_Area(contours[jj])
+         if (aA < aB):
+            throw_inds.append(ii)
+         else:
+            throw_inds.append(jj)
+   keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )   
+   fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in throw_inds]
+   return fixed_contour_list, keep_inds
+
+def nn2(dat_to, dat_from, nn=4):
+   all_xy_crypt    = np.array([contour_xy(cnt_i) for cnt_i in dat_to if not cv2.moments(cnt_i)['m00']==0])
+   all_xy_target   = np.array([contour_xy(cnt_i) for cnt_i in dat_from if not cv2.moments(cnt_i)['m00']==0])
+   nbrs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(all_xy_crypt)
+   distances, indices = nbrs.kneighbors(all_xy_target)
+   return distances, indices, all_xy_crypt, all_xy_target
+
+def inside_comparison_cryptin(indices, dat_to, xy_from):
+   inside_compare = np.zeros(indices.shape)
+   for i in range(indices.shape[0]):
+      for j in range(indices.shape[1]):
+         jj = indices[i,j] # crypt index
+         inside_compare[i,j] = cv2.pointPolygonTest(dat_to[i], (xy_from[jj,0], xy_from[jj,1]), False)
+   return inside_compare
+
+def inside_comparison_incrypt(indices, dat_to, xy_from):
+   inside_compare = np.zeros(indices.shape)
+   for i in range(indices.shape[0]):
+      for j in range(indices.shape[1]):
+         jj = indices[i,j] # crypt index
+         inside_compare[i,j] = cv2.pointPolygonTest(dat_to[jj], (xy_from[i,0], xy_from[i,1]), False)
+   return inside_compare
+  
+def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
+   distances, indices, all_xy_crypt, all_xy_target = nn2(contours, target_overlay, nn)
+   inside_compare = inside_comparison_cryptin(indices, target_overlay, all_xy_crypt)
+   # join crypts found inside same fufi; cull fufis that don't contain any crypts;
+   # extend fufis that contain the second closest crypt but not the first
+   cryptinds_fufis = []
+   cryptcnt_joined = []
+   fufis_to_throw = []
+   for i in range(indices.shape[0]):
+      if (inside_compare[i,0]>=0 and inside_compare[i,1]>=0):
+         # when two crypts are inside a fufi
+         c = 0
+         cryptinds_f = []         
+         while (inside_compare[i,c]>=0): # check for more crypts
+            cryptinds_f.append(indices[i,c])
+            c += 1
+         cont = np.vstack(np.array(contours[i]) for i in cryptinds_f)
+         hull = cv2.convexHull(cont)
+         cryptcnt_joined.append(hull)
+         cryptinds_fufis += cryptinds_f # note crypt indices to be overwritten
+      if (inside_compare[i,0]<0 and inside_compare[i,1]>=0):
+         # when second crypt is inside a fufi but first is not
+         cont = np.vstack([np.array(target_overlay[i]), np.array(contours[indices[i,1]])])
+         hull = cv2.convexHull(cont)
+         target_overlay[i] = hull # overwrite fufi contour
+      if (inside_compare[i,0]<0 and inside_compare[i,1]<0):
+         fufis_to_throw.append(i)
+   # remove crypts that should be joined
+   fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in cryptinds_fufis]
+   # add joined crypts
+   fixed_contour_list += cryptcnt_joined
+   # throw bad fufis
+   fixed_fufi_list = [target_overlay[i] for i in range(len(target_overlay)) if i not in fufis_to_throw]   
+   # re-define labelling for crypt indexing
+   distances, indices, all_xy_crypt, all_xy_target = nn2(fixed_contour_list, fixed_fufi_list, nn)      
+   inside_compare = inside_comparison_cryptin(indices, fixed_fufi_list, all_xy_crypt)
+   crypt_dict["crypt_xy"]       = all_xy_crypt
+   crypt_dict["fufi_label"]     = np.zeros(len(fixed_contour_list))
+   for ind in indices[:,0]: crypt_dict["fufi_label"][ind] = 1
+   return fixed_contour_list, fixed_fufi_list, crypt_dict
+
+def join_clones_in_fufi(contours, target_overlay, nn=4):
+   distances, indices, all_xy_clone, all_xy_target = nn2(contours, target_overlay, nn)
+   inside_compare = inside_comparison_cryptin(indices, target_overlay, all_xy_clone)
+   # join clones found inside same fufi
+   cloneinds_fufis = []
+   clonecnt_joined = []
+   for i in range(indices.shape[0]):
+      if (inside_compare[i,0]>=0 and inside_compare[i,1]>=0):
+         # when two clone are inside the same fufi
+         c = 0
+         cloneinds_f = []         
+         while (inside_compare[i,c]>=0): # check for more clones
+            cloneinds_f.append(indices[i,c])
+            c += 1
+         cont = np.vstack(np.array(contours[i]) for i in cloneinds_f)
+         hull = cv2.convexHull(cont)
+         clonecnt_joined.append(hull)
+         cloneinds_fufis += cloneinds_f # note clone indices to be overwritten
+   # remove crypts that should be joined
+   fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in cloneinds_fufis]
+   # add joined crypts
+   fixed_contour_list += clonecnt_joined
+   return fixed_contour_list
+      
+def crypt_indexing_clone(contours, target_overlay, nn=1, crypt_dict={}):
+   distances, indices, all_xy_crypt, all_xy_target = nn2(contours, target_overlay, nn)
+   inside_compare1 = inside_comparison_incrypt(indices, contours, all_xy_target)
+   inside_compare2 = inside_comparison_cryptin(indices, target_overlay, all_xy_crypt)
+   clone_inds = []
+   for i in range(indices.shape[0]):
+      if (inside_compare1[i,0]>=0 or inside_compare2[i,0]>=0):
+         clone_inds.append(indices[i,0])
+   crypt_dict["clone_label"] = np.zeros(len(contours))
+   for ind in clone_inds: crypt_dict["clone_label"][ind] = 1
+   return crypt_dict
+
+def get_crypt_patchsizes_and_ids(patch_indices, crypt_dict):
+   crypt_dict["patch_size"] = np.zeros(len(crypt_dict["clone_label"]))
+   for patch in patch_indices:
+      for index in patch:
+         crypt_dict["patch_size"][index] = len(patch)
+   return crypt_dict
+
+## Outlier calculations
 def tukey_lower_thresholdval(vec, numIQR = 1.5):
     lower_quartile = np.percentile(vec, q=25)
     IQR = np.percentile(vec, q=75) - lower_quartile
@@ -50,61 +186,7 @@ def outlier_calc(var_vec, indx_val, indx_vec_val, type_compare, stddevmult = 1.6
         bool_outlier = val > np.mean(vec_val) + stddevmult*np.std(vec_val) or val < np.mean(vec_val) - stddevmult*np.std(vec_val)
     return(bool_outlier)
 
-def remove_tiling_overlaps_knn(contours, nn = 4):
-   if len(contours)==0: return contours, np.array([])
-   # check moments arent zero or something
-   throw_inds = [i for i in range(len(contours)) if cv2.moments(contours[i])['m00']==0]
-   contours = [contours[i] for i in range(len(contours)) if not i in throw_inds]    
-   all_xy   = [contour_xy(cnt_i) for cnt_i in contours if not cv2.moments(cnt_i)['m00']==0]
-   all_xy   = np.array(all_xy)
-   nbrs     = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(all_xy)
-   distances, indices = nbrs.kneighbors(all_xy)
-   inside_compare = np.zeros(indices.shape)
-   for i in range(indices.shape[0]):
-      for j in range(1,indices.shape[1]):
-         ii = indices[i,0]
-         jj = indices[i,j]
-         inside_compare[i,j] = cv2.pointPolygonTest(contours[ii], (all_xy[jj,0], all_xy[jj,1]), False)
-   insides = np.asarray(np.where(inside_compare[:,1:]>=0)).T
-   insides[:,1] = insides[:,1] + 1 # shift as ignored `self' column in above test
-   for pair in insides:
-      ii = indices[pair[0],0]
-      jj = indices[pair[0],pair[1]]
-      if (ii not in throw_inds and jj not in throw_inds):
-         aA = contour_Area(contours[ii])
-         aB = contour_Area(contours[jj])
-         if (aA < aB):
-            throw_inds.append(ii)
-         else:
-            throw_inds.append(jj)
-   keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )   
-   fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in throw_inds]
-   return fixed_contour_list, keep_inds
-   
-
-#      if (i not in throw_inds):
-#         for j in range(1,nn):
-#            cnt = contours[i]
-#            compare_cnt_num = indices[i,j]
-#            if (not i==compare_cnt_num):
-#               inside_bool = cv2.pointPolygonTest(cnt, (all_xy[compare_cnt_num,0], all_xy[compare_cnt_num,1]), False)
-#               if (not inside_bool==-1):            
-#                       home_area = contour_Area(cnt)
-#                       away_area = contour_Area(contours[compare_cnt_num])
-#                       if (home_area < away_area):
-#                           compare_cnt_num = i
-#                       if (compare_cnt_num not in throw_inds):
-#                           throw_inds.append(compare_cnt_num)
-#   keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )
-#   distance_thresh = tukey_upper_thresholdval(distances[keep_inds,1], numIQR = 2)
-#   for i in keep_inds:
-#      # Throw isolated contours
-#      if (distances[i, 1]>distance_thresh):
-#         throw_inds.append(i)
-#   fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in throw_inds]
-#   keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )
-#   return fixed_contour_list, keep_inds
-
+## knn pruning functions      
 def prune_contours_knn(crypt_cnt, features, nuclei_ch_raw, backgrd, smallBlur_img_nuc, stddevmult = 1.6, nn = 7):
     all_xy = [contour_xy(cnt_i) for cnt_i in crypt_cnt]
     all_xy = np.array(all_xy)  

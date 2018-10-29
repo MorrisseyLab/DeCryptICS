@@ -36,29 +36,6 @@ def masked_dice_coeff(y_true, y_pred, mask_value=MASK_VALUE):
     score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
     return score
 
-def masked_dice_coeff_perchannel1(y_true, y_pred, mask_value=MASK_VALUE):
-   y_true = y_true[:,:,:,0]
-   y_pred = y_pred[:,:,:,0]
-   smooth = 1.
-   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
-   y_true_f = K.flatten(y_true * mask)
-   y_pred_f = K.flatten(y_pred * mask)
-   intersection = K.sum(y_true_f * y_pred_f)
-   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
-   return score
-   
-def masked_dice_coeff_perchannel2(y_true, y_pred, mask_value=MASK_VALUE):
-   y_true = y_true[:,:,:,1]
-   y_pred = y_pred[:,:,:,1]
-   smooth = 1.
-   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
-   y_true_f = K.flatten(y_true * mask)
-   y_pred_f = K.flatten(y_pred * mask)
-   intersection = K.sum(y_true_f * y_pred_f)
-   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
-   return score
-
-
 def dice_coeff(y_true, y_pred):
     smooth = 1.
     y_true_f = K.flatten(y_true)
@@ -75,14 +52,12 @@ def bce_dice_loss(y_true, y_pred):
     loss = binary_crossentropy(y_true, y_pred) + dice_loss(y_true, y_pred)
     return loss
 
-
 def weighted_dice_coeff(y_true, y_pred, weight):
     smooth = 1.
     w, m1, m2 = weight * weight, y_true, y_pred
     intersection = (m1 * m2)
     score = (2. * K.sum(w * intersection) + smooth) / (K.sum(w * m1) + K.sum(w * m2) + smooth)
     return score
-
 
 def weighted_dice_loss(y_true, y_pred):
     y_true = K.cast(y_true, 'float32')
@@ -146,3 +121,83 @@ def weighted_bce_dice_loss(y_true, y_pred):
     weight *= (w0 / w1)
     loss = weighted_bce_loss(y_true, y_pred, weight) + (1 - weighted_dice_coeff(y_true, y_pred, weight))
     return loss
+    
+def masked_dice_coeff_perchannel1(y_true, y_pred, mask_value=MASK_VALUE):
+   y_true = y_true[:,:,:,0]
+   y_pred = y_pred[:,:,:,0]
+   smooth = 1.
+   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+   y_true_f = K.flatten(y_true * mask)
+   y_pred_f = K.flatten(y_pred * mask)
+   intersection = K.sum(y_true_f * y_pred_f)
+   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+   return score
+   
+def masked_dice_coeff_perchannel2(y_true, y_pred, mask_value=MASK_VALUE):
+   y_true = y_true[:,:,:,1]
+   y_pred = y_pred[:,:,:,1]
+   smooth = 1.
+   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+   y_true_f = K.flatten(y_true * mask)
+   y_pred_f = K.flatten(y_pred * mask)
+   intersection = K.sum(y_true_f * y_pred_f)
+   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+   return score
+   
+def masked_dice_coeff_perchannel3(y_true, y_pred, mask_value=MASK_VALUE):
+   y_true = y_true[:,:,:,2]
+   y_pred = y_pred[:,:,:,2]
+   smooth = 1.
+   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+   y_true_f = K.flatten(y_true * mask)
+   y_pred_f = K.flatten(y_pred * mask)
+   intersection = K.sum(y_true_f * y_pred_f)
+   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+   return score
+
+def masked_dice_coeff_perchannel4(y_true, y_pred, mask_value=MASK_VALUE):
+   y_true = y_true[:,:,:,3]
+   y_pred = y_pred[:,:,:,3]
+   smooth = 1.
+   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+   y_true_f = K.flatten(y_true * mask)
+   y_pred_f = K.flatten(y_pred * mask)
+   intersection = K.sum(y_true_f * y_pred_f)
+   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+   return score
+
+def masked_dice_coeff_perchannel5(y_true, y_pred, mask_value=MASK_VALUE):
+   y_true = y_true[:,:,:,4]
+   y_pred = y_pred[:,:,:,4]
+   smooth = 1.
+   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+   y_true_f = K.flatten(y_true * mask)
+   y_pred_f = K.flatten(y_pred * mask)
+   intersection = K.sum(y_true_f * y_pred_f)
+   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+   return score
+   
+def masked_dice_coeff_perchannel6(y_true, y_pred, mask_value=MASK_VALUE):
+   y_true = y_true[:,:,:,5]
+   y_pred = y_pred[:,:,:,5]
+   smooth = 1.
+   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+   y_true_f = K.flatten(y_true * mask)
+   y_pred_f = K.flatten(y_pred * mask)
+   intersection = K.sum(y_true_f * y_pred_f)
+   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+   return score
+
+def masked_dice_coeff_perchannel7(y_true, y_pred, mask_value=MASK_VALUE):
+   y_true = y_true[:,:,:,6]
+   y_pred = y_pred[:,:,:,6]
+   smooth = 1.
+   mask = K.cast(K.not_equal(y_true, mask_value), K.floatx())
+   y_true_f = K.flatten(y_true * mask)
+   y_pred_f = K.flatten(y_pred * mask)
+   intersection = K.sum(y_true_f * y_pred_f)
+   score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+   return score
+    
+ 
+

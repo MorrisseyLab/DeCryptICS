@@ -37,11 +37,12 @@ def lower_intensity_by_one(img):
     return img
     
 if __name__=="__main__":
-    ## Lowering intensity by one prior to manual masking
-    ##########################################################################
-    # load image list
-   #train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/train/"
+   ## Lowering intensity by one prior to manual masking
+   ##########################################################################
+   # load image list
    train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/pre-mask/"
+   #train_path =     "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/input/pre-mask/"
+   #train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/fufis/pre-mask/"
    flist = glob.glob(train_path+"*.png")
    #mlist = ['/' + os.path.join(*f.split('/')[:-2]) + '/pre-mask/premask_' + f.split('/')[-1] for f in flist]
    mlist = flist
@@ -56,7 +57,9 @@ if __name__=="__main__":
     ## Setting background to black for manually masked images
     ##########################################################################
     # load images
+    #dnnpath = "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/input/"
     dnnpath = "/home/doran/Work/py_code/DeCryptICS/DNN/input/"
+    #dnnpath = "/home/doran/Work/py_code/DeCryptICS/DNN/input/fufis/"
     inpath = dnnpath + "/pre-mask/"
     outpath = dnnpath + "/train_masks/"
     imfiles = glob.glob(inpath + "*.png")
@@ -66,8 +69,28 @@ if __name__=="__main__":
         img = cv2.imread(path, cv2.IMREAD_COLOR)
         mask = set_background_to_black(img)
         im_number = path.split("/")[-1][8:] # remove "premask_"
+        #im_number = path.split("/")[-1][4:] # remove "img_"
         outfile = "mask_" + im_number
         cv2.imwrite(outpath + outfile, mask)
+
+
+    revertpath = dnnpath + "/pre-mask/"
+    for path in imfiles:
+       im_number = path.split("/")[-1][8:] # remove "premask_"        
+       imfile = outpath + "mask_" + im_number # replace with mask
+       img = cv2.imread(imfile, cv2.IMREAD_COLOR)        
+       outfile = "img_" + im_number
+       cv2.imwrite(revertpath + outfile, img)
+
+   ## Thresholding masks incorrectly made in three-colour
+   ##########################################################################
+   training_base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
+   maskfolder = training_base_folder + "/input/train_masks/"
+   masks = glob.glob(maskfolder + "*.png")
+   for f in masks:
+      mm = cv2.imread(f, cv2.IMREAD_GRAYSCALE)
+      retval, threshold = cv2.threshold(mm, 1, 255, cv2.THRESH_BINARY)
+      cv2.imwrite(f, threshold)
         
     ## Generating masks from predictions for new ground-truth training data
     ##########################################################################
@@ -85,6 +108,25 @@ if __name__=="__main__":
 #        mask = generate_mask_from_prediction(preds_path + ff, p_thresh=0.45)
 #        outname = "mask" + ff[4:]
 #        cv2.imwrite(mask_path + outname, mask)
+
+    ## Resizing errant images/masks
+    ##########################################################################
+    dnnpath = "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/input/"
+    inpath = dnnpath + "/train/"
+    imfiles = glob.glob(inpath + "*.png")
+    maskpath = dnnpath + "/train_masks/"
+    maskfiles = glob.glob(maskpath + "*.png")
+
+    # run processing and save
+    for path in imfiles:
+        img = cv2.imread(path, cv2.IMREAD_COLOR)
+        if (img.shape!=(256,256,3)):
+           img = img[:256, :256, :3]
+           cv2.imwrite(path, img)
     
-    
+    for path in maskfiles:
+        mask = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        if (mask.shape!=(256,256)):
+           mask = mask[:256, :256]
+           cv2.imwrite(path, mask)
     

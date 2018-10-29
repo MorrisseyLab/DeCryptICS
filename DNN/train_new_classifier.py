@@ -24,6 +24,8 @@ from PIL import Image
 import io
 import keras.callbacks as KC
 
+samples = []
+
 num_cores = 12
 GPU = True
 CPU = False
@@ -47,18 +49,73 @@ epochs = params.max_epochs
 batch_size = params.batch_size
 
 # Processing function for the training data
+#def train_process_fufis(data):
+#   img_f, mask_f = data
+#   img = cv2.imread(img_f, cv2.IMREAD_COLOR)
+#   if (not img.shape==SIZE): img = cv2.resize(img, SIZE)
+#   
+#   #mask = np.zeros([img.shape[0], img.shape[1], 2]) # for two classifications
+#   
+#   # choose which channel to load mask into
+#   if (mask_f.split('/')[-1].split('.')[-2][-5:]=="crypt"):
+#      mask[:,:,0] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+#   elif (mask_f.split('/')[-1].split('.')[-2][-4:]=="fufi"):
+#      mask[:,:,1] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+
+#   img = randomHueSaturationValue(img,
+#                                hue_shift_limit=(-100, 100),
+#                                sat_shift_limit=(0, 0),
+#                                val_shift_limit=(-25, 25))
+#   img, mask = randomShiftScaleRotate(img, mask,
+#                                    shift_limit=(-0.0625, 0.0625),
+#                                    scale_limit=(-0.1, 0.1),
+#                                    rotate_limit=(-20, 20))
+#   img, mask = randomHorizontalFlip(img, mask)
+#   fix_mask(mask)
+#   
+#   ## Need to make masking values on outputs in float32 space, as uint8 arrays can't deal with it
+#   img = img.astype(np.float32) / 255
+#   mask = mask.astype(np.float32) / 255
+#   # choose which channel to mask (i.e. all other channels are masked)
+#   if (mask_f.split('/')[-1].split('.')[-2][-5:]=="crypt"):
+#      mask[:,:,1].fill(MASK_VALUE)
+#   elif (mask_f.split('/')[-1].split('.')[-2][-4:]=="fufi"):
+#      mask[:,:,0].fill(MASK_VALUE)   
+#   return (img, mask)
+
 def train_process(data):
    img_f, mask_f = data
    img = cv2.imread(img_f, cv2.IMREAD_COLOR)
    if (not img.shape==SIZE): img = cv2.resize(img, SIZE)
    
-   mask = np.zeros([img.shape[0], img.shape[1], 2]) # for two classifications
+   mask = np.zeros([img.shape[0], img.shape[1], 5]) # for crypt, fufis + 5 marks
+   # Order clone channels: crypts, fufis, (KDM6A, MAOA, NONO), STAG2, mPAS
    
    # choose which channel to load mask into
-   if (mask_f.split('/')[-1].split('.')[-2][-5:]=="crypt"):
+   mname = mask_f.split('/')[-1].split('.')[-2]
+   if (mname[-5:]=="crypt"):
       mask[:,:,0] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
-   elif (mask_f.split('/')[-1].split('.')[-2][-4:]=="fufi"):
+      dontmask = 0
+   elif (mname[-4:]=="fufi"):
       mask[:,:,1] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+      dontmask = 1
+   elif (mname[-5:]=="clone"):
+      mname_broken = mask_f.split('/')[-1].split('_')
+      if "KDM6A" in mname_broken:
+         mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+         dontmask = 2
+      if "MAOA" in mname_broken:
+         mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+         dontmask = 2
+      if "NONO" in mname_broken:
+         mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+         dontmask = 2
+      if "STAG2" in mname_broken:
+         mask[:,:,3] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+         dontmask = 3
+      if "mPAS" in mname_broken:
+         mask[:,:,4] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+         dontmask = 4
 
    img = randomHueSaturationValue(img,
                                 hue_shift_limit=(-100, 100),
@@ -69,17 +126,15 @@ def train_process(data):
                                     scale_limit=(-0.1, 0.1),
                                     rotate_limit=(-20, 20))
    img, mask = randomHorizontalFlip(img, mask)
-   #fix_mask(mask)
-   #mask = np.expand_dims(mask, axis=2)
+   fix_mask(mask)
    
    ## Need to make masking values on outputs in float32 space, as uint8 arrays can't deal with it
    img = img.astype(np.float32) / 255
    mask = mask.astype(np.float32) / 255
    # choose which channel to mask (i.e. all other channels are masked)
-   if (mask_f.split('/')[-1].split('.')[-2][-5:]=="crypt"):
-      mask[:,:,1].fill(MASK_VALUE)
-   elif (mask_f.split('/')[-1].split('.')[-2][-4:]=="fufi"):
-      mask[:,:,0].fill(MASK_VALUE)   
+   for i in range(mask.shape[2]):
+      if (not i==dontmask):
+         mask[:,:,i].fill(MASK_VALUE) 
    return (img, mask)
 
 def train_generator():
@@ -139,18 +194,19 @@ class TensorBoardImage(KC.Callback):
       return
 
 if __name__=="__main__":
-   base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
+   base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/" # as training data is in DeCryptICS folder
+   dnnfolder = "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/"
    
-#   ## Loading old weights into all but the final layer
-#   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3))
-#   model.load_weights("./DNN/weights/tile256_for_X_best_weights.hdf5")
+   # Loading old weights into all but the final layer
+#   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=7)
+#   model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
 
 #   # Getting weights layer by layer
 #   weights_frozen = [l.get_weights() for l in model.layers]
 
    # Redefine new network with new classification
-   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=2)
-   model.load_weights(base_folder+"/weights/cryptandfufi_weights_masking3.hdf5")
+   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
+   model.load_weights(dnnfolder+"/weights/cryptfuficlone_weights5.hdf5")
 
    # Add in old weights
 #   numlayers = len(model.layers)
@@ -161,8 +217,16 @@ if __name__=="__main__":
 #   w_f_elems = weights_frozen[-1]
 #   for i in range(len(model.layers[-1].get_weights())):
 #      w_elems.append(model.layers[-1].get_weights()[i])   
-#   w_elems[0][:,:,:,0] = w_f_elems[0][:,:,:,0]
-#   w_elems[1][0] = w_f_elems[1][0]   
+#   w_elems[0][:,:,:,0] = w_f_elems[0][:,:,:,0] # crypt
+#   w_elems[0][:,:,:,1] = w_f_elems[0][:,:,:,1] # fufi
+#   w_elems[0][:,:,:,2] = w_f_elems[0][:,:,:,2] # kdm6a/maoa/nono
+#   w_elems[0][:,:,:,3] = w_f_elems[0][:,:,:,5] # stag2
+#   w_elems[0][:,:,:,4] = w_f_elems[0][:,:,:,6] # mpas
+#   w_elems[1][0] = w_f_elems[1][0]
+#   w_elems[1][1] = w_f_elems[1][1]
+#   w_elems[1][2] = w_f_elems[1][2]
+#   w_elems[1][3] = w_f_elems[1][5]
+#   w_elems[1][4] = w_f_elems[1][6]
 #   model.layers[-1].set_weights(w_elems)
 
    # Freeze all layer but the last classification convolution (as difficult to freeze a subset of parameters within a layer -- but can load them back in afterwards)
@@ -175,43 +239,75 @@ if __name__=="__main__":
    imgfolder = base_folder + "/input/train/"
    maskfolder = base_folder + "/input/train_masks/"
    images = glob.glob(imgfolder + "*.png")
-   samples = []
+   #samples = []
    #masks = glob.glob(maskfolder + "*.png")
    #for i in range(len(masks)):
       #img = imgfolder+"img"+masks[i][(len(maskfolder)+4):]
       #sample = (img, masks[i])
       #samples.append(sample)
-   for i in range(len(images)):
-      mask = maskfolder+"mask"+images[i][(len(imgfolder)+3):]
-      sample = (images[i], mask)
-      samples.append(sample)
+#   for i in range(len(images)):
+#      mask = maskfolder+"mask"+images[i][(len(imgfolder)+3):]
+#      sample = (images[i], mask)
+#      samples.append(sample)
+#   shuffle(samples)
+   
+   training_base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
+   # Set up training data   
+   imgfolder = training_base_folder + "/input/train/"
+   maskfolder = training_base_folder + "/input/train_masks/"
+   crypts = glob.glob(imgfolder + "*_crypt.png")
+   fufis = glob.glob(imgfolder + "*_fufi.png")
+   clones = glob.glob(imgfolder + "*_clone.png")
+   samples_cr = []
+   for i in range(len(crypts)):
+      mask = maskfolder+"mask"+crypts[i][(len(imgfolder)+3):]
+      sample = (crypts[i], mask)
+      samples_cr.append(sample)
+   samples_fu = []
+   for i in range(len(fufis)):
+      mask = maskfolder+"mask"+fufis[i][(len(imgfolder)+3):]
+      sample = (fufis[i], mask)
+      samples_fu.append(sample)
+   samples_cl = []
+   for i in range(len(clones)):
+      mask = maskfolder+"mask"+clones[i][(len(imgfolder)+3):]
+      sample = (clones[i], mask)
+      samples_cl.append(sample)
+   
+   # add crypt samples
+   samples += samples_cr
+   # add repeats of clone and fufi data to get about one in ten
+   n1 = int(len(samples_cr)/len(samples_cl)/1.4)
+   n2 = int(len(samples_cr)/len(samples_fu)/1.)
+   for i in range(n1): samples += samples_cl
+   for i in range(n2): samples += samples_fu
    shuffle(samples)
    
    # Define test image batches for TensorBoard checking
-   test_img1 = cv2.imread(base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png")
-   test_img2 = cv2.imread(base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png")
-   test_img3 = cv2.imread(base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png")
-   test_img4 = cv2.imread(base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png")
-   test_img5 = cv2.imread(base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png")
-   test_images = [test_img1, test_img2, test_img3, test_img4, test_img5]
-   test_batches = []
-   for i in range(len(test_images)):
-      test_batches.append(np.array([test_images[i]], np.float32) / 255.)
-   test_tags = list(np.asarray(range(len(test_batches))).astype(str))
+#   test_img1 = cv2.imread(base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png")
+#   test_img2 = cv2.imread(base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png")
+#   test_img3 = cv2.imread(base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png")
+#   test_img4 = cv2.imread(base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png")
+#   test_img5 = cv2.imread(base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png")
+#   test_images = [test_img1, test_img2, test_img3, test_img4, test_img5]
+#   test_batches = []
+#   for i in range(len(test_images)):
+#      test_batches.append(np.array([test_images[i]], np.float32) / 255.)
+#   test_tags = list(np.asarray(range(len(test_batches))).astype(str))
    
    ## subset samples for tensorboard test
 #   images = [base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png", base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png", base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png", base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png", base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png"]
    
    
-   weights_name = base_folder+'/weights/cryptandfufi_weights_masking4.hdf5'
-   #weights_name = base_folder+'/weights/tensorboardimagetest.hdf5'
+   weights_name = dnnfolder+"/weights/cryptfuficlone_weights6.hdf5"
+   logs_folder = dnnfolder+"/logs"
    
    callbacks = [EarlyStopping(monitor='loss', patience=10, verbose=1, min_delta=1e-8),
                 ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, epsilon=1e-8),
                 ModelCheckpoint(monitor='loss', filepath=weights_name, save_best_only=True, save_weights_only=True),
-                TensorBoard(log_dir=base_folder+'logs'),
-                TensorBoardImage(log_dir=base_folder+'logs', tags=test_tags, test_image_batches=test_batches)]
+                TensorBoard(log_dir=logs_folder),]
+                #TensorBoardImage(log_dir=logs_folder, tags=test_tags, test_image_batches=test_batches)]
                 
    model.fit_generator(generator=train_generator(), steps_per_epoch=np.ceil(float(len(samples)) / float(batch_size)), epochs=epochs, verbose=1, callbacks=callbacks, validation_data=None)
-   model.save_weights(weights_name)
+   #model.save_weights(weights_name)
 

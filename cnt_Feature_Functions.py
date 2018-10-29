@@ -66,10 +66,10 @@ def add_nearby_clones(patch, indices, clone_inds, i, j):
             add_nearby_clones(patch, indices, clone_inds, k, j)
    return patch
 
-def joinContoursIfClose_OnlyKeepPatches(cfl, contours, clone_inds):
+def joinContoursIfClose_OnlyKeepPatches(crypt_contours, crypt_dict, clone_inds):
    nn = 7
-   nbrs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(cfl['xy_coords'])
-   distances, indices = nbrs.kneighbors(cfl['xy_coords'])
+   nbrs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(crypt_dict['crypt_xy'])
+   distances, indices = nbrs.kneighbors(crypt_dict['crypt_xy'])
    patches = []
    j = 0
    for i in clone_inds:
@@ -107,11 +107,15 @@ def joinContoursIfClose_OnlyKeepPatches(cfl, contours, clone_inds):
    patch_size = [len(s) for s in cut2_patches]
    cnt_joined = []
    for patch in cut2_patches:
-      cont = np.vstack(np.array(contours[i]) for i in patch)
+      cont = np.vstack(np.array(crypt_contours[i]) for i in patch)
       hull = cv2.convexHull(cont)
       cnt_joined.append(hull)
-   return cnt_joined, patch_size, cut2_patches
-         
+   newpatchinds = []
+   for patch in cut2_patches:
+      patch = list(patch)
+      newpatchinds.append(patch)
+   return cnt_joined, patch_size, newpatchinds
+
 
 ## Modified version of 
 ## http://dsp.stackexchange.com/questions/2564/opencv-c-connect-nearby-contours-based-on-distance-between-them

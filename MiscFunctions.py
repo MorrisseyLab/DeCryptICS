@@ -40,7 +40,6 @@ def rescale_contours(contour_list, scaling_val):
 def convert_to_local_clone_indices(patch_indices, clone_inds):
    newpatchinds = []
    for patch in patch_indices:
-      patch = list(patch)
       patch = [np.where(clone_inds==i)[0][0] for i in patch]
       newpatchinds.append(patch)
    return newpatchinds
@@ -72,57 +71,11 @@ def write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scalin
       roi           = cv2.boundingRect(cc)
       roi = np.array((roi[0]-expand_box, roi[1]-expand_box,  roi[2]+2*expand_box, roi[3]+2*expand_box), dtype=np.uint64)
       roi[roi<1]   = 0
-      img_ROI       = getROI_img_osl(file_name, (roi[0],roi[1]), (roi[2],roi[3]), level=0) # or level=1?
-      outfile = "/clone_" + str(i) + ".png"
+      img_ROI      = getROI_img_osl(file_name, (roi[0],roi[1]), (roi[2],roi[3]), level = 0) # or level=1?
+      outfile      = "/clone_" + str(i) + ".png"
       cv2.imwrite(imgout + outfile, img_ROI)
       i += 1
-
-## Example hdf5 saving from SPRING -- use as template to create contour saving function?
-#def save_hdf5_genes(E, gene_list, filename):
-#    '''SPRING standard: filename = main_spring_dir + "counts_norm_sparse_genes.hdf5"'''
-#    
-#    import h5py
-#    
-#    E = E.tocsc()
-#    
-#    hf = h5py.File(filename, 'w')
-#    counts_group = hf.create_group('counts')
-#    cix_group = hf.create_group('cell_ix')
-
-#    hf.attrs['ncells'] = E.shape[0]
-#    hf.attrs['ngenes'] = E.shape[1]
-
-#    for iG, g in enumerate(gene_list):
-#        counts = E[:,iG].A.squeeze()
-#        cell_ix = np.nonzero(counts)[0]
-#        counts = counts[cell_ix]
-#        counts_group.create_dataset(g, data = counts)
-#        cix_group.create_dataset(g, data = cell_ix)
-
-#    hf.close()
-#    
-#def save_hdf5_cells(E, filename):
-#    '''SPRING standard: filename = main_spring_dir + "counts_norm_sparse_cells.hdf5" '''
-#    import h5py
-#    
-#    E = E.tocsr()
-#    
-#    hf = h5py.File(filename, 'w')
-#    counts_group = hf.create_group('counts')
-#    gix_group = hf.create_group('gene_ix')
-
-#    hf.attrs['ncells'] = E.shape[0]
-#    hf.attrs['ngenes'] = E.shape[1]
-
-#    for iC in range(E.shape[0]):
-#        counts = E[iC,:].A.squeeze()
-#        gene_ix = np.nonzero(counts)[0]
-#        counts = counts[gene_ix]
-#        counts_group.create_dataset(str(iC), data = counts)
-#        gix_group.create_dataset(str(iC), data = gene_ix)
-
-#    hf.close()
-
+   return True
             
 def read_cnt_text_file(file_name):
     with open(file_name, 'r') as file:
@@ -293,8 +246,8 @@ def correct_wh(max_vals, xy_vals, wh_vals):
     new_wh_x = wh_vals[0]
     new_wh_y = wh_vals[1]
     if final_x > max_vals[0] : new_wh_x = max_vals[0] - xy_vals[0]
-    if final_y > max_vals[1] : new_wh_y = max_vals[1] - xy_vals[1]
-    return new_wh_x, new_wh_y
+    if final_y > max_vals[1] : new_wh_y = max_vals[1] - xy_vals[1]    
+    return int(new_wh_x), int(new_wh_y)
 
 #def getROI_img_vips(file_name, x_y, w_h, level = 0):
 #    vim           = pyvips.Image.openslideload(file_name, level = level)   #openslideload
@@ -374,4 +327,51 @@ def plotImageAndFit(indx_True, indx_on, crypt_cnt_raw, img, indx_subset = None):
     cv2.drawContours(img_plot,   crypt_cnt_EM, -1, (  0,  0, 255), 12) 
     cv2.drawContours(img_plot, crypt_cnt_mine, -1, (255,  0,   0),  6) 
     plot_img(img_plot, hold_plot=True)
+
+
+## Example hdf5 saving from SPRING -- use as template to create contour saving function?
+#def save_hdf5_genes(E, gene_list, filename):
+#    '''SPRING standard: filename = main_spring_dir + "counts_norm_sparse_genes.hdf5"'''
+#    
+#    import h5py
+#    
+#    E = E.tocsc()
+#    
+#    hf = h5py.File(filename, 'w')
+#    counts_group = hf.create_group('counts')
+#    cix_group = hf.create_group('cell_ix')
+
+#    hf.attrs['ncells'] = E.shape[0]
+#    hf.attrs['ngenes'] = E.shape[1]
+
+#    for iG, g in enumerate(gene_list):
+#        counts = E[:,iG].A.squeeze()
+#        cell_ix = np.nonzero(counts)[0]
+#        counts = counts[cell_ix]
+#        counts_group.create_dataset(g, data = counts)
+#        cix_group.create_dataset(g, data = cell_ix)
+
+#    hf.close()
+#    
+#def save_hdf5_cells(E, filename):
+#    '''SPRING standard: filename = main_spring_dir + "counts_norm_sparse_cells.hdf5" '''
+#    import h5py
+#    
+#    E = E.tocsr()
+#    
+#    hf = h5py.File(filename, 'w')
+#    counts_group = hf.create_group('counts')
+#    gix_group = hf.create_group('gene_ix')
+
+#    hf.attrs['ncells'] = E.shape[0]
+#    hf.attrs['ngenes'] = E.shape[1]
+
+#    for iC in range(E.shape[0]):
+#        counts = E[iC,:].A.squeeze()
+#        gene_ix = np.nonzero(counts)[0]
+#        counts = counts[gene_ix]
+#        counts_group.create_dataset(str(iC), data = counts)
+#        gix_group.create_dataset(str(iC), data = gene_ix)
+
+#    hf.close()
 

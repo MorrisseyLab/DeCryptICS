@@ -21,36 +21,32 @@ def file_len(fname):
             pass
     return i + 1
 
-def extract_counts_csv(file_in, folder_out, find_clones = False):
+def extract_counts_csv(file_in, folder_out):
    contour_folders = [folder_from_image(im) for im in file_in]
    num = len(contour_folders)
-   if (find_clones==False):
-      slidecounts = np.zeros([num,2], dtype=np.int32)
-   if (find_clones==True):
-      slidecounts = np.zeros([num,4], dtype=np.int32)
+   slidecounts = np.zeros([num,5], dtype=np.int32)
    for i in range(num):
       cnt_file = folder_out + contour_folders[i] + "crypt_contours.txt"
-      if (find_clones==True):
-         cln_file = folder_out + contour_folders[i] + "clone_contours.txt"
-         ptch_file = folder_out + contour_folders[i] + "patch_contours.txt"      
+      fuf_file = folder_out + contour_folders[i] + "fufi_contours.txt"
+      cln_file  = folder_out + contour_folders[i] + "clone_contours.txt"
+      ptch_file = folder_out + contour_folders[i] + "patch_contours.txt"
       if (os.path.isfile(cnt_file)):
-         wcout = file_len(cnt_file)
-         wcout = int(wcout/2)
          slidecounts[i,0] = int(file_in[i])
-         slidecounts[i,1] = wcout
-         if (find_clones==True):
-            clcnt = file_len(cln_file)
-            clcnt = int(clcnt/2)
-            ptcnt = file_len(ptch_file)
-            ptcnt = int(ptcnt/2)
-            slidecounts[i,2] = clcnt
-            slidecounts[i,3] = ptcnt
+         crcnt = file_len(cnt_file)
+         crcnt = int(crcnt/2)
+         slidecounts[i,1] = crcnt
+         fucnt = file_len(fuf_file)
+         fucnt = int(fucnt/2)
+         slidecounts[i,2] = fucnt
+         clcnt = file_len(cln_file)
+         clcnt = int(clcnt/2)
+         slidecounts[i,3] = clcnt
+         ptcnt = file_len(ptch_file)
+         ptcnt = int(ptcnt/2)
+         slidecounts[i,4] = ptcnt
    slidecounts_p = pd.DataFrame(slidecounts)
    outname = "/slide_counts.csv"
-   if (find_clones==False):
-      slidecounts_p.columns = ['Slide_ID', 'NCrypts']
-   if (find_clones==True):
-      slidecounts_p.columns = ['Slide_ID', 'NCrypts', 'NClones', 'NPatches']
+   slidecounts_p.columns = ['Slide_ID', 'NCrypts', 'NFufis', 'NClones', 'NPatches']
    slidecounts_p.to_csv(folder_out + outname, sep=',', index=False)
 
 def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
@@ -89,9 +85,9 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write("import qupath.lib.objects.classes.PathClassFactory;" + '\n')
         file.write('\n')
         file.write("// Change CLONE_THRESHOLD to vary the clone sensitivity" + '\n')
-        file.write("// 0 will load all potential clones, 1 will load only the strongest signals." + '\n')
+        file.write("// 0 will load all potential clones, 1 will load only those that have been manually curated." + '\n')
         file.write("// (This won't change the patch contours.)" + '\n')
-        file.write("double CLONE_THRESHOLD = 0.05" + '\n')
+        file.write("double CLONE_THRESHOLD = 0.5" + '\n')
         file.write('\n')
         file.write("// Some code taken from:\n// https://groups.google.com/forum/#!topic/qupath-users/j_Wd1hy4eKM\n// https://groups.google.com/forum/#!topic/qupath-users/QyzvMjQ08cY\n// https://github.com/qupath/qupath/issues/169" + '\n')
         file.write('\n')
@@ -100,10 +96,12 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write("def CryptClass = PathClassFactory.getPathClass(\"Crypt\")" + '\n')
         file.write("def CloneClass = PathClassFactory.getPathClass(\"Clone\")" + '\n')
         file.write("def PatchClass = PathClassFactory.getPathClass(\"Patch\")" + '\n')
+        file.write("def FufiClass  = PathClassFactory.getPathClass(\"Fufi\")" + '\n')
         file.write("def pathClasses = getQuPath().getAvailablePathClasses()" + '\n')
         file.write("pathClasses.remove(CryptClass)" + '\n')
         file.write("pathClasses.remove(CloneClass)" + '\n')
         file.write("pathClasses.remove(PatchClass)" + '\n')
+        file.write("pathClasses.remove(FufiClass)" + '\n')
         file.write("if (!pathClasses.contains(CryptClass)) {" + '\n')
         file.write("\tpathClasses.add(CryptClass)" + '\n')
         file.write("}" + '\n')
@@ -113,9 +111,13 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write("if (!pathClasses.contains(PatchClass)) {" + '\n')
         file.write("\tpathClasses.add(PatchClass)" + '\n')
         file.write("}" + '\n')
+        file.write("if (!pathClasses.contains(FufiClass)) {" + '\n')
+        file.write("\tpathClasses.add(FufiClass)" + '\n')
+        file.write("}" + '\n')
         file.write("PathClassFactory.getPathClass(\"Crypt\").setColor(ColorTools.makeRGB(175,0,0))" + '\n')
         file.write("PathClassFactory.getPathClass(\"Clone\").setColor(ColorTools.makeRGB(10,152,30))" + '\n')
         file.write("PathClassFactory.getPathClass(\"Patch\").setColor(ColorTools.makeRGB(10,15,135))" + '\n')
+        file.write("PathClassFactory.getPathClass(\"Fufi\").setColor(ColorTools.makeRGB(120,5,100))" + '\n')
         file.write('\n')
         
         file.write("// Define folder structure" + '\n')
@@ -191,6 +193,23 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write('\t\t'+"pathObjects3 << new PathAnnotationObject(roi, PatchClass)" + '\n')
         file.write('\t'+'}' + '\n')
         file.write('\t'+"addObjects(pathObjects3)" + '\n')
+        file.write('\t'+"print(\"Done!\")" + '\n')
+        file.write('}' + '\n')
+        file.write('\n')
+        
+        file.write("// Add fufi contours" + '\n')
+        file.write("def file4 = new File(base_folder+\"Analysed_\"+ff+\"/fufi_contours.txt\")" + '\n')
+        file.write("if( file4.exists() ) {" + '\n')         
+        file.write('\t'+"def lines4 = file4.readLines()" + '\n')
+        file.write('\t'+"num_rois = lines4.size/2" + '\n')
+        file.write('\t'+"def pathObjects4 = []" + '\n')
+        file.write('\t'+"for (i = 0; i<num_rois; i++) {" + '\n')
+        file.write('\t\t'+"float[] x1 = lines4[2*i].tokenize(\',\') as float[]" + '\n')
+        file.write('\t\t'+"float[] y1 = lines4[2*i+1].tokenize(\',\') as float[]" + '\n')
+        file.write('\t\t'+"def roi = new PolygonROI(x1, y1, -300, 0, 0)" + '\n')
+        file.write('\t\t'+"pathObjects4 << new PathAnnotationObject(roi, FufiClass)" + '\n')
+        file.write('\t'+'}' + '\n')
+        file.write('\t'+"addObjects(pathObjects4)" + '\n')
         file.write('\t'+"print(\"Done!\")" + '\n')
         file.write('}' + '\n')
         file.write('\n')

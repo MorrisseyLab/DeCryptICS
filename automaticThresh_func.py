@@ -7,13 +7,13 @@ Created on Thu May 26 17:31:49 2016
 
 import cv2
 import numpy as np
+import openslide as osl
 from deconv_mat import *
 from matplotlib import pyplot as plt
 from MiscFunctions import plot_img
 from MiscFunctions import getIndexesTileImage, plot_histogram
 from MiscFunctions import col_deconvol, col_deconvol_32, plot_img
 from MiscFunctions import getROI_img_osl, col_deconvol_and_blur
-import openslide as osl
 from sklearn               import mixture
 from cnt_Feature_Functions import filterSmallArea, st_3, plotSegmented
 from deconv_mat import deconv_mat_AB, deconv_mat_betaCat, deconv_mat_MAOA, deconv_mat_MPAS
@@ -171,6 +171,7 @@ def find_tile(tile_list, foreground_filt, clonebody):
     return i, j, False
 
 def find_deconmat_fromtiles(img, clonal_mark_type, all_indx):
+   # DEFUNCT
    if (clonal_mark_type.upper()=="P-N"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
    if (clonal_mark_type.upper()=="P-L"): deconv_mat_ref = deconv_mat_MPAS
    if (clonal_mark_type.upper()=="P-B"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix
@@ -380,6 +381,7 @@ def calculate_thresholds(big_img, deconv_mat):
     return thresh_blur_small, thresh_blur, th_clone
 
 def calculate_deconvolution_matrix_and_ROI(file_name, clonal_mark_type):
+   # DEFUNCT
    if (clonal_mark_type.upper()=="P-N"): deconv_mat_ref = deconv_mat_KDM6A # Don't have an example of this for a deconvolution matrix        
    if (clonal_mark_type.upper()=="P-L"): deconv_mat_ref = deconv_mat_MPAS
    if (clonal_mark_type.upper()=="P-B"): deconv_mat_ref = deconv_mat_MAOA # Don't have an example of this for a deconvolution matrix

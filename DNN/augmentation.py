@@ -28,6 +28,12 @@ def plot_img(list_to_plot, nrow = 1, nameWindow = 'Plots', NewWindow = True, hol
 
 # Method to set grayscale mask values to either 0 or 255
 def fix_mask(mask):
+    inds = np.where(np.isnan(mask))
+    for i in range(inds[0].shape[0]):
+      mask[inds[0][i],inds[1][i], inds[2][i]] = 0.0
+    inds = np.where(np.isinf(mask))
+    for i in range(inds[0].shape[0]):
+      mask[inds[0][i],inds[1][i], inds[2][i]] = 0.0
     mask[mask < 100] = 0.0
     mask[mask >= 100] = 255.0
 

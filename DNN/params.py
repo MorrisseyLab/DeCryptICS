@@ -3,8 +3,8 @@ from DNN.u_net import get_unet_128, get_unet_256, get_unet_512, get_unet_1024, g
 # Reduce input_size if GPU is running out of memory (increase if not!)
 input_size = 1024
 
-max_epochs = 5000
-batch_size = 18
+max_epochs = 10000
+batch_size = 16
 
 orig_width = input_size
 orig_height = input_size

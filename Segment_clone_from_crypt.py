@@ -223,7 +223,7 @@ def find_outlier_truncated_normal(Signal, below=True, numSD=2, nbins=100):
    if (below): return mu_trunc - numSD*sd_trunc
    if (not below): return mu_trunc + numSD*sd_trunc
 
-def determine_clones(cfl, clonal_mark_type, crypt_contours = 0):
+def determine_clones(cfl, clonal_mark_type, crypt_contours = 0, max_output_num = 100):
    ## NEW METHOD OF CLONE FINDING (perhaps globally over a whole slide?):
    # - To find those bins that are `nuclear halo dropouts' (i.e. points 
    #  where we haven't got inside the halo, or where the crypt is missing
@@ -318,7 +318,7 @@ def determine_clones(cfl, clonal_mark_type, crypt_contours = 0):
          badbins.append([])
          goodbins.append([])
          for j in range(0,numbins):
-            if (bins_c[i,j]>outlier_above_c and bins_n[i,j]<outlier_below_n):
+            if (bins_c[i,j]>outlier_above_c and bins_n[i,j]<outlier_above_n):
                badbins[i].append(j)
             else: goodbins[i].append(j)   
       
@@ -421,9 +421,6 @@ def determine_clones(cfl, clonal_mark_type, crypt_contours = 0):
       if (clonal_mark_type[0]=='P'): # positive, use outlier above upper bound
          num_outlier_bins[me] = np.where(local_bin_zscores[me,:] > 3.)[0].shape[0]
          
-      #local_content_c_zscores[me] = (content_c_s2[me] - np.mean(content_c_s2[my_nns])) / np.std(content_c_s2[my_nns])
-      #local_halo_c_zscores[me]    = (halo_c_s2[me] - np.mean(halo_c_s2[my_nns])) / np.std(halo_c_s2[my_nns])
-
    new_inds_clone = np.where(num_outlier_bins>=2)[0]
    newglobinds = goodsizeinds2[new_inds_clone]
    globscores[newglobinds] = num_outlier_bins[new_inds_clone]/20.
@@ -442,11 +439,10 @@ def determine_clones(cfl, clonal_mark_type, crypt_contours = 0):
    local_clone_inds = goodsizeinds2[new_inds_clone]
    all_clone_inds = np.hstack([global_clone_inds, local_clone_inds])
    all_clone_scores = globscores[all_clone_inds]
-   # below here is broken, indexing incorrect
    order = np.argsort(all_clone_scores)[::-1]
    all_clone_inds = all_clone_inds[order]
    all_clone_scores = all_clone_scores[order]
-   return all_clone_inds, all_clone_scores
+   return all_clone_inds[:max_output_num], all_clone_scores[:max_output_num]
               
 def no_threshold_signal_collating(cnt_i, img_nuc, img_clone, nbins):
    # Find max halo contour in nuclear channel, and nucl/clone halo scores
