@@ -15,8 +15,13 @@ from cnt_Feature_Functions    import joinContoursIfClose, contour_MajorMinorAxis
 from classContourFeat         import getAllFeatures
 import cv2
 
-def remove_tiling_overlaps_knn(contours, nn = 4):
-   if len(contours)==0: return contours, np.array([])
+def remove_tiling_overlaps_knn(contours, nn=4):
+   ## sanity check
+   numconts = len(contours)
+   if numconts==0: return contours, np.array([])
+   if numconts==1: return contours, np.array([0])
+   nn = min(numconts,  nn)
+   
    # check moments arent zero or something
    throw_inds = [i for i in range(len(contours)) if cv2.moments(contours[i])['m00']==0]
    contours = [contours[i] for i in range(len(contours)) if not i in throw_inds]    
@@ -44,10 +49,13 @@ def remove_tiling_overlaps_knn(contours, nn = 4):
    return fixed_contour_list, keep_inds
 
 def nn2(dat_to, dat_from, nn=4):
+   ## sanity check
+   nn = min(len(dat_to),  nn)
+   ## Construct knn
    all_xy_crypt    = np.array([contour_xy(cnt_i) for cnt_i in dat_to if not cv2.moments(cnt_i)['m00']==0])
    all_xy_target   = np.array([contour_xy(cnt_i) for cnt_i in dat_from if not cv2.moments(cnt_i)['m00']==0])
    nbrs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(all_xy_crypt)
-   distances, indices = nbrs.kneighbors(all_xy_target)
+   distances, indices = nbrs.kneighbors(all_xy_target) # shape (len(dat_from) x nn), hence nn<=len(dat_to)
    return distances, indices, all_xy_crypt, all_xy_target
 
 def inside_comparison_cryptin(indices, dat_to, xy_from):
@@ -67,6 +75,7 @@ def inside_comparison_incrypt(indices, dat_to, xy_from):
    return inside_compare
   
 def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
+   ## form knn with fufis
    distances, indices, all_xy_crypt, all_xy_target = nn2(contours, target_overlay, nn)
    inside_compare = inside_comparison_cryptin(indices, target_overlay, all_xy_crypt)
    # join crypts found inside same fufi; cull fufis that don't contain any crypts;
@@ -74,25 +83,27 @@ def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
    cryptinds_fufis = []
    cryptcnt_joined = []
    fufis_to_throw = []
-   for i in range(indices.shape[0]):
-      if (inside_compare[i,0]>=0 and inside_compare[i,1]>=0):
-         # when two crypts are inside a fufi
-         c = 0
-         cryptinds_f = []         
-         while (inside_compare[i,c]>=0): # check for more crypts
-            cryptinds_f.append(indices[i,c])
-            c += 1
-         cont = np.vstack(np.array(contours[i]) for i in cryptinds_f)
-         hull = cv2.convexHull(cont)
-         cryptcnt_joined.append(hull)
-         cryptinds_fufis += cryptinds_f # note crypt indices to be overwritten
-      if (inside_compare[i,0]<0 and inside_compare[i,1]>=0):
-         # when second crypt is inside a fufi but first is not
-         cont = np.vstack([np.array(target_overlay[i]), np.array(contours[indices[i,1]])])
-         hull = cv2.convexHull(cont)
-         target_overlay[i] = hull # overwrite fufi contour
-      if (inside_compare[i,0]<0 and inside_compare[i,1]<0):
-         fufis_to_throw.append(i)
+   if (indices.shape[1]>1):
+      for i in range(indices.shape[0]):
+         if (inside_compare[i,0]>=0 and inside_compare[i,1]>=0):
+            # when two crypts are inside a fufi
+            c = 0
+            cryptinds_f = []         
+            while (inside_compare[i,c]>=0): # check for more crypts
+               cryptinds_f.append(indices[i,c])
+               c += 1
+               if (c >= inside_compare.shape[1]): break 
+            cont = np.vstack(np.array(contours[i]) for i in cryptinds_f)
+            hull = cv2.convexHull(cont)
+            cryptcnt_joined.append(hull)
+            cryptinds_fufis += cryptinds_f # note crypt indices to be overwritten
+         if (inside_compare[i,0]<0 and inside_compare[i,1]>=0):
+            # when second crypt is inside a fufi but first is not
+            cont = np.vstack([np.array(target_overlay[i]), np.array(contours[indices[i,1]])])
+            hull = cv2.convexHull(cont)
+            target_overlay[i] = hull # overwrite fufi contour
+         if (inside_compare[i,0]<0 and inside_compare[i,1]<0):
+            fufis_to_throw.append(i)
    # remove crypts that should be joined
    fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in cryptinds_fufis]
    # add joined crypts
@@ -104,42 +115,53 @@ def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
    inside_compare = inside_comparison_cryptin(indices, fixed_fufi_list, all_xy_crypt)
    crypt_dict["crypt_xy"]       = all_xy_crypt
    crypt_dict["fufi_label"]     = np.zeros(len(fixed_contour_list))
-   for ind in indices[:,0]: crypt_dict["fufi_label"][ind] = 1
+   for jj in range(indices.shape[0]):
+      if (inside_compare[jj,0]>=0): crypt_dict["fufi_label"][indices[jj,0]] = 1
    return fixed_contour_list, fixed_fufi_list, crypt_dict
 
 def join_clones_in_fufi(contours, target_overlay, nn=4):
+   ## sanity check
+   numclones = len(contours)
+   if (numclones<2):
+      return(contours)
+   else:
+      nn = min(numclones,  nn)
+   ## form knn with fufis
    distances, indices, all_xy_clone, all_xy_target = nn2(contours, target_overlay, nn)
    inside_compare = inside_comparison_cryptin(indices, target_overlay, all_xy_clone)
    # join clones found inside same fufi
    cloneinds_fufis = []
    clonecnt_joined = []
    for i in range(indices.shape[0]):
-      if (inside_compare[i,0]>=0 and inside_compare[i,1]>=0):
-         # when two clone are inside the same fufi
-         c = 0
-         cloneinds_f = []         
-         while (inside_compare[i,c]>=0): # check for more clones
-            cloneinds_f.append(indices[i,c])
-            c += 1
-         cont = np.vstack(np.array(contours[i]) for i in cloneinds_f)
-         hull = cv2.convexHull(cont)
-         clonecnt_joined.append(hull)
-         cloneinds_fufis += cloneinds_f # note clone indices to be overwritten
+      if (nn > 2):
+         if (inside_compare[i,0]>=0 and inside_compare[i,1]>=0):
+            # when two clone are inside the same fufi
+            c = 0
+            cloneinds_f = []         
+            while (inside_compare[i,c]>=0): # check for more clones
+               cloneinds_f.append(indices[i,c])
+               c += 1
+               if (c >= inside_compare.shape[1]): break 
+            cont = np.vstack(np.array(contours[i]) for i in cloneinds_f)
+            hull = cv2.convexHull(cont)
+            clonecnt_joined.append(hull)
+            cloneinds_fufis += cloneinds_f # note clone indices to be overwritten
    # remove crypts that should be joined
    fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in cloneinds_fufis]
    # add joined crypts
    fixed_contour_list += clonecnt_joined
    return fixed_contour_list
       
-def crypt_indexing_clone(contours, target_overlay, nn=1, crypt_dict={}):
-   distances, indices, all_xy_crypt, all_xy_target = nn2(contours, target_overlay, nn)
-   inside_compare1 = inside_comparison_incrypt(indices, contours, all_xy_target)
-   inside_compare2 = inside_comparison_cryptin(indices, target_overlay, all_xy_crypt)
+def crypt_indexing_clone(crypt_contours, target_overlay, nn=1, crypt_dict={}):
    clone_inds = []
-   for i in range(indices.shape[0]):
-      if (inside_compare1[i,0]>=0 or inside_compare2[i,0]>=0):
-         clone_inds.append(indices[i,0])
-   crypt_dict["clone_label"] = np.zeros(len(contours))
+   if len(target_overlay)>0:
+      distances, indices, all_xy_crypt, all_xy_target = nn2(crypt_contours, target_overlay, nn)
+      inside_compare1 = inside_comparison_incrypt(indices, crypt_contours, all_xy_target)
+      inside_compare2 = inside_comparison_cryptin(indices, target_overlay, all_xy_crypt)
+      for i in range(indices.shape[0]):
+         if (inside_compare1[i,0]>=0 or inside_compare2[i,0]>=0):
+            clone_inds.append(indices[i,0])
+   crypt_dict["clone_label"] = np.zeros(len(crypt_contours))
    for ind in clone_inds: crypt_dict["clone_label"][ind] = 1
    return crypt_dict
 

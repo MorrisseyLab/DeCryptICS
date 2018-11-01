@@ -28,6 +28,7 @@ model = params.model_factory(input_shape=(params.input_size, params.input_size, 
 maindir = os.path.dirname(os.path.abspath(__file__))
 weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')
 model.load_weights(weightsin)
+#model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
 
 def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size, params.input_size)):
     all_indx = []
@@ -103,66 +104,70 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
    newlen = 0
    while newlen!=oldlen:
       oldlen = len(crypt_contours)
-      if (len(crypt_contours)>=4): crypt_contours, ki_cry = remove_tiling_overlaps_knn(crypt_contours)
-      if (len(fufi_contours) >=4): fufi_contours , ki_fuf = remove_tiling_overlaps_knn(fufi_contours)
-      if (len(clone_contours)>=4): clone_contours, ki_clo = remove_tiling_overlaps_knn(clone_contours)         
+      crypt_contours, ki_cry = remove_tiling_overlaps_knn(crypt_contours)
+      fufi_contours , ki_fuf = remove_tiling_overlaps_knn(fufi_contours)
+      clone_contours, ki_clo = remove_tiling_overlaps_knn(clone_contours)         
       newlen = len(crypt_contours)
    print("...Keeping only %d, %d and %d due to tiling overlaps." % (len(crypt_contours), len(fufi_contours), len(clone_contours)))
-  
-   ## Reduce number of vertices per contour to save space/QuPath loading time
-   crypt_contours = simplify_contours(crypt_contours)
-   fufi_contours  = simplify_contours(fufi_contours)
-   clone_contours = simplify_contours(clone_contours)
-
-   ## Convert contours to fullscale image coordinates
-   crypt_contours = rescale_contours(crypt_contours, scaling_val)
-   fufi_contours  = rescale_contours(fufi_contours, scaling_val)
-   clone_contours = rescale_contours(clone_contours, scaling_val)
-
-   ## Assess overlap of crypt contours with fufi and clone contours,
-   ## thus build up an index system for the crypt contours to assess a knn network   
-   # Join crypts inside same fufi; cull fufis not containing crypts; extend fufis that contain second nearest but not nearest crypt
-   oldlen = 1; oldlen1 = 1
-   newlen = 0; newlen1 = 0
-   fixed_crypt_contours = crypt_contours
-   fixed_fufi_contours = fufi_contours
-   while (newlen!=oldlen or newlen1!=oldlen1):
-      oldlen  = len(fixed_crypt_contours)
-      oldlen1 = len(fixed_fufi_contours)
-      fixed_crypt_contours, fixed_fufi_contours, crypt_dict = crypt_indexing_fufi(fixed_crypt_contours, fixed_fufi_contours, nn=4, crypt_dict={})
-      newlen  = len(fixed_crypt_contours)
-      newlen1 = len(fixed_fufi_contours)
-   # Join clones inside the same fufi
-   fixed_clone_contours = join_clones_in_fufi(clone_contours, fixed_fufi_contours, nn=4)
-   # Label crypts as clones
-   crypt_dict = crypt_indexing_clone(fixed_crypt_contours, fixed_clone_contours, nn=1, crypt_dict=crypt_dict)
-   clone_inds = np.where(crypt_dict["clone_label"]==1)[0]
-   clone_scores = np.ones(len(clone_contours))*0.5 # default score is 1/2 before manual curation
-   # Join patches as contours
-   if (len(clone_contours) < 0.25*len(crypt_contours) and len(crypt_contours)>0 and len(clone_contours)>1):
-      patch_contours, patch_sizes, patch_indices = joinContoursIfClose_OnlyKeepPatches(fixed_crypt_contours, crypt_dict, clone_inds)
-      patch_indices_local = convert_to_local_clone_indices(patch_indices, clone_inds)
+   
+   ## Sanity check for zero crypts
+   if (newlen==0):
+      print("Outputting zilch as no crypts found!")
+      
    else:
-      patch_contours, patch_sizes, patch_indices, patch_indices_local = [], [], [], []   
-   # Find each crypt's patch size (and possibly their patch neighbours' ID/(x,y)?)
-   crypt_dict = get_crypt_patchsizes_and_ids(patch_indices, crypt_dict)
-   
-   ## Save output
-   write_cnt_text_file(fixed_crypt_contours, folder_to_analyse + "/crypt_contours.txt")
-   write_cnt_text_file(fixed_fufi_contours , folder_to_analyse + "/fufi_contours.txt")
-   write_cnt_text_file(fixed_clone_contours, folder_to_analyse + "/clone_contours.txt")
-   write_cnt_text_file(patch_contours      , folder_to_analyse + "/patch_contours.txt")
-   write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt")
-   write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
-   pickle.dump(patch_indices_local   , open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
-   write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scaling_val)
-   with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
-      fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\n")
-      for i in range(len(fixed_crypt_contours)):
-         fo.write("%d\t%d\t%d\t%d\t%d\n" % (crypt_dict["crypt_xy"][i,0], crypt_dict["crypt_xy"][i,1], crypt_dict["fufi_label"][i], crypt_dict["clone_label"][i], crypt_dict["patch_size"][i]))
-   print("Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")   
+      ## Reduce number of vertices per contour to save space/QuPath loading time
+      crypt_contours = simplify_contours(crypt_contours)
+      fufi_contours  = simplify_contours(fufi_contours)
+      clone_contours = simplify_contours(clone_contours)
 
-   
+      ## Convert contours to fullscale image coordinates
+      crypt_contours = rescale_contours(crypt_contours, scaling_val)
+      fufi_contours  = rescale_contours(fufi_contours, scaling_val)
+      clone_contours = rescale_contours(clone_contours, scaling_val)
+
+      ## Assess overlap of crypt contours with fufi and clone contours,
+      ## thus build up an index system for the crypt contours to assess a knn network   
+      # Join crypts inside same fufi; cull fufis not containing crypts; extend fufis that contain second nearest but not nearest crypt
+      oldlen = 1; oldlen1 = 1
+      newlen = 0; newlen1 = 0
+      fixed_crypt_contours = crypt_contours
+      fixed_fufi_contours = fufi_contours
+      while (newlen!=oldlen or newlen1!=oldlen1):
+         oldlen  = len(fixed_crypt_contours)
+         oldlen1 = len(fixed_fufi_contours)
+         fixed_crypt_contours, fixed_fufi_contours, crypt_dict = crypt_indexing_fufi(fixed_crypt_contours, fixed_fufi_contours, nn=4, crypt_dict={})
+         newlen  = len(fixed_crypt_contours)
+         newlen1 = len(fixed_fufi_contours)
+      # Join clones inside the same fufi
+      fixed_clone_contours = join_clones_in_fufi(clone_contours, fixed_fufi_contours, nn=4)
+      # Label crypts as clones
+      crypt_dict = crypt_indexing_clone(fixed_crypt_contours, fixed_clone_contours, nn=1, crypt_dict=crypt_dict)
+      clone_inds = np.where(crypt_dict["clone_label"]==1)[0]
+      clone_scores = np.ones(len(clone_contours))*0.5 # default score is 1/2 before manual curation
+      # Join patches as contours
+      if (len(clone_contours) < 0.25*len(crypt_contours) and len(crypt_contours)>0 and len(clone_contours)>1):
+         patch_contours, patch_sizes, patch_indices = joinContoursIfClose_OnlyKeepPatches(fixed_crypt_contours, crypt_dict, clone_inds)
+         patch_indices_local = convert_to_local_clone_indices(patch_indices, clone_inds)
+      else:
+         patch_contours, patch_sizes, patch_indices, patch_indices_local = [], [], [], []   
+      # Find each crypt's patch size (and possibly their patch neighbours' ID/(x,y)?)
+      crypt_dict = get_crypt_patchsizes_and_ids(patch_indices, crypt_dict)
+      
+      ## Save output
+      write_cnt_text_file(fixed_crypt_contours, folder_to_analyse + "/crypt_contours.txt")
+      write_cnt_text_file(fixed_fufi_contours , folder_to_analyse + "/fufi_contours.txt")
+      write_cnt_text_file(fixed_clone_contours, folder_to_analyse + "/clone_contours.txt")
+      write_cnt_text_file(patch_contours      , folder_to_analyse + "/patch_contours.txt")
+      write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt")
+      write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
+      pickle.dump(patch_indices_local   , open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
+      write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scaling_val)
+      with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
+         fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\n")
+         for i in range(len(fixed_crypt_contours)):
+            fo.write("%d\t%d\t%d\t%d\t%d\n" % (crypt_dict["crypt_xy"][i,0], crypt_dict["crypt_xy"][i,1], crypt_dict["fufi_label"][i], crypt_dict["clone_label"][i], crypt_dict["patch_size"][i]))
+   print("Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")   
+  
 def mask_to_contours(preds, thresh):
    n_class = preds.shape[3]
    all_class_cnts = []
