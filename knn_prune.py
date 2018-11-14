@@ -15,6 +15,11 @@ from cnt_Feature_Functions    import joinContoursIfClose, contour_MajorMinorAxis
 from classContourFeat         import getAllFeatures
 import cv2
 
+def check_length(contours):
+   if (type(contours)==list): return contours
+   if (type(dat_from)==np.ndarray): return [contours] # fix single contours un-listing themselves (might not be needed)
+   else: return 99
+
 def remove_tiling_overlaps_knn(contours, nn=4):
    ## sanity check
    numconts = len(contours)
@@ -46,7 +51,7 @@ def remove_tiling_overlaps_knn(contours, nn=4):
             throw_inds.append(jj)
    keep_inds = np.asarray( [i for i in range(len(contours)) if i not in throw_inds] )   
    fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in throw_inds]
-   return fixed_contour_list, keep_inds
+   return check_length(fixed_contour_list), keep_inds
 
 def nn2(dat_to, dat_from, nn=4):
    ## sanity check
@@ -75,6 +80,9 @@ def inside_comparison_incrypt(indices, dat_to, xy_from):
    return inside_compare
   
 def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
+   # empty check
+   if (len(target_overlay)==0):
+      return contours, [], crypt_dict
    ## form knn with fufis
    distances, indices, all_xy_crypt, all_xy_target = nn2(contours, target_overlay, nn)
    inside_compare = inside_comparison_cryptin(indices, target_overlay, all_xy_crypt)
@@ -117,7 +125,7 @@ def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
    crypt_dict["fufi_label"]     = np.zeros(len(fixed_contour_list))
    for jj in range(indices.shape[0]):
       if (inside_compare[jj,0]>=0): crypt_dict["fufi_label"][indices[jj,0]] = 1
-   return fixed_contour_list, fixed_fufi_list, crypt_dict
+   return check_length(fixed_contour_list), check_length(fixed_fufi_list), crypt_dict
 
 def join_clones_in_fufi(contours, target_overlay, nn=4):
    ## sanity check
@@ -150,7 +158,7 @@ def join_clones_in_fufi(contours, target_overlay, nn=4):
    fixed_contour_list = [contours[i] for i in range(len(contours)) if i not in cloneinds_fufis]
    # add joined crypts
    fixed_contour_list += clonecnt_joined
-   return fixed_contour_list
+   return check_length(fixed_contour_list)
       
 def crypt_indexing_clone(crypt_contours, target_overlay, nn=1, crypt_dict={}):
    clone_inds = []

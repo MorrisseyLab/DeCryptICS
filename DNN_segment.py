@@ -21,7 +21,7 @@ from MiscFunctions            import getROI_img_osl, add_offset, write_cnt_text_
 from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt
 from multicore_morphology     import getForeground_mc
 from GUI_ChooseROI_class      import getROI_svs
-from knn_prune                import remove_tiling_overlaps_knn, crypt_indexing_clone, crypt_indexing_fufi, join_clones_in_fufi, get_crypt_patchsizes_and_ids, nn2
+from knn_prune                import remove_tiling_overlaps_knn, crypt_indexing_clone, crypt_indexing_fufi, join_clones_in_fufi, get_crypt_patchsizes_and_ids, nn2, check_length
 
 # Load DNN model
 model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
@@ -97,7 +97,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
          clone_contours += newcnts[K]
       print("Found %d crypt contours, %d fufi contours and %d clone contours so far, tile %d of %d" % (len(crypt_contours), len(fufi_contours), len(clone_contours), i*y_tiles+j + 1, x_tiles*y_tiles))         
    del img, predicted_mask_batch, newcnts
-      
+   
    ## Remove tiling overlaps and simplify remaining contours
    print("Of %d crypt contours, %d fufi contours and %d clone contours..." % (len(crypt_contours), len(fufi_contours), len(clone_contours)))
    oldlen = 1
@@ -106,7 +106,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
       oldlen = len(crypt_contours)
       crypt_contours, ki_cry = remove_tiling_overlaps_knn(crypt_contours)
       fufi_contours , ki_fuf = remove_tiling_overlaps_knn(fufi_contours)
-      clone_contours, ki_clo = remove_tiling_overlaps_knn(clone_contours)         
+      clone_contours, ki_clo = remove_tiling_overlaps_knn(clone_contours)
       newlen = len(crypt_contours)
    print("...Keeping only %d, %d and %d due to tiling overlaps." % (len(crypt_contours), len(fufi_contours), len(clone_contours)))
    
@@ -126,30 +126,41 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
       clone_contours = rescale_contours(clone_contours, scaling_val)
 
       ## Assess overlap of crypt contours with fufi and clone contours,
-      ## thus build up an index system for the crypt contours to assess a knn network   
+      ## thus build up an index system for the crypt contours to assess a knn network
+      fixed_crypt_contours = check_length(crypt_contours)
+      fixed_fufi_contours = check_length(fufi_contours)
+      fixed_clone_contours = check_length(clone_contours)
+      crypt_dict = {}
+      crypt_dict["crypt_xy"]    = np.array([contour_xy(cnt_i) for cnt_i in fixed_crypt_contours])
+      crypt_dict["fufi_label"]  = np.zeros(len(fixed_crypt_contours))
+      crypt_dict["clone_label"] = np.zeros(len(fixed_crypt_contours))
+      crypt_dict["patch_size"]  = np.zeros(len(fixed_crypt_contours))
       # Join crypts inside same fufi; cull fufis not containing crypts; extend fufis that contain second nearest but not nearest crypt
       oldlen = 1; oldlen1 = 1
       newlen = 0; newlen1 = 0
-      fixed_crypt_contours = crypt_contours
-      fixed_fufi_contours = fufi_contours
-      while (newlen!=oldlen or newlen1!=oldlen1):
-         oldlen  = len(fixed_crypt_contours)
-         oldlen1 = len(fixed_fufi_contours)
-         fixed_crypt_contours, fixed_fufi_contours, crypt_dict = crypt_indexing_fufi(fixed_crypt_contours, fixed_fufi_contours, nn=4, crypt_dict={})
-         newlen  = len(fixed_crypt_contours)
-         newlen1 = len(fixed_fufi_contours)
+      if (len(fixed_fufi_contours)>0):
+         while (newlen!=oldlen or newlen1!=oldlen1):
+            oldlen  = len(fixed_crypt_contours)
+            oldlen1 = len(fixed_fufi_contours)
+            fixed_crypt_contours, fixed_fufi_contours, crypt_dict = crypt_indexing_fufi(fixed_crypt_contours, fixed_fufi_contours, nn=4, crypt_dict=crypt_dict)
+            newlen  = len(fixed_crypt_contours)
+            newlen1 = len(fixed_fufi_contours)
+      
       # Join clones inside the same fufi
-      fixed_clone_contours = join_clones_in_fufi(clone_contours, fixed_fufi_contours, nn=4)
-      # Label crypts as clones
-      crypt_dict = crypt_indexing_clone(fixed_crypt_contours, fixed_clone_contours, nn=1, crypt_dict=crypt_dict)
-      clone_inds = np.where(crypt_dict["clone_label"]==1)[0]
-      clone_scores = np.ones(len(clone_contours))*0.5 # default score is 1/2 before manual curation
-      # Join patches as contours
-      if (len(clone_contours) < 0.25*len(crypt_contours) and len(crypt_contours)>0 and len(clone_contours)>1):
-         patch_contours, patch_sizes, patch_indices = joinContoursIfClose_OnlyKeepPatches(fixed_crypt_contours, crypt_dict, clone_inds)
-         patch_indices_local = convert_to_local_clone_indices(patch_indices, clone_inds)
-      else:
-         patch_contours, patch_sizes, patch_indices, patch_indices_local = [], [], [], []   
+      if (len(fixed_fufi_contours)>0 and len(fixed_clone_contours)>0):
+         fixed_clone_contours = join_clones_in_fufi(fixed_clone_contours, fixed_fufi_contours, nn=4)
+      patch_contours, patch_sizes, patch_indices, patch_indices_local = [], [], [], []
+      clone_scores = np.array([])
+      if (len(fixed_clone_contours)>0):
+         # Label crypts as clones
+         crypt_dict = crypt_indexing_clone(fixed_crypt_contours, fixed_clone_contours, nn=1, crypt_dict=crypt_dict)
+         clone_inds = np.where(crypt_dict["clone_label"]==1)[0]
+         clone_scores = np.ones(len(fixed_clone_contours))*0.5 # default score is 1/2 before manual curation
+         # Join patches as contours
+         if (len(fixed_clone_contours) < 0.25*len(fixed_crypt_contours) and len(fixed_crypt_contours)>0 and len(fixed_clone_contours)>1):
+            patch_contours, patch_sizes, patch_indices = joinContoursIfClose_OnlyKeepPatches(fixed_crypt_contours, crypt_dict, clone_inds)
+            patch_indices_local = convert_to_local_clone_indices(patch_indices, clone_inds)
+            
       # Find each crypt's patch size (and possibly their patch neighbours' ID/(x,y)?)
       crypt_dict = get_crypt_patchsizes_and_ids(patch_indices, crypt_dict)
       
@@ -161,7 +172,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
       write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt")
       write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
       pickle.dump(patch_indices_local   , open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
-      write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scaling_val)
+      write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours, scaling_val)
       with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
          fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\n")
          for i in range(len(fixed_crypt_contours)):
