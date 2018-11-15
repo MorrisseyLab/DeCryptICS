@@ -22,6 +22,7 @@ from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, 
 from multicore_morphology     import getForeground_mc
 from GUI_ChooseROI_class      import getROI_svs
 from knn_prune                import remove_tiling_overlaps_knn, crypt_indexing_clone, crypt_indexing_fufi, join_clones_in_fufi, get_crypt_patchsizes_and_ids, nn2, check_length
+from cnt_Feature_Functions    import contour_xy
 
 # Load DNN model
 model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
