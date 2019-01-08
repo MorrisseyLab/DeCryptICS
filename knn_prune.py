@@ -17,8 +17,8 @@ import cv2
 
 def check_length(contours):
    if (type(contours)==list): return contours
-   if (type(dat_from)==np.ndarray): return [contours] # fix single contours un-listing themselves (might not be needed)
-   else: return 99
+   if (type(contours)==np.ndarray): return [contours] # fix single contours un-listing themselves (might not be needed)
+   else: return 99 # error
 
 def remove_tiling_overlaps_knn(contours, nn=4):
    ## sanity check
@@ -55,6 +55,8 @@ def remove_tiling_overlaps_knn(contours, nn=4):
 
 def nn2(dat_to, dat_from, nn=4):
    ## sanity check
+   dat_from = check_length(dat_from)
+   dat_to = check_length(dat_to)
    nn = min(len(dat_to),  nn)
    ## Construct knn
    all_xy_crypt    = np.array([contour_xy(cnt_i) for cnt_i in dat_to if not cv2.moments(cnt_i)['m00']==0])
@@ -83,6 +85,8 @@ def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
    # empty check
    if (len(target_overlay)==0):
       return contours, [], crypt_dict
+   target_overlay = check_length(target_overlay)
+   contours = check_length(contours)
    ## form knn with fufis
    distances, indices, all_xy_crypt, all_xy_target = nn2(contours, target_overlay, nn)
    inside_compare = inside_comparison_cryptin(indices, target_overlay, all_xy_crypt)
@@ -117,19 +121,24 @@ def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
    # add joined crypts
    fixed_contour_list += cryptcnt_joined
    # throw bad fufis
-   fixed_fufi_list = [target_overlay[i] for i in range(len(target_overlay)) if i not in fufis_to_throw]   
-   # re-define labelling for crypt indexing
-   distances, indices, all_xy_crypt, all_xy_target = nn2(fixed_contour_list, fixed_fufi_list, nn)      
-   inside_compare = inside_comparison_cryptin(indices, fixed_fufi_list, all_xy_crypt)
-   crypt_dict["crypt_xy"]       = all_xy_crypt
-   crypt_dict["fufi_label"]     = np.zeros(len(fixed_contour_list))
-   for jj in range(indices.shape[0]):
-      if (inside_compare[jj,0]>=0): crypt_dict["fufi_label"][indices[jj,0]] = 1
+   fixed_fufi_list = [target_overlay[i] for i in range(len(target_overlay)) if i not in fufis_to_throw]
+   crypt_dict["fufi_label"] = np.zeros(len(fixed_contour_list))
+   if (len(fixed_fufi_list)>0):
+      # re-define labelling for crypt indexing
+      distances, indices, all_xy_crypt, all_xy_target = nn2(fixed_contour_list, fixed_fufi_list, nn)
+      inside_compare = inside_comparison_cryptin(indices, fixed_fufi_list, all_xy_crypt)   
+      crypt_dict["crypt_xy"] = all_xy_crypt
+      for jj in range(indices.shape[0]):
+         if (inside_compare[jj,0]>=0): crypt_dict["fufi_label"][indices[jj,0]] = 1
+   else:
+      crypt_dict["crypt_xy"] = np.array([contour_xy(cnt_i) for cnt_i in fixed_contour_list if not cv2.moments(cnt_i)['m00']==0])
    return check_length(fixed_contour_list), check_length(fixed_fufi_list), crypt_dict
 
 def join_clones_in_fufi(contours, target_overlay, nn=4):
    ## sanity check
    numclones = len(contours)
+   target_overlay = check_length(target_overlay)
+   contours = check_length(contours)
    if (numclones<2):
       return(contours)
    else:
@@ -161,7 +170,11 @@ def join_clones_in_fufi(contours, target_overlay, nn=4):
    return check_length(fixed_contour_list)
       
 def crypt_indexing_clone(crypt_contours, target_overlay, nn=1, crypt_dict={}):
-   clone_inds = []
+   ## sanity check
+   target_overlay = check_length(target_overlay)
+   crypt_contours = check_length(crypt_contours)
+   ## label crypts as clones
+   clone_inds = []   
    if len(target_overlay)>0:
       distances, indices, all_xy_crypt, all_xy_target = nn2(crypt_contours, target_overlay, nn)
       inside_compare1 = inside_comparison_incrypt(indices, crypt_contours, all_xy_target)

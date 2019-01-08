@@ -57,7 +57,7 @@ def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size, params.in
             all_indx[i].append((x0, y0, width, height))
     return all_indx
 
-def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.5):
+def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.5, mouse = False):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -68,9 +68,12 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
        
    ## Tiling
    obj_svs  = getROI_svs(file_name, get_roi_plot = False)
-   scaling_val = obj_svs.dims_slides[0][0] / float(obj_svs.dims_slides[1][0])
    size = (params.input_size, params.input_size)
+   scaling_val = obj_svs.dims_slides[0][0] / float(obj_svs.dims_slides[1][0])
    all_indx = get_tile_indices(obj_svs.dims_slides[1], overlap = 50, SIZE = size)
+#   if mouse: # actually this approach is not as good as simply working with the zoomed out image
+#      scaling_val = 1.
+#      all_indx = get_tile_indices(obj_svs.dims_slides[0], overlap = 50, SIZE = size)
    x_tiles = len(all_indx)
    y_tiles = len(all_indx[0])   
    
@@ -78,7 +81,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
       for j in range(y_tiles):
          xy_vals = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
          wh_vals = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
-         img     = getROI_img_osl(file_name, xy_vals, wh_vals, level = 1)
+         img = getROI_img_osl(file_name, xy_vals, wh_vals, level = 1)
          x_batch = [img]
          x_batch = np.array(x_batch, np.float32) / 255.
 
@@ -129,7 +132,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
       ## Assess overlap of crypt contours with fufi and clone contours,
       ## thus build up an index system for the crypt contours to assess a knn network
       fixed_crypt_contours = check_length(crypt_contours)
-      fixed_fufi_contours = check_length(fufi_contours)
+      fixed_fufi_contours  = check_length(fufi_contours)
       fixed_clone_contours = check_length(clone_contours)
       crypt_dict = {}
       crypt_dict["crypt_xy"]    = np.array([contour_xy(cnt_i) for cnt_i in fixed_crypt_contours])
@@ -172,7 +175,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
       write_cnt_text_file(patch_contours      , folder_to_analyse + "/patch_contours.txt")
       write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt")
       write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
-      pickle.dump(patch_indices_local   , open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
+      pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
       write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours, scaling_val)
       with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
          fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\n")

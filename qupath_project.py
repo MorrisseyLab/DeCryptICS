@@ -24,29 +24,31 @@ def file_len(fname):
 def extract_counts_csv(file_in, folder_out):
    contour_folders = [folder_from_image(im) for im in file_in]
    num = len(contour_folders)
-   slidecounts = np.zeros([num,5], dtype=np.int32)
+   slidecounts = np.zeros([num, 6], dtype=np.int32)
    for i in range(num):
       cnt_file = folder_out + contour_folders[i] + "crypt_contours.txt"
       fuf_file = folder_out + contour_folders[i] + "fufi_contours.txt"
-      cln_file  = folder_out + contour_folders[i] + "clone_contours.txt"
+      mut_file  = folder_out + contour_folders[i] + "clone_contours.txt"
       ptch_file = folder_out + contour_folders[i] + "patch_contours.txt"
       if (os.path.isfile(cnt_file)):
-         slidecounts[i,0] = int(file_in[i])
          crcnt = file_len(cnt_file)
          crcnt = int(crcnt/2)
-         slidecounts[i,1] = crcnt
          fucnt = file_len(fuf_file)
          fucnt = int(fucnt/2)
-         slidecounts[i,2] = fucnt
-         clcnt = file_len(cln_file)
-         clcnt = int(clcnt/2)
-         slidecounts[i,3] = clcnt
+         mutcnt = file_len(mut_file)
+         mutcnt = int(mutcnt/2)
          ptcnt = file_len(ptch_file)
          ptcnt = int(ptcnt/2)
-         slidecounts[i,4] = ptcnt
+         ptchsize_sum = np.sum(np.loadtxt(folder_out + contour_folders[i] + "patch_sizes.txt"))
+         slidecounts[i,0] = int(file_in[i])
+         slidecounts[i,1] = crcnt
+         slidecounts[i,2] = fucnt
+         slidecounts[i,3] = mutcnt
+         slidecounts[i,4] = mutcnt - ptchsize_sum + ptcnt
+         slidecounts[i,5] = ptcnt
    slidecounts_p = pd.DataFrame(slidecounts)
    outname = "/slide_counts.csv"
-   slidecounts_p.columns = ['Slide_ID', 'NCrypts', 'NFufis', 'NClones', 'NPatches']
+   slidecounts_p.columns = ['Slide_ID', 'NCrypts', 'NFufis', 'NMutantCrypts', 'NClones', 'NPatches']
    slidecounts_p.to_csv(folder_out + outname, sep=',', index=False)
 
 def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
