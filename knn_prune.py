@@ -188,9 +188,13 @@ def crypt_indexing_clone(crypt_contours, target_overlay, nn=1, crypt_dict={}):
 
 def get_crypt_patchsizes_and_ids(patch_indices, crypt_dict):
    crypt_dict["patch_size"] = np.zeros(len(crypt_dict["clone_label"]))
-   for patch in patch_indices:
+   crypt_dict["patch_id"] = np.zeros(len(crypt_dict["clone_label"]))
+   #for patch in patch_indices:
+   for i in range(1,len(patch_indices)+1):
+      patch = patch_indices[i-1]
       for index in patch:
          crypt_dict["patch_size"][index] = len(patch)
+         crypt_dict["patch_id"][index] = i
    return crypt_dict
 
 ## Outlier calculations

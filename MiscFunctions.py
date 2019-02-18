@@ -11,6 +11,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 #import pyvips
 import openslide as osl
+from openslide_python_fix import _load_image_lessthan_2_29, _load_image_morethan_2_29
 import h5py
 import os, errno
 
@@ -25,8 +26,8 @@ def mkdir_p(path):
 def add_offset(contour_list, xy_offset):
     cnt_list_out = []
     for elem_i in contour_list:
-        elem_i[:,0,0] += xy_offset[0]
-        elem_i[:,0,1] += xy_offset[1]
+        elem_i[:,0,0] += xy_offset[0].astype(np.int32)
+        elem_i[:,0,1] += xy_offset[1].astype(np.int32)
         cnt_list_out.append(elem_i)
     return cnt_list_out
 
@@ -265,6 +266,11 @@ def getROI_img_osl(file_name, x_y, w_h, level = 0):
     max_vals      = vim.level_dimensions[level]
     wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors    
     newxy = tuple([int(vim.level_downsamples[level]*f) for f in x_y])
+    # Check which _load_image() function to use depending on the size of the region.
+    if (wh_vals_final[0] * wh_vals_final[1]) >= 2**29:
+        osl.lowlevel._load_image = _load_image_morethan_2_29
+    else:
+        osl.lowlevel._load_image = _load_image_lessthan_2_29    
     new_img = np.array(vim.read_region(location = newxy, level = level, size = wh_vals_final))
     new_img       = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
     return new_img

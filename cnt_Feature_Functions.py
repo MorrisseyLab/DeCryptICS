@@ -229,6 +229,22 @@ def contour_eccentricity(cnt):
     except:
         eccentricity = 0
     return(eccentricity)
+    
+def contour_EccMajorMinorAxis(cnt):
+    try:    
+        # Get mean colour of object
+        _, axes,_ = cv2.fitEllipse(cnt)
+    
+        # length of MAJOR and minor axis
+        majoraxis_length = max(axes)
+        minoraxis_length = min(axes)    
+        # eccentricity = sqrt( 1 - (ma/MA)^2) --- ma= minor axis --- MA= major axis
+        eccentricity = np.sqrt(1-(minoraxis_length/majoraxis_length)**2)
+    except:
+        eccentricity = 0
+        majoraxis_length = 0
+        minoraxis_length = 0
+    return eccentricity, majoraxis_length, minoraxis_length
 
 # Retrieve the contour of white blobs (with no holes in them)
 def getContourWhiteBlobs(bin_img, maxSize=1e9, minSize = 100):

@@ -40,7 +40,8 @@ if __name__=="__main__":
    ## Lowering intensity by one prior to manual masking
    ##########################################################################
    # load image list
-   train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/pre-mask/"
+   #train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/pre-mask/"
+   train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/mouse/pre-mask/"
    #train_path =     "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/input/pre-mask/"
    #train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/fufis/pre-mask/"
    flist = glob.glob(train_path+"*.png")
@@ -58,7 +59,8 @@ if __name__=="__main__":
     ##########################################################################
     # load images
     #dnnpath = "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/input/"
-    dnnpath = "/home/doran/Work/py_code/DeCryptICS/DNN/input/"
+    #dnnpath = "/home/doran/Work/py_code/DeCryptICS/DNN/input/"
+    dnnpath = "/home/doran/Work/py_code/DeCryptICS/DNN/input/mouse/"
     #dnnpath = "/home/doran/Work/py_code/DeCryptICS/DNN/input/fufis/"
     inpath = dnnpath + "/pre-mask/"
     outpath = dnnpath + "/train_masks/"
