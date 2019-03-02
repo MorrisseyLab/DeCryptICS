@@ -84,8 +84,8 @@ if __name__=="__main__":
    folder_im = []
    folder_cnt = []
 
-   batch_ID = "/Mouse_June2018_HE/"
-   slidelist = ["668524"]
+   batch_ID = "/Mouse_Aug2018_HE/"
+   slidelist = ["668514", "668525", "668530", "676377", "676378"]
    for slide in slidelist:
       folder_im += [base_path + batch_ID]
       folder_cnt += [base_path + batch_ID + "/Analysed_slides/Analysed_"]
@@ -142,7 +142,7 @@ if __name__=="__main__":
    
    ###############################################################
 
-   dnnfolder = "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/input/"
+   dnnfolder = "/home/doran/Work/py_code/DeCryptICS/DNN/input/mouse/"
    imgout = dnnfolder + "/train/"
    maskout = dnnfolder + "/pre-mask/"
    try:
@@ -161,9 +161,12 @@ if __name__=="__main__":
    n_slides = len(training_dat) # shift = 0
    tile_x = 256
    tile_y = 256
-   maskthresh = 255 * 250 # throw away masks with fewer than 1000 white pixels
+   maskthresh = 255 * 20 # throw away masks with fewer than 1000 white pixels
 
-   for i in range(n_slides):
+   dilate = True
+   st_3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+
+   for i in range(2,n_slides):
       tracker = SummaryTracker()
       print("Slide %d" % i)
       # Read on whole .svs slide
@@ -198,6 +201,9 @@ if __name__=="__main__":
       big_mask = np.zeros([img.shape[0], img.shape[1]], dtype=np.uint8)
       for j in range(len(contours)):
          cv2.drawContours(big_mask, [contours[j]], 0, 255, -1)
+
+      # Dilate to grow crypt contours?
+      if (dilate==True): big_mask = cv2.morphologyEx(big_mask, cv2.MORPH_DILATE,  st_3, iterations=4)
         
       # Downsample to create unzoomed mask 
       dwnsamp_mask = cv2.pyrDown(big_mask)

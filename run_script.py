@@ -47,7 +47,7 @@ def run_analysis():
    parser.add_argument('-m', choices = ["D" , "B"],
                              default = "D", 
                              dest    = "method",
-                             help    = "Method of crypt finding: D uses a deep neural network, B uses a Bayesian model (default is D). ")
+                             help    = "Method of crypt finding: D uses a deep neural network, B uses a Bayesian model (default is D; B not implemented properly). ")
 
    parser.add_argument('-r', action = "store_true", 
                              default = False,
@@ -91,39 +91,48 @@ def run_analysis():
    ## Read input file
    ftype = input_file.split('.')[-1]   
 
+   
+   ext1 = "svs"; ext2 = "svs"
+   if (input_file.split('_')[-1].split('.')[0] == "tif"):
+      ext1 = "tif"; ext2 = "tiff"
+   if (input_file.split('_')[-1].split('.')[0] == "png"):
+      ext1 = "png"; ext2 = "png"
+   if (input_file.split('_')[-1].split('.')[0] == "jpg"):
+      ext1 = "jpg"; ext2 = "jpeg"
+
    # check if we loaded a value as a header
-   if (ftype=="csv"):    a = pd.read_csv(input_file)
-   if (ftype[:2]=="xl"): a = pd.read_excel(input_file)
-   else:                 a = pd.read_table(input_file)
+   if (ftype=="csv"):      a = pd.read_csv(input_file)
+   elif (ftype[:2]=="xl"): a = pd.read_excel(input_file)
+   else:                   a = pd.read_table(input_file)
    heads = list(a.columns.values)
-   svs_sum = 0
+   img_sum = 0
    for hh in heads:
-      if (hh.split('.')[-1]=="svs"): svs_sum += 1
-   if svs_sum>0:
-      if (ftype=="csv"):    a = pd.read_csv(input_file  , header=None)
-      if (ftype[:2]=="xl"): a = pd.read_excel(input_file, header=None)
-      else:                 a = pd.read_table(input_file, header=None)
-   a = np.asarray(a)
+      if (hh.split('.')[-1]==ext1 or hh.split('.')[-1]==ext2): img_sum += 1
+   if img_sum>0:
+      if (ftype=="csv"):      a = pd.read_csv(input_file  , header=None)
+      elif (ftype[:2]=="xl"): a = pd.read_excel(input_file, header=None)
+      else:                   a = pd.read_table(input_file, header=None)
+   a = np.asarray(a).reshape(a.shape)
    
    # extract file paths
    if len(a.shape)>1: # 2D input
       ncols = a.shape[1]   
       for i in range(ncols):
          if type(a[0,i]) == str:
-            if (a[0,i].split('.')[-1]=="svs"):
+            if (a[0,i].split('.')[-1]==ext1 or a[0,i].split('.')[-1]==ext2):
                pathind = i
       full_paths = list(a[:,pathind]) # take correct column
    else: # 1D input
       ncols = a.shape[0]         
-      svs_sum = 0
+      img_sum = 0
       for i in range(ncols):
          if type(a[i]) == str:
-            if (a[i].split('.')[-1]=="svs"):
+            if (a[i].split('.')[-1]==ext1 or a[i].split('.')[-1]==ext2):
                pathind = i
-               svs_sum += 1                  
-      if (svs_sum==1):
+               img_sum += 1                  
+      if (img_sum==1):
          full_paths = list(a[pathind]) # take one entry
-      if (svs_sum==ncols):
+      if (img_sum==ncols):
          full_paths = list(a) # take all entries
    linux_test = len(full_paths[0].split('/'))
    windows_test = len(full_paths[0].split('\\'))
@@ -142,7 +151,7 @@ def run_analysis():
    print("QuPath project created in %s" % qupath_project_path)
 
    if args.action == "count":
-      from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder, predict_svs_slide_DNN
+      from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder, predict_slide_DNN
       num_to_run = len(file_in)
       folders_to_analyse = [folder_out+fldr for fldr in ["Analysed_"+fnum+"/" for fnum in file_in]]
 
@@ -155,9 +164,10 @@ def run_analysis():
                pass
             else:
                print("Beginning segmentation on %s." % folders_to_analyse[i])
-               predict_svs_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_type, prob_thresh = 0.4)
+               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_type, prob_thresh = 0.4)
                
-      if (method=="B"):    
+      ## DO NOT USE
+      if (method=="B"):
          ## Get parameters and pickle for all desired runs
          print("Pickling parameters for analysis")
          for i in range(num_to_run):

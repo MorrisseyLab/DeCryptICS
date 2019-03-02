@@ -26,7 +26,7 @@ import keras.callbacks as KC
 
 samples = []
 
-num_cores = 12
+num_cores = 8
 GPU = True
 CPU = False
 
@@ -195,7 +195,7 @@ class TensorBoardImage(KC.Callback):
 
 if __name__=="__main__":
    base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/" # as training data is in DeCryptICS folder
-   dnnfolder = "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/"
+   dnnfolder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
    
    # Loading old weights into all but the final layer
 #   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=7)
@@ -206,7 +206,7 @@ if __name__=="__main__":
 
    # Redefine new network with new classification
    model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
-   model.load_weights(dnnfolder+"/weights/cryptfuficlone_weights5.hdf5")
+   model.load_weights(dnnfolder+"/weights/cryptfuficlone_weights.hdf5")
 
    # Add in old weights
 #   numlayers = len(model.layers)
@@ -299,13 +299,13 @@ if __name__=="__main__":
 #   images = [base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png", base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png", base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png", base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png", base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png"]
    
    
-   weights_name = dnnfolder+"/weights/cryptfuficlone_weights6.hdf5"
+   weights_name = dnnfolder+"/weights/cryptfuficlone_weights2.hdf5"
    logs_folder = dnnfolder+"/logs"
    
    callbacks = [EarlyStopping(monitor='loss', patience=10, verbose=1, min_delta=1e-8),
                 ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, epsilon=1e-8),
                 ModelCheckpoint(monitor='loss', filepath=weights_name, save_best_only=True, save_weights_only=True),
-                TensorBoard(log_dir=logs_folder),]
+                TensorBoard(log_dir=logs_folder)]
                 #TensorBoardImage(log_dir=logs_folder, tags=test_tags, test_image_batches=test_batches)]
                 
    model.fit_generator(generator=train_generator(), steps_per_epoch=np.ceil(float(len(samples)) / float(batch_size)), epochs=epochs, verbose=1, callbacks=callbacks, validation_data=None)
