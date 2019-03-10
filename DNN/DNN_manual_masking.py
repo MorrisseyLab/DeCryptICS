@@ -70,10 +70,12 @@ if __name__=="__main__":
     for path in imfiles:
         img = cv2.imread(path, cv2.IMREAD_COLOR)
         mask = set_background_to_black(img)
-        im_number = path.split("/")[-1][8:] # remove "premask_"
-        #im_number = path.split("/")[-1][4:] # remove "img_"
+        #im_number = path.split("/")[-1][8:] # remove "premask_"
+        im_number = path.split("/")[-1][4:] # remove "img_"
         outfile = "mask_" + im_number
         cv2.imwrite(outpath + outfile, mask)
+
+
 
 
     revertpath = dnnpath + "/pre-mask/"

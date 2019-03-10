@@ -5,24 +5,24 @@ Created on Tue Mar  6 09:16:23 2018
 
 @author: doran
 """
-import tensorflow as tf
-import keras.backend as K
 import cv2
-import numpy as np
-import matplotlib.pyplot as plt
 import glob
-import DNN.u_net as unet
-import DNN.params as params
-from random           import shuffle
-from DNN.augmentation import plot_img, randomHueSaturationValue, randomShiftScaleRotate, randomHorizontalFlip, fix_mask
-from DNN.losses       import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss
-from DNN.losses       import dice_coeff, MASK_VALUE, build_masked_loss, masked_accuracy, masked_dice_coeff
-from keras.callbacks  import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
-from keras.optimizers import RMSprop
-from keras.preprocessing.image import img_to_array
-from PIL import Image
 import io
-import keras.callbacks as KC
+import tensorflow          as tf
+import keras.backend       as K
+import numpy               as np
+import matplotlib.pyplot   as plt
+import DNN.u_net           as unet
+import DNN.params          as params
+import keras.callbacks     as KC
+from random             import shuffle
+from DNN.augmentation   import plot_img, randomHueSaturationValue, randomShiftScaleRotate, randomHorizontalFlip, fix_mask
+from DNN.losses         import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss
+from DNN.losses         import dice_coeff, MASK_VALUE, build_masked_loss, masked_accuracy, masked_dice_coeff
+from keras.callbacks    import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
+from keras.optimizers   import RMSprop
+from PIL                import Image
+from keras.preprocessing.image import img_to_array
 
 samples = []
 
@@ -89,7 +89,7 @@ def train_process(data):
    if (not img.shape==SIZE): img = cv2.resize(img, SIZE)
    
    mask = np.zeros([img.shape[0], img.shape[1], 5]) # for crypt, fufis + 5 marks
-   # Order clone channels: crypts, fufis, (KDM6A, MAOA, NONO), STAG2, mPAS
+   # Order clone channels: crypts, fufis, (KDM6A, MAOA, NONO, HDAC6), STAG2, mPAS
    
    # choose which channel to load mask into
    mname = mask_f.split('/')[-1].split('.')[-2]
@@ -110,7 +110,10 @@ def train_process(data):
       if "NONO" in mname_broken:
          mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 2
-      if "STAG2" in mname_broken:
+      if "HDAC6" in mname_broken:
+         mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+         dontmask = 2
+      if "STAG2" in mname_broken: # actually collapse STAG2 into the previous category
          mask[:,:,3] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 3
       if "mPAS" in mname_broken:

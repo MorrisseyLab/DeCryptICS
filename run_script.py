@@ -44,15 +44,20 @@ def run_analysis():
                                        "Defaults to '1' if -c is not passed, meaning clones assumed KDM6A/NONO/MAOA type. "
                                        "Note: all slides in input list will be analysed using the same clonal mark type. ")
 
-   parser.add_argument('-m', choices = ["D" , "B"],
-                             default = "D", 
-                             dest    = "method",
-                             help    = "Method of crypt finding: D uses a deep neural network, B uses a Bayesian model (default is D; B not implemented properly). ")
+   parser.add_argument('-method', choices = ["D" , "B"],
+                                  default = "D", 
+                                  dest    = "method",
+                                  help    = "Method of crypt finding: D uses a deep neural network, B uses a Bayesian model (default is D; B not implemented properly). ")
 
    parser.add_argument('-r', action = "store_true", 
                              default = False,
                              help = "Forces repeat analysis of slides with existing crypt contour files. "
                                     "Defaults to False if -r flag missing. ")
+
+   parser.add_argument('-mouse', choices = ["True", "False"],
+                                 default = "False", 
+                                 dest    = "mouse_flag",
+                                 help    = "Whether we are analysing mouse tissue. ")
 
 
    args = parser.parse_args()
@@ -64,6 +69,7 @@ def run_analysis():
    print('clonal_mark  = {!r}'.format(args.clonal_mark))
    print('method       = {!r}'.format(args.method))
    print('force_repeat = {!r}'.format(args.r))
+   print('mouse_flag   = {!r}'.format(args.mouse_flag))
    print("\n...Working...\n")
    
    ## Standardise clonal mark type string
@@ -76,6 +82,10 @@ def run_analysis():
    method = args.method
    if (method.upper()=="D"): method="D"
    if (method.upper()=="B"): method="B"
+
+   ## bool the mouse flag
+   if (args.mouse_flag=="True"): mouse_flag = True
+   if (args.mouse_flag=="False"): mouse_flag = False
 
    ## Find output folder
    input_file = os.path.abspath(args.input_file)
@@ -90,7 +100,6 @@ def run_analysis():
  
    ## Read input file
    ftype = input_file.split('.')[-1]   
-
    
    ext1 = "svs"; ext2 = "svs"
    if (input_file.split('_')[-1].split('.')[0] == "tif"):
@@ -122,6 +131,7 @@ def run_analysis():
             if (a[0,i].split('.')[-1]==ext1 or a[0,i].split('.')[-1]==ext2):
                pathind = i
       full_paths = list(a[:,pathind]) # take correct column
+      clonal_mark_list = list(a[:,pathind+1])
    else: # 1D input
       ncols = a.shape[0]         
       img_sum = 0
@@ -134,6 +144,7 @@ def run_analysis():
          full_paths = list(a[pathind]) # take one entry
       if (img_sum==ncols):
          full_paths = list(a) # take all entries
+      clonal_mark_list = [clonal_mark_type] * len(full_paths)
    linux_test = len(full_paths[0].split('/'))
    windows_test = len(full_paths[0].split('\\'))
    if (linux_test==1 and windows_test>1):
@@ -150,6 +161,17 @@ def run_analysis():
    create_qupath_project(qupath_project_path, full_paths, file_in, folder_out)
    print("QuPath project created in %s" % qupath_project_path)
 
+   ## Turn clonal mark names to integer labels (if needed)
+   for m in range(len(clonal_mark_list)):
+      if type(clonal_mark_list[m])==type("string"):
+         if   clonal_mark_list[m].upper()=="KDM6A": clonal_mark_list[m] = 1
+         elif clonal_mark_list[m].upper()=="MAOA": clonal_mark_list[m]  = 1
+         elif clonal_mark_list[m].upper()=="NONO": clonal_mark_list[m]  = 1
+         elif clonal_mark_list[m].upper()=="HDAC6": clonal_mark_list[m] = 1
+         elif clonal_mark_list[m].upper()=="STAG2": clonal_mark_list[m] = 2
+         elif clonal_mark_list[m].upper()=="MPAS": clonal_mark_list[m]  = 3
+         elif clonal_mark_list[m].upper()=="P53": clonal_mark_list[m]   = 3
+
    if args.action == "count":
       from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder, predict_slide_DNN
       num_to_run = len(file_in)
@@ -158,15 +180,25 @@ def run_analysis():
       ## Perform crypt segmentation
       ######################################
       if (method == "D"):
+         # Load DNN model
+         import DNN.params as params
+         import tensorflow as tf
+         dnn_model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
+         maindir = os.path.dirname(os.path.abspath(__file__))
+         if (mouse_flag==True):
+            weightsin = os.path.join(maindir, 'DNN', 'weights', 'mousecrypt_weights.hdf5')         
+         else:
+            weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')      
+         dnn_model.load_weights(weightsin)
          for i in range(num_to_run):
             if (os.path.isfile(folders_to_analyse[i]+"crypt_contours.txt") and args.r==False):         
                print("Passing on %s, image previously analysed." % folders_to_analyse[i])
                pass
             else:
-               print("Beginning segmentation on %s." % folders_to_analyse[i])
-               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_type, prob_thresh = 0.4)
+               print("Beginning segmentation on %s with clonal mark type %d." % (folders_to_analyse[i], clonal_mark_list[i]))
+               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, prob_thresh = 0.5)
                
-      ## DO NOT USE
+      ## DO NOT USE -- NOT FULLY IMPLEMENTED
       if (method=="B"):
          ## Get parameters and pickle for all desired runs
          print("Pickling parameters for analysis")
@@ -175,7 +207,7 @@ def run_analysis():
                print("Passing on %s, parameters previously pickled." % file_in[i])
                pass
             else: 
-               GetThresholdsPrepareRun(full_paths[i], file_in[i], folder_out, clonal_mark_type)                    
+               GetThresholdsPrepareRun(full_paths[i], file_in[i], folder_out, clonal_mark_list[i])                    
          ## Perform analysis
          print("Performing analysis")
          for i in range(num_to_run):
@@ -183,7 +215,7 @@ def run_analysis():
                print("Passing on %s, image previously analysed." % folders_to_analyse[i])
                pass
             else:
-               SegmentFromFolder(folders_to_analyse[i], clonal_mark_type, False)
+               SegmentFromFolder(folders_to_analyse[i], clonal_mark_list[i], False)
                 
       ## Extract crypt counts from all analysed slides into base path
       extract_counts_csv(file_in, folder_out)

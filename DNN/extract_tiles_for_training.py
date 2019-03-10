@@ -9,7 +9,7 @@ import cv2, os, sys
 import openslide as osl
 import pandas as pd
 import numpy as np
-from experimental_DeCryptICS.MiscFunctions import read_cnt_text_file , getROI_img_osl, mkdir_p, plot_img
+from experimental_DeCryptICS.MiscFunctions import read_cnt_text_file, getROI_img_osl, mkdir_p, plot_img
 
 TILE_SIZE = 256
 
@@ -39,6 +39,9 @@ if __name__=="__main__":
       elif (tilelist[i,5][0].upper()=='C'): 
          cntpath = cntpath + 'clone_contours.txt'
          suffix = "clone"
+      elif (tilelist[i,5][0].upper()=='l'): 
+         cntpath = cntpath + 'crypt_contours.txt'
+         suffix = "crypt"
       else:
          print("Incorrect identifier in clone_fufi column, breaking...")
          break
@@ -108,28 +111,4 @@ if __name__=="__main__":
             cv2.imwrite(img_outpath + "/img_"+tilename+".png", img)
             cv2.imwrite(mask_outpath + "/mask_"+tilename+".png", mask)
       
-      
-      
-#         if (tilelist[i,5][0].upper()=='F'):
-#            inside_cnt = None
-#            for cnt_i in contours:
-#               if (cv2.pointPolygonTest(cnt_i, (int(x*vim.level_downsamples[level]), int(y*vim.level_downsamples[level])), False) == True):
-#                  inside_cnt = cnt_i
-#                  break
-#            # Rescale and translate to ROI
-#            inside_cnt = (inside_cnt/vim.level_downsamples[level]).astype(np.int32)
-#            cntROI = inside_cnt - (xl, yl)
-#            cv2.drawContours(mask, [cntROI], 0, 255, -1) ## Get mask
-#         if (tilelist[i,5][0].upper()=='C'):
-#            mask = np.zeros((max_vals[1],max_vals[0]), dtype=np.uint8)
-#            # draw all contours, then trim off sides
-#            for cnt_i in contours:
-#               # Rescale and translate to ROI
-#               cnt_j = (cnt_i/vim.level_downsamples[level]).astype(np.int32)
-#               cntROI = cnt_j - (xl, yl)
-#               cv2.drawContours(mask, [cntROI], 0, 255, -1) ## Get mask
-#            # trim mask
-#            mask = mask[:TILE_SIZE, :TILE_SIZE]
-#         cv2.imwrite(img_outpath + "/img_"+tilename+".png", img)
-#         cv2.imwrite(mask_outpath + "/mask_"+tilename+".png", mask)
       

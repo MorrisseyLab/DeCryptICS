@@ -15,21 +15,23 @@ import pickle
 import DNN.u_net as unet
 import DNN.params as params
 from deconv_mat               import *
+from knn_prune                import *
 from automaticThresh_func     import calculate_deconvolution_matrix_and_ROI, find_deconmat_fromtiles
-from MiscFunctions            import simplify_contours, col_deconvol_and_blur2, mkdir_p, write_clone_image_snips, convert_to_local_clone_indices
-from MiscFunctions            import getROI_img_osl, add_offset, write_cnt_text_file, plot_img, rescale_contours, write_score_text_file
-from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt, contour_eccentricity
+from MiscFunctions            import simplify_contours, col_deconvol_and_blur2, mkdir_p,\
+                                     write_clone_image_snips, convert_to_local_clone_indices
+from MiscFunctions            import getROI_img_osl, add_offset, write_cnt_text_file, plot_img,\
+                                     rescale_contours, write_score_text_file
+from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt,\
+                                     contour_EccMajorMinorAxis
 from multicore_morphology     import getForeground_mc
 from GUI_ChooseROI_class      import getROI_svs
-from knn_prune                import remove_tiling_overlaps_knn, crypt_indexing_clone, crypt_indexing_fufi, join_clones_in_fufi, get_crypt_patchsizes_and_ids, nn2, check_length
 from cnt_Feature_Functions    import contour_xy
 
-# Load DNN model
-model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
-maindir = os.path.dirname(os.path.abspath(__file__))
-weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')
-model.load_weights(weightsin)
-#model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
+#model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
+#maindir = os.path.dirname(os.path.abspath(__file__))
+#weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')
+#model.load_weights(weightsin)
+##model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
 
 def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size, params.input_size)):
     all_indx = []
@@ -57,7 +59,7 @@ def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size, params.in
             all_indx[i].append((x0, y0, width, height))
     return all_indx
 
-def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.5, mouse = False):
+def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.5):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -71,9 +73,6 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
    size = (params.input_size, params.input_size)
    scaling_val = obj_svs.dims_slides[0][0] / float(obj_svs.dims_slides[1][0])
    all_indx = get_tile_indices(obj_svs.dims_slides[1], overlap = 50, SIZE = size)
-#   if mouse: # actually this approach is not as good as simply working with the zoomed out image
-#      scaling_val = 1.
-#      all_indx = get_tile_indices(obj_svs.dims_slides[0], overlap = 50, SIZE = size)
    x_tiles = len(all_indx)
    y_tiles = len(all_indx[0])   
    
@@ -119,6 +118,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
       print("Outputting zilch as no crypts found!")
       
    else:
+      print("Processing clones and fufis...")
       ## Reduce number of vertices per contour to save space/QuPath loading time
       crypt_contours = simplify_contours(crypt_contours)
       fufi_contours  = simplify_contours(fufi_contours)
@@ -141,8 +141,10 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
       
       ## Add crypt features
       crypt_dict = get_contour_features(fixed_crypt_contours, crypt_dict)
+      print("...Done!")
       
       ## Save output
+      print("Saving results...")
       write_cnt_text_file(fixed_crypt_contours, folder_to_analyse + "/crypt_contours.txt")
       write_cnt_text_file(fixed_fufi_contours , folder_to_analyse + "/fufi_contours.txt")
       write_cnt_text_file(fixed_clone_contours, folder_to_analyse + "/clone_contours.txt")
@@ -156,10 +158,10 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, prob_thres
          for i in range(len(fixed_crypt_contours)):
             fo.write("%d\t%d\t%d\t%d\t%d\t%d\t%1.8g\t%1.8g\t%1.8g\t%1.8g\n" % (crypt_dict["crypt_xy"][i,0], crypt_dict["crypt_xy"][i,1], crypt_dict["fufi_label"][i], 
                                                                                crypt_dict["clone_label"][i], crypt_dict["patch_size"][i], crypt_dict["patch_id"][i],
-                                                                               crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"], crypt_dict["minorax"]))
-   print("Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")
+                                                                               crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"][i], crypt_dict["minorax"][i]))
+   print("...Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")
    
-def predict_image(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 0.5, mouse = False, downsample = True):
+def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.5, downsample = True):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -265,7 +267,7 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, prob_thresh = 
          for i in range(len(fixed_crypt_contours)):
             fo.write("%d\t%d\t%d\t%d\t%d\t%d\t%1.8g\t%1.8g\t%1.8g\t%1.8g\n" % (crypt_dict["crypt_xy"][i,0], crypt_dict["crypt_xy"][i,1], crypt_dict["fufi_label"][i], 
                                                                                crypt_dict["clone_label"][i], crypt_dict["patch_size"][i], crypt_dict["patch_id"][i],
-                                                                               crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"], crypt_dict["minorax"]))
+                                                                               crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"][i], crypt_dict["minorax"][i]))
    print("Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")      
   
 def mask_to_contours(preds, thresh):
@@ -329,7 +331,6 @@ def fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_di
 
 def get_contour_features(fixed_crypt_contours, crypt_dict):
    crypt_dict["area"] = np.asarray([contour_Area(i) for i in fixed_crypt_contours])
-   #crypt_dict["ecc"] = np.asarray([contour_eccentricity(i) for i in fixed_crypt_contours])
    eccmajorminor = [contour_EccMajorMinorAxis(i) for i in fixed_crypt_contours]
    crypt_dict["ecc"] = np.zeros(crypt_dict["area"].shape[0])
    crypt_dict["majorax"] = np.zeros(crypt_dict["area"].shape[0])

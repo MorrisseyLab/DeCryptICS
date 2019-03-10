@@ -26,8 +26,8 @@ def mkdir_p(path):
 def add_offset(contour_list, xy_offset):
     cnt_list_out = []
     for elem_i in contour_list:
-        elem_i[:,0,0] += xy_offset[0].astype(np.int32)
-        elem_i[:,0,1] += xy_offset[1].astype(np.int32)
+        elem_i[:,0,0] += int(np.round(xy_offset[0]))
+        elem_i[:,0,1] += int(np.round(xy_offset[1]))
         cnt_list_out.append(elem_i)
     return cnt_list_out
 

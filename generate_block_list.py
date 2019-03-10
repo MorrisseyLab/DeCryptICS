@@ -4,12 +4,10 @@ import glob, os, sys
 import argparse
 import numpy as np
 import pandas as pd
-if (len(sys.argv) > 2):
-        sys.stderr.write('\n\n')
-        sys.exit(1)
 
-def output_filelist(fnames, ext=''):
+def output_blocklist(fnames, imgids, marks, ext=''):
    fpaths = [os.path.abspath(f) for f in fnames]
+   imorder = [np.where(imgids==int(im.split('/')[-1].split('.')[0]))[0][0] for im in fpaths]
    initpath = fpaths[0]
    linux_test = len(initpath.split('/'))
    windows_test = len(initpath.split('\\'))
@@ -18,8 +16,8 @@ def output_filelist(fnames, ext=''):
    if (linux_test>1 and windows_test==1):
       outpath = '/' + os.path.join(*initpath.split('/')[:-1]) + '/'
    if (linux_test==1 and windows_test==1):
-      outpath = os.getcwd() + '/'
-   with open(outpath + 'input_files'+ext+'.txt', 'w') as fo:      
+      outpath = os.getcwd() + '/'   
+   with open(outpath + 'input_files' + ext + '.txt', 'w') as fo:      
       fo.write("#<full paths to slides>\t<clonal mark>\n")
       for i in range(len(fpaths)):
          fo.write(fpaths[i] + '\t' + str(marks[imorder[i]]) + '\n')
@@ -30,17 +28,15 @@ def main():
                                                   "Running with no arguments uses the current working directory. "
                                                   "Second argument -c can be given to set the mutation "
                                                   "mark to be used for all slides in the input folder." )
-   parser.add_argument('-f', dest    = "input_folder", 
-                             default = "",
-                             help    = "Input folder. Defaults to current working directory if -f missing. ")
+   parser.add_argument("input_folder", default = "",
+                            help = "Input folder. Defaults to current working directory if missing. ")
    
    parser.add_argument('-c', dest    = "clonal_mark",
                              default = "1", 
                              help    = "Clonal mark type for all input images. "
-                                       "1 for KDM6A/NONO/MAOA type (brown clone on blue nuclear). "
-                                       "2 for STAG2 type (brown clone on grey-brown-blue nuclear). "
-                                       "3 for mPAS type (purple clone in cytoplasm). "
-                                       "Note: all slides in input list will be analysed using the same clonal mark type. "
+                                       "1: KDM6A/NONO/MAOA/HDAC6. "
+                                       "2: STAG2. "
+                                       "3: mPAS. "
                                        "If -c is not passed, and no slide info file is found, defaults to 1.")
    args = parser.parse_args()
    ## check args
@@ -54,7 +50,7 @@ def main():
       fnames_svs = glob.glob(args.input_folder+'/'+"*.svs")
       fnames_tif = glob.glob(args.input_folder+'/'+"*.tif*")
       fnames_png = glob.glob(args.input_folder+'/'+"*.png")
-      fnames_jpg = np.hstack([glob.glob(args.input_folder+'/'+"*.jpg"), glob.glob(args.input_folder+'/'+"*.jpeg")])
+      fnames_jpg = glob.glob(args.input_folder+'/'+"*.jpg") + glob.glob(args.input_folder+'/'+"*.jpeg")
       slideinfo_f = args.input_folder + "/slide_info.csv"
    else:
       print("Reading files in %s" % os.getcwd())
@@ -76,28 +72,20 @@ def main():
       if (slideinfo_f.split('_')[-1].split('.')[0] == "jpg"):
          ext1 = "jpg"; ext2 = "jpeg"
 
-      # check if we loaded a value as a header
-      if (ftype=="csv"):      a = pd.read_csv(input_file)
-      elif (ftype[:2]=="xl"): a = pd.read_excel(input_file)
-      else:                   a = pd.read_table(input_file)
-      heads = list(a.columns.values)
-      img_sum = 0
-      for hh in heads:
-         if (hh.split('.')[-1]==ext1 or hh.split('.')[-1]==ext2): img_sum += 1
-      if img_sum>0:
-         if (ftype=="csv"):      a = pd.read_csv(input_file  , header=None)
-         elif (ftype[:2]=="xl"): a = pd.read_excel(input_file, header=None)
-         else:                   a = pd.read_table(input_file, header=None)
-      in_shape = a.shape
-      a = np.asarray(a).reshape(in_shape)
+      if (ftype=="csv"):      a = pd.read_csv(slideinfo_f)
+      elif (ftype[:2]=="xl"): a = pd.read_excel(slideinfo_f)
+      else:                   a = pd.read_table(slideinfo_f)
+      heads = list(a.columns.values)      
+      imgids = np.asarray(a['Image ID'])
+      marks = np.asarray(a['mark'])
+   else:
+      imgids = np.asarray([int(im.split('/')[-1].split('.')[0]) for im in fnames_svs+fnames_tif+fnames_png+fnames_jpg])
+      marks = np.ones(len(imgids), dtype=np.int32) * int(args.clonal_mark)
    
-   blockids = a[:,1]
-   slideids = a[:,4]   
-   
-   if (len(fnames_svs)>0): output_filelist(fnames_svs)
-   if (len(fnames_tif)>0): output_filelist(fnames_tif, '_tif')
-   if (len(fnames_png)>0): output_filelist(fnames_png, '_png')
-   if (len(fnames_jpg)>0): output_filelist(fnames_jpg, '_jpg')
+   if (len(fnames_svs)>0): output_blocklist(fnames_svs, imgids, marks)
+   if (len(fnames_tif)>0): output_blocklist(fnames_tif, imgids, marks, '_tif')
+   if (len(fnames_png)>0): output_blocklist(fnames_png, imgids, marks, '_png')
+   if (len(fnames_jpg)>0): output_blocklist(fnames_jpg, imgids, marks, '_jpg')
                                     
 
 if __name__=="__main__":
