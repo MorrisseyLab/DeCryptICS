@@ -38,11 +38,11 @@ def run_analysis():
                              default = "1", 
                              dest    = "clonal_mark",
                              help    = "Clonal mark type, if clones are to be counted. "
-                                       "1 for KDM6A/NONO/MAOA type (brown clone on blue nuclear). "
-                                       "2 for STAG2 type (brown clone on grey-brown-blue nuclear). "
+                                       "1 for KDM6A/NONO/MAOA/STAG2/HDAC6 type (brown clone on blue nuclear). "
+                                       "2 for p53 type (dark brown clone on light brown nuclear). "
                                        "3 for mPAS type (purple clone in cytoplasm). "
-                                       "Defaults to '1' if -c is not passed, meaning clones assumed KDM6A/NONO/MAOA type. "
-                                       "Note: all slides in input list will be analysed using the same clonal mark type. ")
+                                       "Defaults to '1' if -c is not passed, meaning clones assumed KDM6A/NONO/MAOA/STAG2/HDAC6 type. "
+                                       "(Unless clonal marks found in input file, which take precendent.) ")
 
    parser.add_argument('-method', choices = ["D" , "B"],
                                   default = "D", 
@@ -54,10 +54,13 @@ def run_analysis():
                              help = "Forces repeat analysis of slides with existing crypt contour files. "
                                     "Defaults to False if -r flag missing. ")
 
-   parser.add_argument('-mouse', choices = ["True", "False"],
-                                 default = "False", 
-                                 dest    = "mouse_flag",
-                                 help    = "Whether we are analysing mouse tissue. ")
+   parser.add_argument('-mouse', action = "store_true", 
+                                 default = False,
+                                 help    = "Indicates we are analysing mouse tissue. ")
+                                 
+   parser.add_argument('-cloneimgs', action = "store_true", 
+                                     default = False,
+                                     help    = "Indicates we should output images of clones. ")
 
 
    args = parser.parse_args()
@@ -69,7 +72,8 @@ def run_analysis():
    print('clonal_mark  = {!r}'.format(args.clonal_mark))
    print('method       = {!r}'.format(args.method))
    print('force_repeat = {!r}'.format(args.r))
-   print('mouse_flag   = {!r}'.format(args.mouse_flag))
+   print('mouse        = {!r}'.format(args.mouse))
+   print('cloneimgs    = {!r}'.format(args.cloneimgs))
    print("\n...Working...\n")
    
    ## Standardise clonal mark type string
@@ -82,10 +86,6 @@ def run_analysis():
    method = args.method
    if (method.upper()=="D"): method="D"
    if (method.upper()=="B"): method="B"
-
-   ## bool the mouse flag
-   if (args.mouse_flag=="True"): mouse_flag = True
-   if (args.mouse_flag=="False"): mouse_flag = False
 
    ## Find output folder
    input_file = os.path.abspath(args.input_file)
@@ -168,9 +168,9 @@ def run_analysis():
          elif clonal_mark_list[m].upper()=="MAOA": clonal_mark_list[m]  = 1
          elif clonal_mark_list[m].upper()=="NONO": clonal_mark_list[m]  = 1
          elif clonal_mark_list[m].upper()=="HDAC6": clonal_mark_list[m] = 1
-         elif clonal_mark_list[m].upper()=="STAG2": clonal_mark_list[m] = 2
+         elif clonal_mark_list[m].upper()=="STAG2": clonal_mark_list[m] = 1
+         elif clonal_mark_list[m].upper()=="P53": clonal_mark_list[m]   = 2
          elif clonal_mark_list[m].upper()=="MPAS": clonal_mark_list[m]  = 3
-         elif clonal_mark_list[m].upper()=="P53": clonal_mark_list[m]   = 3
 
    if args.action == "count":
       from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder, predict_slide_DNN
@@ -185,7 +185,7 @@ def run_analysis():
          import tensorflow as tf
          dnn_model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
          maindir = os.path.dirname(os.path.abspath(__file__))
-         if (mouse_flag==True):
+         if (args.mouse==True):
             weightsin = os.path.join(maindir, 'DNN', 'weights', 'mousecrypt_weights.hdf5')         
          else:
             weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')      
@@ -196,7 +196,7 @@ def run_analysis():
                pass
             else:
                print("Beginning segmentation on %s with clonal mark type %d." % (folders_to_analyse[i], clonal_mark_list[i]))
-               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, prob_thresh = 0.5)
+               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, prob_thresh = 0.5, write_clone_imgs = args.cloneimgs)
                
       ## DO NOT USE -- NOT FULLY IMPLEMENTED
       if (method=="B"):

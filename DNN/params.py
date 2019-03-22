@@ -1,4 +1,4 @@
-from DNN.u_net import get_unet_128, get_unet_256, get_unet_512, get_unet_1024, get_unet_256_for_X
+from DNN.u_net import get_unet_256_for_X
 
 # Reduce input_size if GPU is running out of memory (increase if not!)
 input_size = 256 #1024

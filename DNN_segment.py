@@ -59,7 +59,7 @@ def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size, params.in
             all_indx[i].append((x0, y0, width, height))
     return all_indx
 
-def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.5):
+def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.5, write_clone_imgs = False):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -152,16 +152,16 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
       write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt")
       write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
       pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
-      write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours, scaling_val)
+      if write_clone_imgs==True: write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours[:25], scaling_val)
       with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
-         fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\n")
+         fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\t<patch_id>\t<area>\t<eccentricity>\t<major_axis>\t<minor_axis>\n")
          for i in range(len(fixed_crypt_contours)):
             fo.write("%d\t%d\t%d\t%d\t%d\t%d\t%1.8g\t%1.8g\t%1.8g\t%1.8g\n" % (crypt_dict["crypt_xy"][i,0], crypt_dict["crypt_xy"][i,1], crypt_dict["fufi_label"][i], 
                                                                                crypt_dict["clone_label"][i], crypt_dict["patch_size"][i], crypt_dict["patch_id"][i],
                                                                                crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"][i], crypt_dict["minorax"][i]))
    print("...Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")
    
-def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.5, downsample = True):
+def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.5, downsample = True, write_clone_imgs = False):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -261,9 +261,9 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_th
       write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt")
       write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
       pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
-      #write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours, scaling_val)
+      if write_clone_imgs==True: write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours, scaling_val)
       with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
-         fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\n")
+         fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\t<patch_id>\t<area>\t<eccentricity>\t<major_axis>\t<minor_axis>\n")
          for i in range(len(fixed_crypt_contours)):
             fo.write("%d\t%d\t%d\t%d\t%d\t%d\t%1.8g\t%1.8g\t%1.8g\t%1.8g\n" % (crypt_dict["crypt_xy"][i,0], crypt_dict["crypt_xy"][i,1], crypt_dict["fufi_label"][i], 
                                                                                crypt_dict["clone_label"][i], crypt_dict["patch_size"][i], crypt_dict["patch_id"][i],

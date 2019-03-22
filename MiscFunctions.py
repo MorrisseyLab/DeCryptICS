@@ -24,12 +24,20 @@ def mkdir_p(path):
         else: raise
 
 def add_offset(contour_list, xy_offset):
-    cnt_list_out = []
-    for elem_i in contour_list:
-        elem_i[:,0,0] += int(np.round(xy_offset[0]))
-        elem_i[:,0,1] += int(np.round(xy_offset[1]))
-        cnt_list_out.append(elem_i)
-    return cnt_list_out
+   cnts = contour_list.copy()
+   cnt_list_out = []    
+   for l in range(len(cnts)):
+      shape_prior = cnts[l].shape
+      cnt_l = cnts[l].reshape((cnts[l].shape[0], cnts[l].shape[2]))
+      new_cnt_l = cnt_l + np.round(xy_offset).astype(np.int32)
+      new_cnt_l = new_cnt_l.reshape(shape_prior)
+      cnt_list_out.append(new_cnt_l) 
+   return cnt_list_out
+   
+#    for elem_i in cntlistcopy:
+#        elem_i[:,0,0] += int(np.round(xy_offset[0]))
+#        elem_i[:,0,1] += int(np.round(xy_offset[1]))
+#        cnt_list_out.append(elem_i)    
 
 def rescale_contours(contour_list, scaling_val):
     cnt_list_out = []

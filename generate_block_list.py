@@ -7,7 +7,8 @@ import pandas as pd
 
 def output_blocklist(fnames, imgids, marks, ext=''):
    fpaths = [os.path.abspath(f) for f in fnames]
-   imorder = [np.where(imgids==int(im.split('/')[-1].split('.')[0]))[0][0] for im in fpaths]
+   imorder = [np.where(imgids==int(im.split('/')[-1].split('.')[0]))[0] for im in fpaths]
+   imorder = np.concatenate(imorder).ravel()
    initpath = fpaths[0]
    linux_test = len(initpath.split('/'))
    windows_test = len(initpath.split('\\'))
@@ -19,7 +20,7 @@ def output_blocklist(fnames, imgids, marks, ext=''):
       outpath = os.getcwd() + '/'   
    with open(outpath + 'input_files' + ext + '.txt', 'w') as fo:      
       fo.write("#<full paths to slides>\t<clonal mark>\n")
-      for i in range(len(fpaths)):
+      for i in range(len(imorder)):
          fo.write(fpaths[i] + '\t' + str(marks[imorder[i]]) + '\n')
 
 def main():
@@ -43,15 +44,16 @@ def main():
    print("Running with the following inputs:")
    print('input_folder   = {!r}'.format(args.input_folder))
    print('clonal_mark  = {!r}'.format(args.clonal_mark))                                       
-          
+   input_folder = args.input_folder
+   clonal_mark = args.clonal_mark
    ## get file list                     
-   if args.input_folder!="":
-      print("Reading files in %s" % args.input_folder)
-      fnames_svs = glob.glob(args.input_folder+'/'+"*.svs")
-      fnames_tif = glob.glob(args.input_folder+'/'+"*.tif*")
-      fnames_png = glob.glob(args.input_folder+'/'+"*.png")
-      fnames_jpg = glob.glob(args.input_folder+'/'+"*.jpg") + glob.glob(args.input_folder+'/'+"*.jpeg")
-      slideinfo_f = args.input_folder + "/slide_info.csv"
+   if input_folder!="":
+      print("Reading files in %s" % input_folder)
+      fnames_svs = glob.glob(input_folder+'/'+"*.svs")
+      fnames_tif = glob.glob(input_folder+'/'+"*.tif*")
+      fnames_png = glob.glob(input_folder+'/'+"*.png")
+      fnames_jpg = glob.glob(input_folder+'/'+"*.jpg") + glob.glob(input_folder+'/'+"*.jpeg")
+      slideinfo_f = input_folder + "/slide_info.csv"
    else:
       print("Reading files in %s" % os.getcwd())
       # case sensitive for now
@@ -80,7 +82,7 @@ def main():
       marks = np.asarray(a['mark'])
    else:
       imgids = np.asarray([int(im.split('/')[-1].split('.')[0]) for im in fnames_svs+fnames_tif+fnames_png+fnames_jpg])
-      marks = np.ones(len(imgids), dtype=np.int32) * int(args.clonal_mark)
+      marks = np.ones(len(imgids), dtype=np.int32) * int(clonal_mark)
    
    if (len(fnames_svs)>0): output_blocklist(fnames_svs, imgids, marks)
    if (len(fnames_tif)>0): output_blocklist(fnames_tif, imgids, marks, '_tif')
