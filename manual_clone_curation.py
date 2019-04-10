@@ -104,6 +104,7 @@ def main():
       if ll>1:
          patch_sizes.append(ll)
          new_patch_indices.append(new_patch)
+   patchsum = np.sum(patch_sizes)
    pickle.dump(new_patch_indices, open( folder_to_analyse + "/patch_indices_curated.pickle", "wb" ) )
    
    # then use new lists of indices to update patch size file
@@ -114,8 +115,9 @@ def main():
    counts = np.asarray(pd.read_csv(counts_folder+"/slide_counts.csv"))
    slide_ind = np.where(counts[:,0]==int(slide_number))[0][0]
    counts[slide_ind, 3] = len(good_inds)
-   counts[slide_ind, 4] = len(patch_sizes)
-   counts = pd.DataFrame(counts, columns=['Slide_ID', 'NCrypts', 'NFufis', 'NClones', 'NPatches'])
+   counts[slide_ind, 4] = len(good_inds) - patchsum + len(patch_sizes)
+   counts[slide_ind, 5] = len(patch_sizes)
+   counts = pd.DataFrame(counts, columns=['Slide_ID', 'NCrypts', 'NFufis', 'NMutantCrypts', 'NClones', 'NPatches')
    counts.to_csv(counts_folder + 'slide_counts.csv', sep=',', index=False)
 
 if __name__=="__main__":

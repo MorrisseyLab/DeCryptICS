@@ -5,33 +5,29 @@ Created on Mon Mar 26 15:47:40 2018
 
 @author: doran
 """
-import tensorflow as tf
-from keras import backend as K
-from keras.preprocessing.image import img_to_array
 import cv2, os, time
-import numpy as np
 import keras
 import pickle
-import DNN.u_net as unet
+import tensorflow as tf
+import numpy      as np
+import DNN.u_net  as unet
 import DNN.params as params
-from deconv_mat               import *
-from knn_prune                import *
-from automaticThresh_func     import calculate_deconvolution_matrix_and_ROI, find_deconmat_fromtiles
-from MiscFunctions            import simplify_contours, col_deconvol_and_blur2, mkdir_p,\
-                                     write_clone_image_snips, convert_to_local_clone_indices
-from MiscFunctions            import getROI_img_osl, add_offset, write_cnt_text_file, plot_img,\
+from keras                     import backend as K
+from keras.preprocessing.image import img_to_array
+from knn_prune                 import *
+from MiscFunctions             import simplify_contours, write_clone_image_snips,\
+                                     convert_to_local_clone_indices, mkdir_p,\
+                                     getROI_img_osl, add_offset, write_cnt_text_file,\
                                      rescale_contours, write_score_text_file
-from cnt_Feature_Functions    import joinContoursIfClose_OnlyKeepPatches, st_3, contour_Area, plotCnt,\
-                                     contour_EccMajorMinorAxis
-from multicore_morphology     import getForeground_mc
-from GUI_ChooseROI_class      import getROI_svs
-from cnt_Feature_Functions    import contour_xy
+from cnt_Feature_Functions     import joinContoursIfClose_OnlyKeepPatches, contour_Area,\
+                                     contour_EccMajorMinorAxis, contour_xy
+from GUI_ChooseROI_class       import getROI_svs
 
 #model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
 #maindir = os.path.dirname(os.path.abspath(__file__))
 #weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')
 #model.load_weights(weightsin)
-##model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
+#model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
 
 def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size, params.input_size)):
     all_indx = []
@@ -161,7 +157,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
                                                                                crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"][i], crypt_dict["minorax"][i]))
    print("...Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")
    
-def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.5, downsample = True, write_clone_imgs = False):
+def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.75, downsample = True, write_clone_imgs = False):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)

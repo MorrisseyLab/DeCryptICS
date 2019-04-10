@@ -7,11 +7,11 @@ Created on Wed Feb 21 13:18:17 2018
 """
 
 import glob, os, sys
-import numpy as np
+import numpy  as np
 import pandas as pd
 import argparse, datetime
 from qupath_project import create_qupath_project, extract_counts_csv, file_len, folder_from_image
-from MiscFunctions import mkdir_p
+from MiscFunctions  import mkdir_p
 
 def run_analysis():
    parser = argparse.ArgumentParser(description = "This script takes as input a list of full paths (local or remote) to .svs files, "
@@ -173,7 +173,7 @@ def run_analysis():
          elif clonal_mark_list[m].upper()=="MPAS": clonal_mark_list[m]  = 3
 
    if args.action == "count":
-      from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder, predict_slide_DNN
+      from SegmentTiled_gen import predict_slide_DNN
       num_to_run = len(file_in)
       folders_to_analyse = [folder_out+fldr for fldr in ["Analysed_"+fnum+"/" for fnum in file_in]]
 
@@ -196,10 +196,11 @@ def run_analysis():
                pass
             else:
                print("Beginning segmentation on %s with clonal mark type %d." % (folders_to_analyse[i], clonal_mark_list[i]))
-               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, prob_thresh = 0.5, write_clone_imgs = args.cloneimgs)
+               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, prob_thresh = 0.75, write_clone_imgs = args.cloneimgs)
                
       ## DO NOT USE -- NOT FULLY IMPLEMENTED
       if (method=="B"):
+         from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder
          ## Get parameters and pickle for all desired runs
          print("Pickling parameters for analysis")
          for i in range(num_to_run):

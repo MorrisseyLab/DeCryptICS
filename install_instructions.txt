@@ -7,16 +7,28 @@ bash Miniconda3-latest-Linux-x86_64.sh -b -p /full/path/to/install-dir
 
 # config
 export PATH=/full/path/to/your/folder/bin:$PATH
-cd ./bin
 conda config --add channels conda-forge
 conda config --add channels defaults
 conda config --add channels r
 conda config --add channels bioconda
 conda update -n base conda
 
+## python dependencies
+##################
+## EITHER run:
 # create a conda environment, where you can choose the NAME_OF_ENV
-./conda create -n NAME_OF_ENV python=3.6
+conda create -n NAME_OF_ENV python=3.6
+conda install openslide opencv keras keras-gpu matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
+pip install xlrd openslide-python
+pip install -U tensorflow-gpu==1.6.0
 
+## OR use the .yml file:
+conda env create -f dcrypt_env.yml
+# (first changing the first and last lins of dcrypt_env.yml, "name:" and "prefix:", to NAME_OF_ENV, and giving the correct conda install path.)
+# You may also need to run 
+conda install openslide
+
+## THEN
 # activate environment
 source activate NAME_OF_ENV
 
@@ -30,20 +42,6 @@ alias SHORTCUT_NAME="source /full/path/to/install-dir/bin/activate NAME_OF_ENV"
 source ~/.bashrc
 
 # now, just typing SHORTCUT_NAME will activate your new conda environment!
-
-## python dependencies
-##################
-# EITHER run:
-conda install openslide opencv keras keras-gpu matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
-pip install xlrd
-pip install openslide-python
-
-# OR use the .yml file:
-conda env create -f dcrypt_env.yml
-# (first changing the first and last lins of dcrypt_env.yml, "name:" and "prefix:", to name the environment whatever you like, and giving the correct conda install path.)
-# You may also need to run 
-conda install openslide
-
 
 # (More instructions below the optional GPU part -- scroll down!)
 *******************START OPTIONAL*************************

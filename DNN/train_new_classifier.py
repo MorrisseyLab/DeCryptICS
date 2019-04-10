@@ -96,7 +96,7 @@ def train_process(data):
          mask[:,:,4] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 4
       img = randomHueSaturationValue(img,
-                                     hue_shift_limit=(-15, 15),
+                                     hue_shift_limit=(-25, 25),
                                      sat_shift_limit=(0, 0),
                                      val_shift_limit=(-15, 15))
 
