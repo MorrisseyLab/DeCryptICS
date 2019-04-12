@@ -42,7 +42,7 @@ def main():
                                        "1: KDM6A/NONO/MAOA/HDAC6/STAG2 "
                                        "2: p53 "
                                        "3: mPAS "
-                                       "0: H&E "
+                                       "0: H&E (must be passed in quotation marks to use the ampersand if passing by name) "
                                        "A slide info file will supersede -c flag. "
                                        "If -c is not passed and no slide info file is found, defaults to 1.")
    args = parser.parse_args()

@@ -49,7 +49,9 @@ Run run\_script.py with an action and the path to the input file list. For examp
 
 python run\_script.py count /full/path/to/block/input\_files.py
 
-View the help with "python run\_script.py -h" to see all available options.
+View the help with "python run\_script.py -h" to see all available options. For example, if you are analysing mouse tissue, then use the "-mouse" flag:
+
+python run\_script.py count /full/path/to/mouseblock/input\_files.py -mouse
 
 Note: if running on a GPU and you receive an out-of-memory error, try reducing the "input\_size" in DeCryptICS/DNN/params.py (in nice powers of 2 so that downsampling always creates an integer size: 128, 256, 512, 1024, 2048...)
 
