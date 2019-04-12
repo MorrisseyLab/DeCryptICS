@@ -62,7 +62,11 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
    crypt_contours  = []
    fufi_contours  = []
    clone_contours = []
-   K = clonal_mark_type+1 # moving from (1,2,3) to (2,3,4) for correct slice indexing
+   if clonal_mark_type>0:
+      cK = clonal_mark_type+1 # moving from (1,2,3) to (2,3,4) for correct slice indexing
+   else:
+      cK = 0
+   
        
    ## Tiling
    obj_svs  = getROI_svs(file_name, get_roi_plot = False)
@@ -93,7 +97,8 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
          # Add to lists
          crypt_contours += newcnts[0]
          fufi_contours  += [cc for cc in newcnts[1] if contour_Area(cc)>(800./(scaling_val*scaling_val))]         
-         clone_contours += newcnts[K]
+         if cK>0:
+            clone_contours += newcnts[cK]
       print("Found %d crypt contours, %d fufi contours and %d clone contours so far, tile %d of %d" % (len(crypt_contours), len(fufi_contours), len(clone_contours), i*y_tiles+j + 1, x_tiles*y_tiles))         
    del img, predicted_mask_batch, newcnts
    
@@ -164,7 +169,10 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_th
    crypt_contours  = []
    fufi_contours  = []
    clone_contours = []
-   K = clonal_mark_type+1 # moving from (1,2,3) to (2,3,4) for correct slice indexing
+   if clonal_mark_type>0:
+      cK = clonal_mark_type+1 # moving from (1,2,3) to (2,3,4) for correct slice indexing
+   else:
+      cK = 0
        
    ## Tiling
    img_full  = cv2.imread(file_name)
@@ -204,7 +212,8 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_th
          # Add to lists
          crypt_contours += newcnts[0]
          fufi_contours  += [cc for cc in newcnts[1] if contour_Area(cc)>(400./(scaling_val*scaling_val))]         
-         clone_contours += newcnts[K]
+         if cK>0:
+            clone_contours += newcnts[cK]
       print("Found %d crypt contours, %d fufi contours and %d clone contours so far, tile %d of %d" % (len(crypt_contours), len(fufi_contours), len(clone_contours), i*y_tiles+j + 1, x_tiles*y_tiles))         
    del img, predicted_mask_batch, newcnts
    

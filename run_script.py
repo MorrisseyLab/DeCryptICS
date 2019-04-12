@@ -34,13 +34,14 @@ def run_analysis():
                         help = "Optionally set the name of the QuPath project folder to be created. "
                                "Defaults to 'qupath_project_DATE_TIME'. ")
 
-   parser.add_argument('-c', choices = ["1" , "2" , "3"],
+   parser.add_argument('-c', choices = ["1" , "2" , "3", "0"],
                              default = "1", 
                              dest    = "clonal_mark",
                              help    = "Clonal mark type, if clones are to be counted. "
                                        "1 for KDM6A/NONO/MAOA/STAG2/HDAC6 type (brown clone on blue nuclear). "
                                        "2 for p53 type (dark brown clone on light brown nuclear). "
                                        "3 for mPAS type (purple clone in cytoplasm). "
+				       "0 for non-mutational stainings like H&E. "
                                        "Defaults to '1' if -c is not passed, meaning clones assumed KDM6A/NONO/MAOA/STAG2/HDAC6 type. "
                                        "(Unless clonal marks found in input file, which take precendent.) ")
 
@@ -78,9 +79,10 @@ def run_analysis():
    
    ## Standardise clonal mark type string
    clonal_mark_type = args.clonal_mark
-   if (clonal_mark_type=="1"): clonal_mark_type = 1 # KDM6A/MAOA/NONO
-   if (clonal_mark_type=="2"): clonal_mark_type = 2 # STAG2
+   if (clonal_mark_type=="1"): clonal_mark_type = 1 # KDM6A/MAOA/NONO/HDAC6/STAG2
+   if (clonal_mark_type=="2"): clonal_mark_type = 2 # p53
    if (clonal_mark_type=="3"): clonal_mark_type = 3 # mPAS
+   if (clonal_mark_type=="0"): clonal_mark_type = 0 # H&E
 
    ## Standardise method string
    method = args.method
@@ -171,6 +173,7 @@ def run_analysis():
          elif clonal_mark_list[m].upper()=="STAG2": clonal_mark_list[m] = 1
          elif clonal_mark_list[m].upper()=="P53": clonal_mark_list[m]   = 2
          elif clonal_mark_list[m].upper()=="MPAS": clonal_mark_list[m]  = 3
+         elif clonal_mark_list[m].upper()=="H&E": clonal_mark_list[m]   = 0
 
    if args.action == "count":
       from SegmentTiled_gen import predict_slide_DNN

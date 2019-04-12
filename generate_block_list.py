@@ -42,6 +42,7 @@ def main():
                                        "1: KDM6A/NONO/MAOA/HDAC6/STAG2 "
                                        "2: p53 "
                                        "3: mPAS "
+                                       "0: H&E "
                                        "A slide info file will supersede -c flag. "
                                        "If -c is not passed and no slide info file is found, defaults to 1.")
    args = parser.parse_args()
@@ -58,6 +59,7 @@ def main():
    if str(clonal_mark).upper()=="STAG2": clonal_mark = 1
    if str(clonal_mark).upper()=="P53":   clonal_mark = 2
    if str(clonal_mark).upper()=="MPAS":  clonal_mark = 3
+   if str(clonal_mark).upper()=="H&E":   clonal_mark = 0
    ## get file list                     
    if input_folder!="":
       print("Reading files in %s" % input_folder)

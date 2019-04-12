@@ -28,7 +28,7 @@ from keras.preprocessing.image import img_to_array
 samples = []
 samples_hu = []
 
-num_cores = 8
+num_cores = 12
 GPU = True
 CPU = False
 
@@ -63,9 +63,17 @@ def train_process(data):
    if (mname[-5:]=="crypt"):
       mask[:,:,0] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
       dontmask = 0
+      img = randomHueSaturationValue(img,
+                                     hue_shift_limit=(-100, 100),
+                                     sat_shift_limit=(0, 0),
+                                     val_shift_limit=(-25, 25))
    elif (mname[-4:]=="fufi"):
       mask[:,:,1] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
       dontmask = 1
+      img = randomHueSaturationValue(img,
+                                     hue_shift_limit=(-100, 100),
+                                     sat_shift_limit=(0, 0),
+                                     val_shift_limit=(-25, 25))
    elif (mname[-5:]=="clone"):
       mname_broken = mask_f.split('/')[-1].split('_')
       if "KDM6A" in mname_broken:
@@ -77,17 +85,24 @@ def train_process(data):
       if "NONO" in mname_broken:
          mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 2
+      if "HDAC6" in mname_broken:
+         mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+         dontmask = 2
       if "STAG2" in mname_broken:
+         mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+         dontmask = 2
+      if "p53" in mname_broken:
          mask[:,:,3] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 3
       if "mPAS" in mname_broken:
          mask[:,:,4] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 4
+      img = randomHueSaturationValue(img,
+                                     hue_shift_limit=(-25, 25),
+                                     sat_shift_limit=(0, 0),
+                                     val_shift_limit=(-15, 15))
 
-   img = randomHueSaturationValue(img,
-                                hue_shift_limit=(-100, 100),
-                                sat_shift_limit=(0, 0),
-                                val_shift_limit=(-25, 25))
+
    img, mask = randomShiftScaleRotate(img, mask,
                                     shift_limit=(-0.0625, 0.0625),
                                     scale_limit=(-0.1, 0.1),
@@ -117,9 +132,17 @@ def train_process_random():
    if (mname[-5:]=="crypt"):
       mask[:,:,0] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
       dontmask = 0
+      img = randomHueSaturationValue(img,
+                                     hue_shift_limit=(-100, 100),
+                                     sat_shift_limit=(0, 0),
+                                     val_shift_limit=(-25, 25))
    elif (mname[-4:]=="fufi"):
       mask[:,:,1] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
       dontmask = 1
+      img = randomHueSaturationValue(img,
+                                     hue_shift_limit=(-100, 100),
+                                     sat_shift_limit=(0, 0),
+                                     val_shift_limit=(-25, 25))
    elif (mname[-5:]=="clone"):
       mname_broken = mask_f.split('/')[-1].split('_')
       if "KDM6A" in mname_broken:
@@ -135,16 +158,20 @@ def train_process_random():
          mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 2
       if "STAG2" in mname_broken:
+         mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+         dontmask = 2
+      if "p53" in mname_broken:
          mask[:,:,3] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 3
       if "mPAS" in mname_broken:
          mask[:,:,4] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 4
+      img = randomHueSaturationValue(img,
+                                     hue_shift_limit=(-25, 25),
+                                     sat_shift_limit=(0, 0),
+                                     val_shift_limit=(-15, 15))
 
-   img = randomHueSaturationValue(img,
-                                hue_shift_limit=(-100, 100),
-                                sat_shift_limit=(0, 0),
-                                val_shift_limit=(-25, 25))
+
    img, mask = randomShiftScaleRotate(img, mask,
                                     shift_limit=(-0.0625, 0.0625),
                                     scale_limit=(-0.1, 0.1),
@@ -254,7 +281,7 @@ if __name__=="__main__":
    for i in range(n2): samples_hu += samples_fu_hu
    shuffle(samples_hu)
       
-   weights_name = dnnfolder+"/weights/mousecrypt_weights.hdf5"
+   weights_name = dnnfolder+"/weights/mousecrypt_weights2.hdf5"
    logs_folder = dnnfolder+"/logs"
    
    callbacks = [ModelCheckpoint(monitor='loss', filepath=weights_name, save_best_only=True, 
