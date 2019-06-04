@@ -12,6 +12,7 @@ import tensorflow as tf
 import numpy      as np
 import DNN.u_net  as unet
 import DNN.params as params
+import openslide  as osl
 from keras                     import backend as K
 from keras.preprocessing.image import img_to_array
 from knn_prune                 import *
@@ -55,7 +56,7 @@ def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size, params.in
             all_indx[i].append((x0, y0, width, height))
     return all_indx
 
-def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.5, write_clone_imgs = False):
+def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.75, write_clone_imgs = False):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -67,20 +68,52 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
    else:
       cK = 0
    
-       
-   ## Tiling
-   obj_svs  = getROI_svs(file_name, get_roi_plot = False)
-   size = (params.input_size, params.input_size)
-   scaling_val = obj_svs.dims_slides[0][0] / float(obj_svs.dims_slides[1][0])
-   all_indx = get_tile_indices(obj_svs.dims_slides[1], overlap = 50, SIZE = size)
+   ## At this point should check the slide micron per pixel value then choose correct downsample level,
+   ## or downsample manually with cv2.pyrDown(), to get micron per pixel around 2.
+   slide = osl.OpenSlide(file_name)
+   mpp = float(slide.properties['openslide.mpp-x'])
+   mpp_fin = 2.0144 # desired microns per pixel
+   errlevel = 0.5
+   dsls = slide.level_downsamples
+   mpp_test = []
+   for lvl in dsls:
+      mpp_test.append(lvl*mpp)
+   mpp_test = np.asarray(mpp_test)
+   choice = np.where(abs(mpp_test-mpp_fin)<errlevel)[0]
+   if (choice.shape[0]==1):
+      print("Running with downsample stream 0")
+      STREAM = 0
+      dwnsmpl_lvl = choice[0]
+      size = (params.input_size, params.input_size)
+      scaling_val = slide.level_dimensions[0][0] / float(slide.level_dimensions[dwnsmpl_lvl][0])
+      all_indx = get_tile_indices(slide.level_dimensions[dwnsmpl_lvl], overlap = 50, SIZE = size)
+   if (choice.shape[0]==0):
+      print("Running with downsample stream 1")
+      STREAM = 1
+      # get level from which we can downsample to desired amount   
+      dwnsmpl_lvl = np.where(abs(mpp_test-mpp_fin/2.) < errlevel )[0][0]
+      numpyrdown = 1 # could be generalised away from just a single down sampling
+      # double the tile size for downsampling later
+      size = (2*params.input_size, 2*params.input_size)
+      scaling_val = slide.level_dimensions[0][0] / float(slide.level_dimensions[dwnsmpl_lvl][0] / (2.*numpyrdown))
+      all_indx = get_tile_indices(slide.level_dimensions[dwnsmpl_lvl], overlap = 50*(2*numpyrdown), SIZE = size)
+         
    x_tiles = len(all_indx)
-   y_tiles = len(all_indx[0])   
+   y_tiles = len(all_indx[0])
    
    for i in range(x_tiles):
       for j in range(y_tiles):
          xy_vals = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
          wh_vals = (int(all_indx[i][j][2]), int(all_indx[i][j][3]))
-         img = getROI_img_osl(file_name, xy_vals, wh_vals, level = 1)
+         img = getROI_img_osl(file_name, xy_vals, wh_vals, level = dwnsmpl_lvl)
+         if (STREAM==1):
+            xy_x = xy_vals[0]
+            xy_y = xy_vals[1]
+            for k in range(int(numpyrdown)):
+               xy_x = int(xy_x/2.)
+               xy_y = int(xy_y/2.)
+               img = cv2.pyrDown(img.copy())
+            xy_vals = (xy_x, xy_y)
          x_batch = [img]
          x_batch = np.array(x_batch, np.float32) / 255.
 
@@ -252,7 +285,6 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_th
       clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict = fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_dict)
 
       ## Find each crypt's patch size (and possibly their patch neighbours' ID/(x,y)?)
-      ## TO DO: and give each crypt a patch-specific ID (so we know what patch it belongs to)
       crypt_dict = get_crypt_patchsizes_and_ids(patch_indices, crypt_dict)
 
       ## Add crypt features

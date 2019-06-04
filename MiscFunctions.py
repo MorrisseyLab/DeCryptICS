@@ -280,7 +280,7 @@ def getROI_img_osl(file_name, x_y, w_h, level = 0):
     else:
         osl.lowlevel._load_image = _load_image_lessthan_2_29    
     new_img = np.array(vim.read_region(location = newxy, level = level, size = wh_vals_final))
-    new_img       = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
+    new_img = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
     return new_img
     
 def getIndexesTileImage(max_vals, scalingVal, ROI_crop, max_num_pix  = 10000): # 22000

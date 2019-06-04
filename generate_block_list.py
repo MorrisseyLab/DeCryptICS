@@ -7,12 +7,10 @@ import pandas as pd
 
 def output_blocklist(fnames, imgids, marks, ext=''):
    fpaths = [os.path.abspath(f) for f in fnames]
-   fpath_nums = [int(im.split('/')[-1].split('.')[0]) for im in fpaths]
-   imorder = [np.where(fpath_nums==imgid)[0][0] for imgid in imgids if imgid in fpath_nums]
+   fpath_nums = [im.split('/')[-1].split('.')[0] for im in fpaths]
+   imorder = [np.where(np.array(fpath_nums)==imgid)[0][0] for imgid in imgids if imgid in fpath_nums]
    # cut down marks list if files missing/unmatched
    marks_order = [marks[np.where(imgids==imgid)[0][0]] for imgid in imgids if imgid in fpath_nums]   
-   #imorder = [np.where(imgids==int(im.split('/')[-1].split('.')[0]))[0] for im in fpaths]
-   #imorder = np.concatenate(imorder).ravel()
    initpath = fpaths[0]
    linux_test = len(initpath.split('/'))
    windows_test = len(initpath.split('\\'))
@@ -95,7 +93,7 @@ def main():
       imgids = np.asarray(a['Image ID'])
       marks = np.asarray(a['mark'])
    else:
-      imgids = np.asarray([int(im.split('/')[-1].split('.')[0]) for im in fnames_svs+fnames_tif+fnames_png+fnames_jpg])
+      imgids = np.asarray([im.split('/')[-1].split('.')[0] for im in fnames_svs+fnames_tif+fnames_png+fnames_jpg])
       marks = np.ones(len(imgids), dtype=np.int32) * int(clonal_mark)
    
    if (len(fnames_svs)>0): output_blocklist(fnames_svs, imgids, marks)

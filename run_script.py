@@ -198,7 +198,7 @@ def run_analysis():
                print("Passing on %s, image previously analysed." % folders_to_analyse[i])
                pass
             else:
-               print("Beginning segmentation on %s with clonal mark type %d." % (folders_to_analyse[i], clonal_mark_list[i]))
+               print("Beginning segmentation on %s with clonal mark type %d." % (full_paths[i], clonal_mark_list[i]))
                predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, prob_thresh = 0.75, write_clone_imgs = args.cloneimgs)
                
       ## DO NOT USE -- NOT FULLY IMPLEMENTED
