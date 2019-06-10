@@ -169,6 +169,10 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
          
       ## Fix fufi clones and join patches
       clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict = fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_dict)
+      # clone scores here can be longer than the mutant-positive part of crypt_dict
+      # due to clone contours that don't lie within crypt contours. Fix!
+      # Also, make clone scores ordered the same way that crypt_dict is.
+      # Can we do all the patch size/patch contour editing via crypt_dict too?
 
       ## Find each crypt's patch size (and possibly their patch neighbours' ID/(x,y)?)
       crypt_dict = get_crypt_patchsizes_and_ids(patch_indices, crypt_dict)
@@ -183,9 +187,9 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
       write_cnt_text_file(fixed_fufi_contours , folder_to_analyse + "/fufi_contours.txt")
       write_cnt_text_file(fixed_clone_contours, folder_to_analyse + "/clone_contours.txt")
       write_cnt_text_file(patch_contours      , folder_to_analyse + "/patch_contours.txt")
-      write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt")
+#      write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt") # redundant
       write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
-      pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
+#      pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) ) # redundant
       if write_clone_imgs==True: write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours[:25], scaling_val)
       with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
          fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\t<patch_id>\t<area>\t<eccentricity>\t<major_axis>\t<minor_axis>\n")

@@ -23,6 +23,24 @@ def mkdir_p(path):
             pass
         else: raise
 
+def centred_tile(XY, tilesize, max_xy, edge_adjust = True):
+   x0y = XY[0] - tilesize/2.
+   xy0 = XY[1] - tilesize/2.
+   if edge_adjust:
+      if (x0y < 0):
+         x0y = 0
+      if (xy0 < 0):
+         xy0 = 0
+      xNy = x0y + tilesize
+      if (xNy >= max_xy[0]):
+         x0y = x0y - (xNy - max_xy[0] + 1)
+         xNy = x0y + tilesize
+      xyN = xy0 + tilesize
+      if (xyN >= max_xy[1]):
+         xy0 = xy0 - (xyN - max_xy[1] + 1)
+         xyN = xy0 + tilesize
+   return np.array([x0y, xy0])
+
 def add_offset(contour_list, xy_offset):
    cnts = contour_list.copy()
    cnt_list_out = []    
