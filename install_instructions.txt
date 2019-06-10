@@ -18,6 +18,7 @@ conda update -n base conda
 ## EITHER run:
 # create a conda environment, where you can choose the NAME_OF_ENV
 conda create -n NAME_OF_ENV python=3.6
+source activate NAME_OF_ENV
 conda install openslide opencv keras keras-gpu matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
 pip install xlrd openslide-python
 pip install -U tensorflow-gpu==1.6.0
@@ -25,13 +26,11 @@ pip install -U tensorflow-gpu==1.6.0
 ## OR use the .yml file:
 conda env create -f dcrypt_env.yml
 # (first changing the first and last lins of dcrypt_env.yml, "name:" and "prefix:", to NAME_OF_ENV, and giving the correct conda install path.)
-# You may also need to run 
+# You may also need to run
+source activate NAME_OF_ENV
 conda install openslide
 
 ## THEN
-# activate environment
-source activate NAME_OF_ENV
-
 # add shortcut to activate env by:
 # opening the "~/.bashrc" file with any text editor (I'm using vim)
 vim ~/.bashrc
