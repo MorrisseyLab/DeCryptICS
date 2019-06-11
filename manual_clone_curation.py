@@ -11,7 +11,7 @@ import zipfile
 
 def plot_img_keep_decision(list_to_plot, nameWindow = 'Plots', NewWindow = True, hold_plot = True):
    if NewWindow:
-      screen_res = 600, 600
+      screen_res = 800, 800
       cv2.namedWindow(nameWindow, cv2.WINDOW_NORMAL)
       cv2.resizeWindow(nameWindow, screen_res[0], screen_res[1])
    vis = list_to_plot     
@@ -74,6 +74,9 @@ def main():
    good_inds = []
    bad_inds = []
    i = 0
+   print("The pertinent clone will be centered in the images that pop up.")
+   print("Use '1' or 'a' for good clones and '0' or 'd' for bad clones!")
+   print("(Or press 'p' to undo the last choice and go back to the previous image.)")   
    while i<(len(clone_inds)+1):
       if i==len(clone_inds):
          # allow one last 'p' in case final image was wrongly catergorised
