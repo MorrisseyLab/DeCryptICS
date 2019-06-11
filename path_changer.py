@@ -1,20 +1,55 @@
 #!/usr/bin/env python3
 
-import sys, os
+import sys, os, argparse
 
-if __name__=="__main__":
+def inplace_replace(file_in, old_string, new_string):
    replace = True
-   projfile = os.path.abspath(sys.argv[1])
-   with open(projfile) as f:
+   with open(file_in) as f:
       s = f.read()
-      if sys.argv[2] not in s:
-         print('%s not found in %s.' % (sys.argv[2], projfile))
+      if old_string not in s:
+         print('%s not found in %s.' % (old_string, file_in))
          replace = False
 
    if replace==True:
       # Safely write the changed content, if found in the file
-      s = s.replace(sys.argv[2], sys.argv[3])
-      with open(projfile, 'w') as f:
-         print('Changing %s to %s in %s' % (sys.argv[2], sys.argv[3], projfile))
-         f.write(s)  
+      s = s.replace(old_string, new_string)
+      with open(file_in, 'w') as f:
+         print('Changing %s to %s in %s' % (old_string, new_string, file_in))
+         f.write(s)
+
+
+def main():
+   parser = argparse.ArgumentParser(description = "This script changes the image file paths hard-coded into the QuPath project files at runtime. ")
+
+   parser.add_argument("path_to_qupath_project", help = "The full or relative path to the QuPath project folder containing project.qpproj")
+   parser.add_argument("new_path_to_images", help = "The desired full path to the folder containing the relevant .svs image files ")
+
+   # parse arguments
+   args = parser.parse_args()
+   projfolder = os.path.abspath(args.path_to_qupath_project)
+   newpath = os.path.abspath(args.new_path_to_images)
+   projfile = projfolder + '/project.qpproj'
+   groovyfile = projfolder + '/scripts/load_contours.groovy'
+
+   # extract current file path from load contours script
+   target = "def base_folder = "
+   with open(groovyfile, 'r') as f:
+      line = f.readline()
+      if (target in line):
+         oldpath = line.split(target)[0].split('"')[-1]
+         line = None
+      while line:
+         line = f.readline()
+         if (target in line):
+            oldpath = line.split(target)[1].split('"')[1]
+            break
+   # replace in load contours file
+   inplace_replace(groovyfile, oldpath, newpath)
+
+   oldpath = oldpath.replace('//','/').split('Analysed_slides')[0]
+   # replace in project file
+   inplace_replace(projfile, oldpath, newpath)
+
+if __name__=="__main__":
+   main()
      
