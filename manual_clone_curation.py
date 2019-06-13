@@ -51,7 +51,12 @@ def main():
    args = parser.parse_args()
    random.seed()
    folder_to_analyse = os.path.abspath(args.folder_to_analyse)
-   slide_number = folder_to_analyse.split('_')[-1].split('/')[0]
+   if "\\" in folder_to_analyse:
+      listout = folder_to_analyse.split("\\")[-1].split('_')[1:] 
+   if "/" in folder_to_analyse:
+      listout = folder_to_analyse.split("/")[-1].split('_')[1:]
+   sep = '_'
+   slide_number = sep.join(listout)
    img_path = folder_to_analyse.split("Analysed")[-3] + slide_number + ".svs"
    dwnsmpl_lvl = 1
    slide = osl.OpenSlide(img_path)
@@ -143,9 +148,14 @@ def main():
       write_score_text_file(patch_sizes, folder_to_analyse + "/patch_sizes.txt")
       
       # finally update the clone and patch counts in the batch csv using the slide number for the row reference
-      counts_folder = '/'+os.path.join(*folder_to_analyse.split('/')[:-1])
+      if "\\" in folder_to_analyse:
+         pathsep = "\\"
+         listsep = folder_to_analyse.split('\\')[:-1]
+         counts_folder = pathsep.join(listsep)
+      if "/" in folder_to_analyse:
+         counts_folder = '/'+os.path.join(*folder_to_analyse.split('/')[:-1])
       counts = np.asarray(pd.read_csv(counts_folder+"/slide_counts.csv"))
-      slide_ind = np.where(counts[:,0]==int(slide_number))[0][0]
+      slide_ind = np.where(counts[:,0]==slide_number)[0][0]
       counts[slide_ind, 3] = len(good_inds)
       counts[slide_ind, 4] = len(good_inds) - patchsum + numpatches
       counts[slide_ind, 5] = numpatches

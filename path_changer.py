@@ -26,8 +26,8 @@ def main():
 
    # parse arguments
    args = parser.parse_args()
-   projfolder = os.path.abspath(args.path_to_qupath_project)
-   newpath = os.path.abspath(args.new_path_to_images)
+   projfolder = args.path_to_qupath_project # os.path.abspath(args.path_to_qupath_project)
+   newpath = args.new_path_to_images # os.path.abspath(args.new_path_to_images)
    projfile = projfolder + '/project.qpproj'
    groovyfile = projfolder + '/scripts/load_contours.groovy'
 

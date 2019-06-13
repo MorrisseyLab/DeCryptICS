@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 #import pyvips
 import openslide as osl
 from openslide_python_fix import _load_image_lessthan_2_29, _load_image_morethan_2_29
-import h5py
+#import h5py
 import os, errno
 
 def mkdir_p(path):
@@ -50,12 +50,7 @@ def add_offset(contour_list, xy_offset):
       new_cnt_l = cnt_l + np.round(xy_offset).astype(np.int32)
       new_cnt_l = new_cnt_l.reshape(shape_prior)
       cnt_list_out.append(new_cnt_l) 
-   return cnt_list_out
-   
-#    for elem_i in cntlistcopy:
-#        elem_i[:,0,0] += int(np.round(xy_offset[0]))
-#        elem_i[:,0,1] += int(np.round(xy_offset[1]))
-#        cnt_list_out.append(elem_i)    
+   return cnt_list_out  
 
 def rescale_contours(contour_list, scaling_val):
     cnt_list_out = []
@@ -82,11 +77,11 @@ def write_score_text_file(clone_scores, file_name):
         for score in clone_scores:
             file.write("%f\n" % score)
             
-def write_cnt_hdf5(cnt_list, cnt_file_name):
-   with h5py.File(cnt_file_name, 'w', libver='latest') as f:  # use 'latest' for performance
-      for idx, arr in enumerate(cnt_list):
-         dset = f.create_dataset(str(idx), shape=arr.shape, data=arr, chunks=arr.shape,
-                                 compression='gzip', compression_opts=9)
+#def write_cnt_hdf5(cnt_list, cnt_file_name):
+#   with h5py.File(cnt_file_name, 'w', libver='latest') as f:  # use 'latest' for performance
+#      for idx, arr in enumerate(cnt_list):
+#         dset = f.create_dataset(str(idx), shape=arr.shape, data=arr, chunks=arr.shape,
+#                                 compression='gzip', compression_opts=9)
 
 def write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scaling_val):
    imgout = folder_to_analyse + "/clone_images/"
@@ -359,51 +354,4 @@ def plotImageAndFit(indx_True, indx_on, crypt_cnt_raw, img, indx_subset = None):
     cv2.drawContours(img_plot,   crypt_cnt_EM, -1, (  0,  0, 255), 12) 
     cv2.drawContours(img_plot, crypt_cnt_mine, -1, (255,  0,   0),  6) 
     plot_img(img_plot, hold_plot=True)
-
-
-## Example hdf5 saving from SPRING -- use as template to create contour saving function?
-#def save_hdf5_genes(E, gene_list, filename):
-#    '''SPRING standard: filename = main_spring_dir + "counts_norm_sparse_genes.hdf5"'''
-#    
-#    import h5py
-#    
-#    E = E.tocsc()
-#    
-#    hf = h5py.File(filename, 'w')
-#    counts_group = hf.create_group('counts')
-#    cix_group = hf.create_group('cell_ix')
-
-#    hf.attrs['ncells'] = E.shape[0]
-#    hf.attrs['ngenes'] = E.shape[1]
-
-#    for iG, g in enumerate(gene_list):
-#        counts = E[:,iG].A.squeeze()
-#        cell_ix = np.nonzero(counts)[0]
-#        counts = counts[cell_ix]
-#        counts_group.create_dataset(g, data = counts)
-#        cix_group.create_dataset(g, data = cell_ix)
-
-#    hf.close()
-#    
-#def save_hdf5_cells(E, filename):
-#    '''SPRING standard: filename = main_spring_dir + "counts_norm_sparse_cells.hdf5" '''
-#    import h5py
-#    
-#    E = E.tocsr()
-#    
-#    hf = h5py.File(filename, 'w')
-#    counts_group = hf.create_group('counts')
-#    gix_group = hf.create_group('gene_ix')
-
-#    hf.attrs['ncells'] = E.shape[0]
-#    hf.attrs['ngenes'] = E.shape[1]
-
-#    for iC in range(E.shape[0]):
-#        counts = E[iC,:].A.squeeze()
-#        gene_ix = np.nonzero(counts)[0]
-#        counts = counts[gene_ix]
-#        counts_group.create_dataset(str(iC), data = counts)
-#        gix_group.create_dataset(str(iC), data = gene_ix)
-
-#    hf.close()
 
