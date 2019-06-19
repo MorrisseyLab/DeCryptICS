@@ -17,7 +17,6 @@ def inplace_replace(file_in, old_string, new_string):
          print('Changing %s to %s in %s' % (old_string, new_string, file_in))
          f.write(s)
 
-
 def main():
    parser = argparse.ArgumentParser(description = "This script changes the image file paths hard-coded into the QuPath project files at runtime. ")
 
@@ -34,21 +33,45 @@ def main():
    # extract current file path from load contours script
    target = "def base_folder = "
    with open(groovyfile, 'r') as f:
-      line = f.readline()
-      if (target in line):
-         oldpath = line.split(target)[0].split('"')[-1]
-         line = None
+      line = 1
       while line:
          line = f.readline()
          if (target in line):
             oldpath = line.split(target)[1].split('"')[1]
             break
    # replace in load contours file
-   inplace_replace(groovyfile, oldpath, newpath)
+   if '\\' in newpath:
+      newpath = newpath.replace('\\', '\\\\')
+      inplace_replace(groovyfile, oldpath, newpath+"\\\\Analysed_slides\\\\")
+   if '/' in newpath:
+      inplace_replace(groovyfile, oldpath, newpath+"/Analysed_slides/")
 
-   oldpath = oldpath.replace('//','/').split('Analysed_slides')[0]
+   # look for target in project file
+   target = '"path":'
+   with open(projfile, 'r') as f:
+      line = 1
+      while line:
+         line = f.readline()
+         if (target in line):
+            oldpath = line.split(target)[1].split('"')[1]
+            break
+
+#   oldpath = oldpath.replace('//','/').split('Analysed_slides')[0]
    # replace in project file
-   inplace_replace(projfile, oldpath, newpath)
+   if '\\' in oldpath:
+      oldpathlist = oldpath.split('\\')[:-1]
+      sepp = "\\\\"
+      sep = "\\"
+      ## catch both examples (doesn't deal with a mixed \ \\ file path)
+      oldpath1 = sepp.join(oldpathlist) + sepp
+      oldpath2 = sep.join(oldpathlist) + sep
+      inplace_replace(projfile, oldpath1, newpath + sepp)
+      inplace_replace(projfile, oldpath2, newpath + sepp)
+   if '/' in oldpath:
+      oldpathlist = oldpath.split('/')[:-1]
+      sepp = '/'
+      oldpath1 = sepp.join(oldpathlist) + sepp
+      inplace_replace(projfile, oldpath1, newpath)
 
 if __name__=="__main__":
    main()

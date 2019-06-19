@@ -88,6 +88,7 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write("import qupath.lib.objects.classes.PathClass;" + '\n')
         file.write("import qupath.lib.common.ColorTools;" + '\n')
         file.write("import qupath.lib.objects.classes.PathClassFactory;" + '\n')
+        file.write("import java.io.File;" + '\n')
         file.write('\n')
         file.write("// Change CLONE_THRESHOLD to vary the clone sensitivity" + '\n')
         file.write("// 0 will load all potential clones, 1 will load only those that have been manually curated." + '\n')
@@ -129,7 +130,7 @@ def create_qupath_project(path_to_project, full_paths, file_in, folder_out):
         file.write("def base_folder = \"" + folder_out + "\"" + '\n')
         file.write("def cur_file = getCurrentImageData().getServer().getPath()" + '\n')
         file.write("print cur_file" + '\n')
-        file.write("def ff = cur_file.tokenize(\'/\')[-1].tokenize(\'.\')[0]" + '\n')
+        file.write("def ff = cur_file.tokenize(File.separator)[-1].tokenize(\'.\')[0]" + '\n')
         file.write('\n')
                                
         file.write("// Add crypt contours" + '\n')
