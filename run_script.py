@@ -59,11 +59,6 @@ def run_analysis():
                                  default = False,
                                  help    = "Indicates we are analysing mouse tissue. ")
                                  
-   parser.add_argument('-cloneimgs', action = "store_true", 
-                                     default = False,
-                                     help    = "Indicates we should output images of clones. ")
-
-
    args = parser.parse_args()
    ## check args
    print("Running with the following inputs:")
@@ -74,7 +69,6 @@ def run_analysis():
    print('method       = {!r}'.format(args.method))
    print('force_repeat = {!r}'.format(args.r))
    print('mouse        = {!r}'.format(args.mouse))
-   print('cloneimgs    = {!r}'.format(args.cloneimgs))
    print("\n...Working...\n")
    
    ## Standardise clonal mark type string
@@ -184,9 +178,17 @@ def run_analysis():
       ######################################
       if (method == "D"):
          # Load DNN model
+         import keras
          import DNN.params as params
-         import tensorflow as tf
-         dnn_model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
+         if keras.backend._BACKEND=="tensorflow":
+            import tensorflow as tf
+            input_shape = (params.input_size, params.input_size, 3)
+            chan_num = 3
+         elif keras.backend._BACKEND=="mxnet":
+            import mxnet
+            input_shape = (3, params.input_size, params.input_size)
+            chan_num = 1
+         dnn_model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
          maindir = os.path.dirname(os.path.abspath(__file__))
          if (args.mouse==True):
             weightsin = os.path.join(maindir, 'DNN', 'weights', 'mousecrypt_weights.hdf5')         
@@ -199,10 +201,12 @@ def run_analysis():
                pass
             else:
                print("Beginning segmentation on %s with clonal mark type %d." % (full_paths[i], clonal_mark_list[i]))
-               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, prob_thresh = 0.75, write_clone_imgs = args.cloneimgs)
+               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, chan_num, prob_thresh = 0.6)
                
       ## DO NOT USE -- NOT FULLY IMPLEMENTED
       if (method=="B"):
+         print("Don't use method=='B': Bayesian segmentation method not implemented in new version.")
+         return 0
          from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder
          ## Get parameters and pickle for all desired runs
          print("Pickling parameters for analysis")

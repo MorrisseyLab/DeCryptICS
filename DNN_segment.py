@@ -8,12 +8,11 @@ Created on Mon Mar 26 15:47:40 2018
 import cv2, os, time
 import keras
 import pickle
-import tensorflow as tf
+#import tensorflow as tf
 import numpy      as np
 import DNN.u_net  as unet
 import DNN.params as params
 import openslide  as osl
-from keras                     import backend as K
 from keras.preprocessing.image import img_to_array
 from knn_prune                 import *
 from MiscFunctions             import simplify_contours, write_clone_image_snips,\
@@ -56,7 +55,7 @@ def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size, params.in
             all_indx[i].append((x0, y0, width, height))
     return all_indx
 
-def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.75, write_clone_imgs = False):
+def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, chan_num, prob_thresh = 0.75):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -72,8 +71,8 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
    ## or downsample manually with cv2.pyrDown(), to get micron per pixel around 2.
    slide = osl.OpenSlide(file_name)
    mpp = float(slide.properties['openslide.mpp-x'])
-   mpp_fin = 2.0144 # desired microns per pixel
-   errlevel = 0.5
+   mpp_fin = 2.0144 # ~ desired microns per pixel
+   errlevel = 0.5 # allowable distance from mpp_fin
    dsls = slide.level_downsamples
    mpp_test = []
    for lvl in dsls:
@@ -99,8 +98,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
       all_indx = get_tile_indices(slide.level_dimensions[dwnsmpl_lvl], overlap = 50*(2*numpyrdown), SIZE = size)
          
    x_tiles = len(all_indx)
-   y_tiles = len(all_indx[0])
-   
+   y_tiles = len(all_indx[0])  
    for i in range(x_tiles):
       for j in range(y_tiles):
          xy_vals = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
@@ -116,15 +114,17 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
             xy_vals = (xy_x, xy_y)
          x_batch = [img]
          x_batch = np.array(x_batch, np.float32) / 255.
+         if keras.backend._BACKEND=="mxnet":
+            x_batch = keras.utils.to_channels_first(x_batch)
 
          # Perform prediction and find contours
          predicted_mask_batch = model.predict(x_batch)
-         newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
-         for k in range(predicted_mask_batch.shape[3]):
+         newcnts = mask_to_contours(predicted_mask_batch, prob_thresh, chan_num)
+         for k in range(predicted_mask_batch.shape[chan_num]):
             newcnts[k] = [cc for cc in newcnts[k] if len(cc)>4] # throw away points and lines (needed in contour class)
          
          # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full (scaled) image 
-         for k in range(predicted_mask_batch.shape[3]):
+         for k in range(predicted_mask_batch.shape[chan_num]):
             newcnts[k] = add_offset(newcnts[k], xy_vals)
 
          # Add to lists
@@ -187,10 +187,10 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
       write_cnt_text_file(fixed_fufi_contours , folder_to_analyse + "/fufi_contours.txt")
       write_cnt_text_file(fixed_clone_contours, folder_to_analyse + "/clone_contours.txt")
       write_cnt_text_file(patch_contours      , folder_to_analyse + "/patch_contours.txt")
-#      write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt") # redundant
+      write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt") # redundant
       write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
 #      pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) ) # redundant
-      if write_clone_imgs==True: write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours[:25], scaling_val)
+#      if write_clone_imgs==True: write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours[:25], scaling_val)
       with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
          fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\t<patch_id>\t<area>\t<eccentricity>\t<major_axis>\t<minor_axis>\n")
          for i in range(len(fixed_crypt_contours)):
@@ -199,7 +199,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, pro
                                                                                crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"][i], crypt_dict["minorax"][i]))
    print("...Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")
    
-def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_thresh = 0.75, downsample = True, write_clone_imgs = False):
+def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, chan_num, prob_thresh = 0.75, downsample = True):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -235,15 +235,16 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_th
          img = img_full[xy_vals[0]:(xy_vals[0]+wh_vals[0]), xy_vals[1]:(xy_vals[1]+wh_vals[1])]
          x_batch = [img]
          x_batch = np.array(x_batch, np.float32) / 255.
-
+         if keras.backend._BACKEND=="mxnet":
+            x_batch = keras.utils.to_channels_first(x_batch)
          # Perform prediction and find contours
          predicted_mask_batch = model.predict(x_batch)
          newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
-         for k in range(predicted_mask_batch.shape[3]):
+         for k in range(predicted_mask_batch.shape[chan_num]):
             newcnts[k] = [cc for cc in newcnts[k] if len(cc)>4] # throw away points and lines (needed in contour class)
          
          # Add x, y tile offset to all contours (which have been calculated from a tile) for use in full (scaled) image 
-         for k in range(predicted_mask_batch.shape[3]):
+         for k in range(predicted_mask_batch.shape[chan_num]):
             newcnts[k] = add_offset(newcnts[k], xy_vals)
 
          # Add to lists
@@ -301,8 +302,8 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_th
       write_cnt_text_file(patch_contours      , folder_to_analyse + "/patch_contours.txt")
       write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt")
       write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
-      pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
-      if write_clone_imgs==True: write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours, scaling_val)
+#      pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
+#      if write_clone_imgs==True: write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours, scaling_val)
       with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
          fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\t<patch_id>\t<area>\t<eccentricity>\t<major_axis>\t<minor_axis>\n")
          for i in range(len(fixed_crypt_contours)):
@@ -311,8 +312,8 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, prob_th
                                                                                crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"][i], crypt_dict["minorax"][i]))
    print("Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")      
   
-def mask_to_contours(preds, thresh):
-   n_class = preds.shape[3]
+def mask_to_contours(preds, thresh, chan_num):
+   n_class = preds.shape[chan_num]
    all_class_cnts = []
    for j in range(n_class): # ensure correct number of elements
       all_class_cnts.append([])
@@ -320,7 +321,10 @@ def mask_to_contours(preds, thresh):
       contours = []
       for i in range(preds.shape[0]):
          # convert to np.uint8
-         pred = (preds[i,:,:,j]*255).astype(np.uint8)
+         if chan_num==3:
+            pred = (preds[i,:,:,j]*255).astype(np.uint8)
+         if chan_num==1:
+            pred = (preds[i,j,:,:]*255).astype(np.uint8)
          # perform threshold
          _, mask = cv2.threshold(pred, thresh*255, 255, cv2.THRESH_BINARY)
          # find contours

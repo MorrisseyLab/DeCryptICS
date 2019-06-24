@@ -15,10 +15,10 @@ def GetThresholdsPrepareRun_gen(folder_in, file_in, folder_out, clonal_mark_type
 def SegmentFromFolder_wrapper(folder_name, clonal_mark_type, find_clones = False):
     SegmentFromFolder(folder_name, clonal_mark_type, find_clones)
 
-def predict_slide_DNN(filename, folder_out, clonal_mark_type, dnn_model, prob_thresh, write_clone_imgs = False):
+def predict_slide_DNN(filename, folder_out, clonal_mark_type, dnn_model, chan_num, prob_thresh):
    if (filename.split('.')[-1]=="svs"): 
-      predict_svs_slide(filename, folder_out, clonal_mark_type, dnn_model, prob_thresh, write_clone_imgs)
+      predict_svs_slide(filename, folder_out, clonal_mark_type, dnn_model, chan_num, prob_thresh)
    else: 
       downsample = True
-      predict_image(filename, folder_out, clonal_mark_type, dnn_model, prob_thresh, downsample, write_clone_imgs)
+      predict_image(filename, folder_out, clonal_mark_type, dnn_model, chan_num, prob_thresh, downsample)
 
