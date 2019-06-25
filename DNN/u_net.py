@@ -5,7 +5,7 @@ from DNN.losses         import *
 import keras.backend as K
  
 def get_unet_256_for_X(input_shape=(512, 512, 3),
-                 num_classes=1):
+                 num_classes=1, chan_num=3):
     inputs = Input(shape=input_shape)
     # 256
     down0 = Conv2D(32, (3, 3), padding='same')(inputs)
@@ -62,7 +62,7 @@ def get_unet_256_for_X(input_shape=(512, 512, 3),
     # center
 
     up4 = UpSampling2D((2, 2))(center)
-    up4 = concatenate([down4, up4], axis=3)
+    up4 = concatenate([down4, up4], axis=chan_num)
     up4 = Conv2D(512, (3, 3), padding='same')(up4)
     up4 = BatchNormalization()(up4)
     up4 = Activation('relu')(up4)
@@ -75,7 +75,7 @@ def get_unet_256_for_X(input_shape=(512, 512, 3),
     # 16
 
     up3 = UpSampling2D((2, 2))(up4)
-    up3 = concatenate([down3, up3], axis=3)
+    up3 = concatenate([down3, up3], axis=chan_num)
     up3 = Conv2D(256, (3, 3), padding='same')(up3)
     up3 = BatchNormalization()(up3)
     up3 = Activation('relu')(up3)
@@ -88,7 +88,7 @@ def get_unet_256_for_X(input_shape=(512, 512, 3),
     # 32
 
     up2 = UpSampling2D((2, 2))(up3)
-    up2 = concatenate([down2, up2], axis=3)
+    up2 = concatenate([down2, up2], axis=chan_num)
     up2 = Conv2D(128, (3, 3), padding='same')(up2)
     up2 = BatchNormalization()(up2)
     up2 = Activation('relu')(up2)
@@ -101,7 +101,7 @@ def get_unet_256_for_X(input_shape=(512, 512, 3),
     # 64
 
     up1 = UpSampling2D((2, 2))(up2)
-    up1 = concatenate([down1, up1], axis=3)
+    up1 = concatenate([down1, up1], axis=chan_num)
     up1 = Conv2D(64, (3, 3), padding='same')(up1)
     up1 = BatchNormalization()(up1)
     up1 = Activation('relu')(up1)
@@ -114,7 +114,7 @@ def get_unet_256_for_X(input_shape=(512, 512, 3),
     # 128
 
     up0 = UpSampling2D((2, 2))(up1)
-    up0 = concatenate([down0, up0], axis=3)
+    up0 = concatenate([down0, up0], axis=chan_num)
     up0 = Conv2D(32, (3, 3), padding='same')(up0)
     up0 = BatchNormalization()(up0)
     up0 = Activation('relu')(up0)

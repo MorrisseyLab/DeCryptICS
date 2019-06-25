@@ -134,8 +134,10 @@ def main():
 
       # update clone scores to zero for bad inds
       local_bad_inds = [np.where(clone_inds==c)[0][0] for c in bad_inds]
-      clone_scores = np.loadtxt(folder_to_analyse + "/clone_scores.txt")
+      local_good_inds = [np.where(clone_inds==c)[0][0] for c in good_inds]
+      clone_scores = np.loadtxt(folder_to_analyse + "/clone_scores.txt", ndmin=1)
       clone_scores[local_bad_inds] = 0
+      clone_scores[local_good_inds] = 1
       write_score_text_file(clone_scores, folder_to_analyse + "/clone_scores.txt")
       # can we also edit patch contours? Or simply get rid of them?
 

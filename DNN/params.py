@@ -1,7 +1,7 @@
 from DNN.u_net import get_unet_256_for_X
 
 # Reduce input_size if GPU is running out of memory (increase if not!)
-input_size = 2048 #1024
+input_size = 1024 #2048 #256 #1024
 
 max_epochs = 10000
 batch_size = 16
@@ -9,6 +9,6 @@ batch_size = 16
 orig_width = input_size
 orig_height = input_size
 
-threshold = 0.5
+threshold = 0.6
 
 model_factory = get_unet_256_for_X

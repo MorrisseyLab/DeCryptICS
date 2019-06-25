@@ -8,13 +8,14 @@ Created on Tue Mar  6 09:16:23 2018
 import cv2
 import glob
 import io
-import tensorflow          as tf
-import keras.backend       as K
+#import tensorflow          as tf
+#import keras.backend       as K
+import keras
 import numpy               as np
 import matplotlib.pyplot   as plt
 import DNN.u_net           as unet
 import DNN.params          as params
-import keras.callbacks     as KC
+#import keras.callbacks     as KC
 from random             import shuffle
 from DNN.augmentation   import plot_img, randomHueSaturationValue, randomShiftScaleRotate, randomHorizontalFlip, fix_mask
 from DNN.losses         import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss
@@ -26,23 +27,35 @@ from keras.preprocessing.image import img_to_array
 
 samples = []
 
-num_cores = 12
-GPU = True
-CPU = False
+if keras.backend._BACKEND=="tensorflow":
+   import tensorflow as tf
+   num_cores = 16
+   GPU = True
+   CPU = False
 
-if GPU:
-    num_GPU = 1
-    num_CPU = 1
-if CPU:
-    num_CPU = 1
-    num_GPU = 0
+   if GPU:
+       num_GPU = 1
+       num_CPU = 1
+   if CPU:
+       num_CPU = 1
+       num_GPU = 0
+       import os
+       os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
-        inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
-        device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
-session = tf.Session(config=config)
-K.set_session(session)
+   config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
+           inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
+           device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
+   session = tf.Session(config=config)
+   keras.backend.set_session(session)
 
+if keras.backend._BACKEND=="mxnet":
+   import mxnet
+   input_shape = (3, params.input_size, params.input_size)
+   chan_num = 1
+else:
+   input_shape = (params.input_size, params.input_size, 3)
+   chan_num = 3
+   
 input_size = params.input_size
 SIZE = (input_size, input_size)
 epochs = params.max_epochs
@@ -130,48 +143,51 @@ def train_generator():
                 y_batch.append(mask)
             x_batch = np.array(x_batch)
             y_batch = np.array(y_batch)
+            if keras.backend._BACKEND=="mxnet":
+               x_batch = keras.utils.to_channels_first(x_batch)
+               y_batch = keras.utils.to_channels_first(y_batch)
             yield x_batch, y_batch
 
-def make_image(tensor):
-    """
-    Convert an numpy representation image to Image protobuf.
-    Copied from https://github.com/lanpa/tensorboard-pytorch/
-    """
-    height, width, channel = tensor.shape
-    image = Image.fromarray((tensor*255).astype(np.uint8))
-    output = io.BytesIO()
-    image.save(output, format='PNG')
-    image_string = output.getvalue()
-    output.close()
-    return tf.Summary.Image(height=height,
-                            width=width,
-                            colorspace=channel,
-                            encoded_image_string=image_string)
+#def make_image(tensor):
+#    """
+#    Convert an numpy representation image to Image protobuf.
+#    Copied from https://github.com/lanpa/tensorboard-pytorch/
+#    """
+#    height, width, channel = tensor.shape
+#    image = Image.fromarray((tensor*255).astype(np.uint8))
+#    output = io.BytesIO()
+#    image.save(output, format='PNG')
+#    image_string = output.getvalue()
+#    output.close()
+#    return tf.Summary.Image(height=height,
+#                            width=width,
+#                            colorspace=channel,
+#                            encoded_image_string=image_string)
 
-class TensorBoardImage(KC.Callback):
-   def __init__(self, log_dir='./logs', tags=[], test_image_batches=[]):
-      super().__init__()
-      self.tags = tags
-      self.log_dir = log_dir
-      self.test_image_batches = test_image_batches
+#class TensorBoardImage(KC.Callback):
+#   def __init__(self, log_dir='./logs', tags=[], test_image_batches=[]):
+#      super().__init__()
+#      self.tags = tags
+#      self.log_dir = log_dir
+#      self.test_image_batches = test_image_batches
 
-   def on_epoch_end(self, epoch, logs=None):
-      writer = tf.summary.FileWriter(self.log_dir)
-      for i in range(len(self.tags)):
-         batch = self.test_image_batches[i]
-         tag = self.tags[i]
-         pred = model.predict(batch)
-         pred1 = np.zeros(batch[0].shape, dtype=np.float32)
-         pred2 = np.zeros(batch[0].shape, dtype=np.float32)
-         for i in range(3):
-            pred1[:,:,i] = pred[0,:,:,0]
-            pred2[:,:,i] = pred[0,:,:,1]
-         output = np.hstack([batch[0], pred1, pred2])
-         image = make_image(output)
-         summary_i = tf.Summary(value=[tf.Summary.Value(tag=tag, image=image)])
-         writer.add_summary(summary_i, epoch)
-      writer.close()
-      return
+#   def on_epoch_end(self, epoch, logs=None):
+#      writer = tf.summary.FileWriter(self.log_dir)
+#      for i in range(len(self.tags)):
+#         batch = self.test_image_batches[i]
+#         tag = self.tags[i]
+#         pred = model.predict(batch)
+#         pred1 = np.zeros(batch[0].shape, dtype=np.float32)
+#         pred2 = np.zeros(batch[0].shape, dtype=np.float32)
+#         for i in range(3):
+#            pred1[:,:,i] = pred[0,:,:,0]
+#            pred2[:,:,i] = pred[0,:,:,1]
+#         output = np.hstack([batch[0], pred1, pred2])
+#         image = make_image(output)
+#         summary_i = tf.Summary(value=[tf.Summary.Value(tag=tag, image=image)])
+#         writer.add_summary(summary_i, epoch)
+#      writer.close()
+#      return
 
 if __name__=="__main__":
    base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/" # as training data is in DeCryptICS folder
@@ -185,8 +201,8 @@ if __name__=="__main__":
 #   weights_frozen = [l.get_weights() for l in model.layers]
 
    # Redefine new network with new classification
-   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
-   model.load_weights(dnnfolder+"/weights/cryptfuficlone_weights.hdf5")
+   model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
+   model.load_weights(dnnfolder+"/weights/cryptfuficlone_weights2.hdf5")
 
    # Add in old weights
 #   numlayers = len(model.layers)
@@ -237,6 +253,7 @@ if __name__=="__main__":
       mask = maskfolder+"mask"+clones[i][(len(imgfolder)+3):]
       sample = (clones[i], mask)
       samples_cl.append(sample)
+   
    # add crypt samples
    samples += samples_cr
    # add repeats of clone and fufi data to scale up to same as crypts?
@@ -262,7 +279,7 @@ if __name__=="__main__":
 #   images = [base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png", base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png", base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png", base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png", base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png"]
    
    
-   weights_name = dnnfolder+"/weights/cryptfuficlone_weights2.hdf5"
+   weights_name = dnnfolder+"/weights/cryptfuficlone_weights3.hdf5"
    logs_folder = dnnfolder+"/logs"
    
    callbacks = [EarlyStopping(monitor='loss', patience=10, verbose=1, min_delta=1e-8),

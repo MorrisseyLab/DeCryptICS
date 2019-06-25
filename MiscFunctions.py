@@ -67,15 +67,15 @@ def convert_to_local_clone_indices(patch_indices, clone_inds):
    return newpatchinds
 
 def write_cnt_text_file(cnt_list, file_name):
-    with open(file_name, 'w') as file:
+    with open(file_name, 'w') as ff:
         for cnt_i in cnt_list:
-            file.write(','.join(['%f' % num for num in cnt_i[:,0,0]])+"\n")
-            file.write(','.join(['%f' % num for num in cnt_i[:,0,1]])+"\n")
+            ff.write(','.join(['%f' % num for num in cnt_i[:,0,0]])+"\n")
+            ff.write(','.join(['%f' % num for num in cnt_i[:,0,1]])+"\n")
             
 def write_score_text_file(clone_scores, file_name):
-    with open(file_name, 'w') as file:
+    with open(file_name, 'w') as ff:
         for score in clone_scores:
-            file.write("%f\n" % score)
+            ff.write("%f\n" % score)
             
 #def write_cnt_hdf5(cnt_list, cnt_file_name):
 #   with h5py.File(cnt_file_name, 'w', libver='latest') as f:  # use 'latest' for performance
@@ -100,8 +100,8 @@ def write_clone_image_snips(folder_to_analyse, file_name, clone_contours, scalin
    return True
             
 def read_cnt_text_file(file_name):
-    with open(file_name, 'r') as file:
-        contours = file.readlines()
+    with open(file_name, 'r') as ff:
+        contours = ff.readlines()
     numcnts = len(contours)//2
     cnts_out = []
     for i in range(numcnts):
