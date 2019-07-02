@@ -141,7 +141,7 @@ def main():
       write_score_text_file(clone_scores, folder_to_analyse + "/clone_scores.txt")
       # can we also edit patch contours? Or simply get rid of them?
 
-      unique_patches = np.vstack({tuple(row) for row in gg[clone_inds, 4:6]})
+      unique_patches = np.vstack(list({tuple(row) for row in gg[clone_inds, 4:6]}))
       numpatches = unique_patches.shape[0] - 1 # get rid of zero-zero row
       patchsum = int(np.sum(unique_patches, axis=0)[0])
       patch_sizes = unique_patches[unique_patches[:,0]>0, 0].astype(int)

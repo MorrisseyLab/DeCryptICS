@@ -53,7 +53,7 @@ def joinContoursIfClose(contours, max_distance = 400):
     for i in range(maximum):
         pos = np.where(clusters==i)[0]
         if pos.size != 0:
-            cont = np.vstack(contours[i] for i in pos)
+            cont = np.vstack([contours[i] for i in pos])
             hull = cv2.convexHull(cont)
             cnt_joined.append(hull)
     return cnt_joined
@@ -107,7 +107,7 @@ def joinContoursIfClose_OnlyKeepPatches(crypt_contours, crypt_dict, clone_inds):
    patch_size = [len(s) for s in cut2_patches]
    cnt_joined = []
    for patch in cut2_patches:
-      cont = np.vstack(np.array(crypt_contours[i]) for i in patch)
+      cont = np.vstack([np.array(crypt_contours[i]) for i in patch])
       hull = cv2.convexHull(cont)
       cnt_joined.append(hull)
    newpatchinds = []

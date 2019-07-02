@@ -105,7 +105,7 @@ def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
                cryptinds_f.append(indices[i,c])
                c += 1
                if (c >= inside_compare.shape[1]): break 
-            cont = np.vstack(np.array(contours[i]) for i in cryptinds_f)
+            cont = np.vstack([np.array(contours[i]) for i in cryptinds_f])
             hull = cv2.convexHull(cont)
             cryptcnt_joined.append(hull)
             cryptinds_fufis += cryptinds_f # note crypt indices to be overwritten
@@ -127,11 +127,11 @@ def crypt_indexing_fufi(contours, target_overlay, nn=4, crypt_dict={}):
       # re-define labelling for crypt indexing
       distances, indices, all_xy_crypt, all_xy_target = nn2(fixed_contour_list, fixed_fufi_list, nn)
       inside_compare = inside_comparison_cryptin(indices, fixed_fufi_list, all_xy_crypt)   
-      crypt_dict["crypt_xy"] = all_xy_crypt
+#      crypt_dict["crypt_xy"] = all_xy_crypt
       for jj in range(indices.shape[0]):
          if (inside_compare[jj,0]>=0): crypt_dict["fufi_label"][indices[jj,0]] = 1
-   else:
-      crypt_dict["crypt_xy"] = np.array([contour_xy(cnt_i) for cnt_i in fixed_contour_list if not cv2.moments(cnt_i)['m00']==0])
+#   else:
+#      crypt_dict["crypt_xy"] = np.array([contour_xy(cnt_i) for cnt_i in fixed_contour_list if not cv2.moments(cnt_i)['m00']==0])
    return check_length(fixed_contour_list), check_length(fixed_fufi_list), crypt_dict
 
 def join_clones_in_fufi(contours, target_overlay, nn=4):
@@ -159,7 +159,7 @@ def join_clones_in_fufi(contours, target_overlay, nn=4):
                cloneinds_f.append(indices[i,c])
                c += 1
                if (c >= inside_compare.shape[1]): break 
-            cont = np.vstack(np.array(contours[i]) for i in cloneinds_f)
+            cont = np.vstack([np.array(contours[i]) for i in cloneinds_f])
             hull = cv2.convexHull(cont)
             clonecnt_joined.append(hull)
             cloneinds_fufis += cloneinds_f # note clone indices to be overwritten
