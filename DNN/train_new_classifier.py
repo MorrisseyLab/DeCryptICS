@@ -43,7 +43,7 @@ config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
 session = tf.Session(config=config)
 K.set_session(session)
 
-input_size = params.input_size
+input_size = params.input_size_train
 SIZE = (input_size, input_size)
 epochs = params.max_epochs
 batch_size = params.batch_size

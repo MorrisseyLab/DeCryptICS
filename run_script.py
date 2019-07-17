@@ -182,11 +182,11 @@ def run_analysis():
          import DNN.params as params
          if keras.backend._BACKEND=="tensorflow":
             import tensorflow as tf
-            input_shape = (params.input_size, params.input_size, 3)
+            input_shape = (params.input_size_run, params.input_size_run, 3)
             chan_num = 3
          elif keras.backend._BACKEND=="mxnet":
             import mxnet
-            input_shape = (3, params.input_size, params.input_size)
+            input_shape = (3, params.input_size_run, params.input_size_run)
             chan_num = 1
          dnn_model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
          maindir = os.path.dirname(os.path.abspath(__file__))

@@ -6,11 +6,12 @@ import numpy as np
 import pandas as pd
 
 def output_blocklist(fnames, imgids, marks, ext=''):
+   imgids = [str(imgid) for imgid in imgids]
    fpaths = [os.path.abspath(f) for f in fnames]
    fpath_nums = [im.split('/')[-1].split('.')[0] for im in fpaths]
    imorder = [np.where(np.array(fpath_nums)==imgid)[0][0] for imgid in imgids if imgid in fpath_nums]
    # cut down marks list if files missing/unmatched
-   marks_order = [marks[np.where(imgids==imgid)[0][0]] for imgid in imgids if imgid in fpath_nums]   
+   marks_order = [marks[np.where(np.array(imgids)==imgid)[0][0]] for imgid in imgids if imgid in fpath_nums]
    initpath = fpaths[0]
    linux_test = len(initpath.split('/'))
    windows_test = len(initpath.split('\\'))

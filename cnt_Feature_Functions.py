@@ -67,9 +67,9 @@ def add_nearby_clones(patch, indices, clone_inds, i, j):
    return patch
 
 def joinContoursIfClose_OnlyKeepPatches(crypt_contours, crypt_dict, clone_inds):
-   nn = 7
+   nn = np.minimum(7, len(crypt_contours)-1)
    nbrs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(crypt_dict['crypt_xy'])
-   distances, indices = nbrs.kneighbors(crypt_dict['crypt_xy'])
+   distances, indices = nbrs.kneighbors(crypt_dict['crypt_xy'])    
    patches = []
    j = 0
    for i in clone_inds:
@@ -88,30 +88,50 @@ def joinContoursIfClose_OnlyKeepPatches(crypt_contours, crypt_dict, clone_inds):
                addflag = False
          if addflag == True:
             cut_patches.append(newpatch)
+
    # join any repeated subsets
-   cut2_patches = []
-   j = 0
-   joined_patch_ids = []
-   for s in cut_patches:
-      if j not in joined_patch_ids:
-         curr_set = s.copy()
-         joined_patch_ids.append(j)
-         for ind in s:
-            for i in range(j+1, len(cut_patches)):
-               s2 = cut_patches[i]
-               if ind in s2:
-                  curr_set |= s2
-                  joined_patch_ids.append(i)
-         cut2_patches.append(curr_set)
-         j += 1
-   patch_size = [len(s) for s in cut2_patches]
+   cut_patches2 = []
+   used_patches = []
+   for pp in range(len(cut_patches)):
+      thispatch = cut_patches[pp]
+      used_patches.append(thispatch)
+      subset_bool = [thispatch.issubset(aset) for aset in cut_patches]
+      good_subsets = np.where(subset_bool)[0]
+      for jj in good_subsets:
+         if cut_patches[jj] not in used_patches:
+            thispatch |= cut_patches[jj]
+      cut_patches2.append(thispatch)
+   
+   # check lengths and occurrences of indices
+#   allinds = []
+#   for pp in cut_patches2:
+#      for ind in pp: allinds.append(ind)
+    
+   # old; broken
+   # join any repeated subsets
+#   cut_patches2 = []
+#   j = 0
+#   joined_patch_ids = []
+#   for s in cut_patches:
+#      if j not in joined_patch_ids:
+#         curr_set = s.copy()
+#         joined_patch_ids.append(j)
+#         for ind in s:
+#            for i in range(j+1, len(cut_patches)):
+#               s2 = cut_patches[i]
+#               if ind in s2:
+#                  curr_set |= s2
+#                  joined_patch_ids.append(i)
+#         cut_patches2.append(curr_set)
+#         j += 1
+   patch_size = [len(s) for s in cut_patches2]
    cnt_joined = []
-   for patch in cut2_patches:
+   for patch in cut_patches2:
       cont = np.vstack([np.array(crypt_contours[i]) for i in patch])
       hull = cv2.convexHull(cont)
       cnt_joined.append(hull)
    newpatchinds = []
-   for patch in cut2_patches:
+   for patch in cut_patches2:
       patch = list(patch)
       newpatchinds.append(patch)
    return cnt_joined, patch_size, newpatchinds

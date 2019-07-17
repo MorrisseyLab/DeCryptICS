@@ -8,14 +8,11 @@ Created on Tue Mar  6 09:16:23 2018
 import cv2
 import glob
 import io
-#import tensorflow          as tf
-#import keras.backend       as K
 import keras
 import numpy               as np
 import matplotlib.pyplot   as plt
 import DNN.u_net           as unet
 import DNN.params          as params
-#import keras.callbacks     as KC
 from random             import shuffle
 from DNN.augmentation   import plot_img, randomHueSaturationValue, randomShiftScaleRotate, randomHorizontalFlip, fix_mask
 from DNN.losses         import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss
@@ -50,13 +47,13 @@ if keras.backend._BACKEND=="tensorflow":
 
 if keras.backend._BACKEND=="mxnet":
    import mxnet
-   input_shape = (3, params.input_size, params.input_size)
+   input_shape = (3, params.input_size_train, params.input_size_train)
    chan_num = 1
 else:
-   input_shape = (params.input_size, params.input_size, 3)
+   input_shape = (params.input_size_train, params.input_size_train, 3)
    chan_num = 3
    
-input_size = params.input_size
+input_size = params.input_size_train
 SIZE = (input_size, input_size)
 epochs = params.max_epochs
 batch_size = params.batch_size
@@ -148,88 +145,12 @@ def train_generator():
                y_batch = keras.utils.to_channels_first(y_batch)
             yield x_batch, y_batch
 
-#def make_image(tensor):
-#    """
-#    Convert an numpy representation image to Image protobuf.
-#    Copied from https://github.com/lanpa/tensorboard-pytorch/
-#    """
-#    height, width, channel = tensor.shape
-#    image = Image.fromarray((tensor*255).astype(np.uint8))
-#    output = io.BytesIO()
-#    image.save(output, format='PNG')
-#    image_string = output.getvalue()
-#    output.close()
-#    return tf.Summary.Image(height=height,
-#                            width=width,
-#                            colorspace=channel,
-#                            encoded_image_string=image_string)
-
-#class TensorBoardImage(KC.Callback):
-#   def __init__(self, log_dir='./logs', tags=[], test_image_batches=[]):
-#      super().__init__()
-#      self.tags = tags
-#      self.log_dir = log_dir
-#      self.test_image_batches = test_image_batches
-
-#   def on_epoch_end(self, epoch, logs=None):
-#      writer = tf.summary.FileWriter(self.log_dir)
-#      for i in range(len(self.tags)):
-#         batch = self.test_image_batches[i]
-#         tag = self.tags[i]
-#         pred = model.predict(batch)
-#         pred1 = np.zeros(batch[0].shape, dtype=np.float32)
-#         pred2 = np.zeros(batch[0].shape, dtype=np.float32)
-#         for i in range(3):
-#            pred1[:,:,i] = pred[0,:,:,0]
-#            pred2[:,:,i] = pred[0,:,:,1]
-#         output = np.hstack([batch[0], pred1, pred2])
-#         image = make_image(output)
-#         summary_i = tf.Summary(value=[tf.Summary.Value(tag=tag, image=image)])
-#         writer.add_summary(summary_i, epoch)
-#      writer.close()
-#      return
-
 if __name__=="__main__":
    base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/" # as training data is in DeCryptICS folder
    dnnfolder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
    
-   # Loading old weights into all but the final layer
-#   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=7)
-#   model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
-
-#   # Getting weights layer by layer
-#   weights_frozen = [l.get_weights() for l in model.layers]
-
    # Redefine new network with new classification
    model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
-   model.load_weights(dnnfolder+"/weights/cryptfuficlone_weights2.hdf5")
-
-   # Add in old weights
-#   numlayers = len(model.layers)
-#   for i in range(numlayers-1):
-#      model.layers[i].set_weights(weights_frozen[i])
-
-#   w_elems = []
-#   w_f_elems = weights_frozen[-1]
-#   for i in range(len(model.layers[-1].get_weights())):
-#      w_elems.append(model.layers[-1].get_weights()[i])   
-#   w_elems[0][:,:,:,0] = w_f_elems[0][:,:,:,0] # crypt
-#   w_elems[0][:,:,:,1] = w_f_elems[0][:,:,:,1] # fufi
-#   w_elems[0][:,:,:,2] = w_f_elems[0][:,:,:,2] # kdm6a/maoa/nono
-#   w_elems[0][:,:,:,3] = w_f_elems[0][:,:,:,5] # stag2
-#   w_elems[0][:,:,:,4] = w_f_elems[0][:,:,:,6] # mpas
-#   w_elems[1][0] = w_f_elems[1][0]
-#   w_elems[1][1] = w_f_elems[1][1]
-#   w_elems[1][2] = w_f_elems[1][2]
-#   w_elems[1][3] = w_f_elems[1][5]
-#   w_elems[1][4] = w_f_elems[1][6]
-#   model.layers[-1].set_weights(w_elems)
-
-   # Freeze all layer but the last classification convolution (as difficult to freeze a subset of parameters within a layer -- but can load them back in afterwards)
-#   for layer in model.layers[:-1]:
-#      layer.trainable = False
-#   # To check whether we have successfully frozen layers, check model.summary() before and after re-compiling
-#   model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), metrics=[masked_dice_coeff])
    
    # Set up training data   
    training_base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
@@ -253,7 +174,26 @@ if __name__=="__main__":
       mask = maskfolder+"mask"+clones[i][(len(imgfolder)+3):]
       sample = (clones[i], mask)
       samples_cl.append(sample)
-   
+
+   # load mouse samples?
+   imgfolder_m = training_base_folder + "/input/mouse/train/"
+   maskfolder_m = training_base_folder + "/input/mouse/train_masks/"
+   crypts_m = glob.glob(imgfolder_m + "*_crypt.png")
+   fufis_m = glob.glob(imgfolder_m + "*_fufi.png")
+   clones_m = glob.glob(imgfolder_m + "*_clone.png")   
+   for i in range(len(crypts_m)):
+      mask = maskfolder_m+"mask"+crypts_m[i][(len(imgfolder_m)+3):]
+      sample = (crypts_m[i], mask)
+      samples_cr.append(sample)
+   for i in range(len(fufis_m)):
+      mask = maskfolder+"mask"+fufis_m[i][(len(imgfolder_m)+3):]
+      sample = (fufis_m[i], mask)
+      samples_fu.append(sample)
+   for i in range(len(clones_m)):
+      mask = maskfolder_m+"mask"+clones_m[i][(len(imgfolder_m)+3):]
+      sample = (clones_m[i], mask)
+      samples_cl.append(sample)
+         
    # add crypt samples
    samples += samples_cr
    # add repeats of clone and fufi data to scale up to same as crypts?
@@ -261,29 +201,16 @@ if __name__=="__main__":
    n2 = int(len(samples_cr)/len(samples_fu)/1.)
    for i in range(n1): samples += samples_cl
    for i in range(n2): samples += samples_fu
-   shuffle(samples)
+   shuffle(samples)  
    
-   # Define test image batches for TensorBoard checking
-#   test_img1 = cv2.imread(base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png")
-#   test_img2 = cv2.imread(base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png")
-#   test_img3 = cv2.imread(base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png")
-#   test_img4 = cv2.imread(base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png")
-#   test_img5 = cv2.imread(base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png")
-#   test_images = [test_img1, test_img2, test_img3, test_img4, test_img5]
-#   test_batches = []
-#   for i in range(len(test_images)):
-#      test_batches.append(np.array([test_images[i]], np.float32) / 255.)
-#   test_tags = list(np.asarray(range(len(test_batches))).astype(str))
-   
-   ## subset samples for tensorboard test
-#   images = [base_folder+"/input/train/img_674374_4.00-46080-24576-1024-1024_fufi.png", base_folder+"/input/train/img_618446_x6_y1_tile2_1_crypt.png", base_folder+"/input/train/img_618446_x6_y3_tile4_3_crypt.png", base_folder+"/input/train/img_652593_4.00-18432-16384-1024-1024_fufi.png", base_folder+"/input/train/img_601163_x3_y0_tile14_8_crypt.png"]
-   
-   
-   weights_name = dnnfolder+"/weights/cryptfuficlone_weights3.hdf5"
+   curr_weights = "/weights/cryptfuficlone_weights.hdf5"
+   weights_name = dnnfolder+"/weights/cryptfuficlone_weights2.hdf5"
+   model.load_weights(dnnfolder+curr_weights)
    logs_folder = dnnfolder+"/logs"
+
    
    callbacks = [EarlyStopping(monitor='loss', patience=10, verbose=1, min_delta=1e-8),
-                ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, epsilon=1e-8),
+                ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, min_delta=1e-8),
                 ModelCheckpoint(monitor='loss', filepath=weights_name, save_best_only=True, save_weights_only=True),
                 TensorBoard(log_dir=logs_folder)]
                 #TensorBoardImage(log_dir=logs_folder, tags=test_tags, test_image_batches=test_batches)]

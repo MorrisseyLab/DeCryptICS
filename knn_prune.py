@@ -187,6 +187,7 @@ def crypt_indexing_clone(crypt_contours, target_overlay, nn=1, crypt_dict={}):
    return crypt_dict
 
 def get_crypt_patchsizes_and_ids(patch_indices, crypt_dict):
+   # gives mutant patches of size > 1 a unique ID.  Single mutants have ID = 0
    crypt_dict["patch_size"] = np.zeros(len(crypt_dict["clone_label"]))
    crypt_dict["patch_id"] = np.zeros(len(crypt_dict["clone_label"]))
    #for patch in patch_indices:

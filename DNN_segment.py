@@ -25,11 +25,11 @@ from GUI_ChooseROI_class       import getROI_svs
 
 if keras.backend._BACKEND=="tensorflow":
    import tensorflow as tf
-   input_shape = (params.input_size, params.input_size, 3)
+   input_shape = (params.input_size_run, params.input_size_run, 3)
    chan_num = 3
 elif keras.backend._BACKEND=="mxnet":
    import mxnet
-   input_shape = (3, params.input_size, params.input_size)
+   input_shape = (3, params.input_size_run, params.input_size_run)
    chan_num = 1
 model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
 #maindir = os.path.dirname(os.path.abspath(__file__))
@@ -37,7 +37,7 @@ model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=ch
 #model.load_weights(weightsin)
 model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
 
-def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size, params.input_size)):
+def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size_run, params.input_size_run)):
     all_indx = []
     width = SIZE[0]
     height = SIZE[1]
@@ -88,7 +88,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, cha
       print("Running with downsample stream 0")
       STREAM = 0
       dwnsmpl_lvl = choice[0]
-      size = (params.input_size, params.input_size)
+      size = (params.input_size_run, params.input_size_run)
       scaling_val = slide.level_dimensions[0][0] / float(slide.level_dimensions[dwnsmpl_lvl][0])
       all_indx = get_tile_indices(slide.level_dimensions[dwnsmpl_lvl], overlap = 50, SIZE = size)
    if (choice.shape[0]==0):
@@ -98,7 +98,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, cha
       dwnsmpl_lvl = np.where(abs(mpp_test-mpp_fin/2.) < errlevel )[0][0]
       numpyrdown = 1 # could be generalised away from just a single down sampling
       # double the tile size for downsampling later
-      size = (2*params.input_size, 2*params.input_size)
+      size = (2*params.input_size_run, 2*params.input_size_run)
       scaling_val = slide.level_dimensions[0][0] / float(slide.level_dimensions[dwnsmpl_lvl][0] / (2.*numpyrdown))
       all_indx = get_tile_indices(slide.level_dimensions[dwnsmpl_lvl], overlap = 50*(2*numpyrdown), SIZE = size)
 
@@ -223,13 +223,13 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, chan_nu
        
    ## Tiling
    img_full  = cv2.imread(file_name)
-   size = (params.input_size, params.input_size)
+   size = (params.input_size_run, params.input_size_run)
    if (downsample):
       img_full = cv2.pyrDown(img_full)
       img_full = cv2.pyrDown(img_full)
-   if (img_full.shape[0]<params.input_size or img_full.shape[1]<params.input_size):
-      rownum = np.maximum(img_full.shape[0], int(1.5*params.input_size))
-      colnum = np.maximum(img_full.shape[1], int(1.5*params.input_size))
+   if (img_full.shape[0]<params.input_size_run or img_full.shape[1]<params.input_size_run):
+      rownum = np.maximum(img_full.shape[0], int(1.5*params.input_size_run))
+      colnum = np.maximum(img_full.shape[1], int(1.5*params.input_size_run))
       img_full_c = np.ones((rownum, colnum, img_full.shape[2]), dtype=np.uint8) * 255
       img_full_c[:img_full.shape[0], :img_full.shape[1]] = img_full
       img_full = img_full_c

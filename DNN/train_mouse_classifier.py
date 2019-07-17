@@ -8,14 +8,11 @@ Created on Tue Mar  6 09:16:23 2018
 import cv2
 import glob
 import io
-import random
-import tensorflow          as tf
-import keras.backend       as K
+import keras
 import numpy               as np
 import matplotlib.pyplot   as plt
 import DNN.u_net           as unet
 import DNN.params          as params
-import keras.callbacks     as KC
 from random             import shuffle
 from DNN.augmentation   import plot_img, randomHueSaturationValue, randomShiftScaleRotate, randomHorizontalFlip, fix_mask
 from DNN.losses         import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss
@@ -28,24 +25,36 @@ from keras.preprocessing.image import img_to_array
 samples = []
 samples_hu = []
 
-num_cores = 12
-GPU = True
-CPU = False
+if keras.backend._BACKEND=="tensorflow":
+   import tensorflow as tf
+   num_cores = 16
+   GPU = True
+   CPU = False
 
-if GPU:
-    num_GPU = 1
-    num_CPU = 1
-if CPU:
-    num_CPU = 1
-    num_GPU = 0
+   if GPU:
+       num_GPU = 1
+       num_CPU = 1
+   if CPU:
+       num_CPU = 1
+       num_GPU = 0
+       import os
+       os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
-        inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
-        device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
-session = tf.Session(config=config)
-K.set_session(session)
+   config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
+           inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
+           device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
+   session = tf.Session(config=config)
+   keras.backend.set_session(session)
 
-input_size = params.input_size
+if keras.backend._BACKEND=="mxnet":
+   import mxnet
+   input_shape = (3, params.input_size_train, params.input_size_train)
+   chan_num = 1
+else:
+   input_shape = (params.input_size_train, params.input_size_train, 3)
+   chan_num = 3
+   
+input_size = params.input_size_train
 SIZE = (input_size, input_size)
 epochs = params.max_epochs
 batch_size = params.batch_size
@@ -55,8 +64,8 @@ def train_process(data):
    img = cv2.imread(img_f, cv2.IMREAD_COLOR)
    if (not img.shape==SIZE): img = cv2.resize(img, SIZE)
    
-   mask = np.zeros([img.shape[0], img.shape[1], 5]) # for crypt, fufis + 5 marks
-   # Order clone channels: crypts, fufis, (KDM6A, MAOA, NONO), STAG2, mPAS
+   mask = np.zeros([img.shape[0], img.shape[1], 5]) # for crypt, fufis + 3 mark types
+   # Order clone channels: crypts, fufis, (KDM6A, MAOA, NONO, HDAC6, STAG2), p53, mPAS
    
    # choose which channel to load mask into
    mname = mask_f.split('/')[-1].split('.')[-2]
@@ -124,8 +133,8 @@ def train_process_random():
    img = cv2.imread(img_f, cv2.IMREAD_COLOR)
    if (not img.shape==SIZE): img = cv2.resize(img, SIZE)
    
-   mask = np.zeros([img.shape[0], img.shape[1], 5]) # for crypt, fufis + 5 marks
-   # Order clone channels: crypts, fufis, (KDM6A, MAOA, NONO, HDAC6), STAG2, mPAS
+   mask = np.zeros([img.shape[0], img.shape[1], 5]) # for crypt, fufis + 3 mark types
+   # Order clone channels: crypts, fufis, (KDM6A, MAOA, NONO, HDAC6, STAG2), p53, mPAS
    
    # choose which channel to load mask into
    mname = mask_f.split('/')[-1].split('.')[-2]
@@ -206,6 +215,9 @@ def train_generator():
                key += 1
             x_batch = np.array(x_batch)
             y_batch = np.array(y_batch)
+            if keras.backend._BACKEND=="mxnet":
+               x_batch = keras.utils.to_channels_first(x_batch)
+               y_batch = keras.utils.to_channels_first(y_batch)
             yield x_batch, y_batch
 
 if __name__=="__main__":
@@ -214,11 +226,6 @@ if __name__=="__main__":
    # Redefine new network with new classification
    model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
    model.load_weights(dnnfolder+"/weights/mousecrypt_weights.hdf5")
-
-   # Set up training data   
-   imgfolder = dnnfolder + "/input/train/"
-   maskfolder = dnnfolder + "/input/train_masks/"
-   images = glob.glob(imgfolder + "*.png")
 
    # Set up training data   
    imgfolder = dnnfolder + "/input/mouse/train/"
@@ -240,20 +247,47 @@ if __name__=="__main__":
    for i in range(len(clones)):
       mask = maskfolder+"mask"+clones[i][(len(imgfolder)+3):]
       sample = (clones[i], mask)
-      samples_cl.append(sample)
-   
+      samples_cl.append(sample)   
    # add crypt samples
    samples += samples_cr
    samples += samples_cl
    samples += samples_fu
-   shuffle(samples)
+
+   # Get shrivelled-crypt human radiotherapy data    
+   imgfolder_hu = dnnfolder + "/input/train/"
+   maskfolder_hu = dnnfolder + "/input/train_masks/"
+   rad_blocks = ["KM9M", "KM9S"]
+   crypts_rad = []
+   fufis_rad = []
+   clones_rad = []
+   for rb in rad_blocks:
+      crypts_rad += glob.glob(imgfolder_hu + "*_" + rb + "*_crypt.png")
+      fufis_rad += glob.glob(imgfolder_hu + "*_" + rb + "*_fufi.png")
+      clones_rad += glob.glob(imgfolder_hu + "*_" + rb + "*_clone.png")
+   samples_cr_rad = []
+   for i in range(len(crypts_rad)):
+      mask = maskfolder_hu+"mask"+crypts_rad[i][(len(imgfolder_hu)+3):]
+      sample = (crypts_rad[i], mask)
+      samples_cr_rad.append(sample)
+   samples_fu_rad = []
+   for i in range(len(fufis_rad)):
+      mask = maskfolder_hu+"mask"+fufis_rad[i][(len(imgfolder_hu)+3):]
+      sample = (fufis_rad[i], mask)
+      samples_fu_rad.append(sample)
+   samples_cl_rad = []
+   for i in range(len(clones_rad)):
+      mask = maskfolder_hu+"mask"+clones_rad[i][(len(imgfolder_hu)+3):]
+      sample = (clones_rad[i], mask)
+      samples_cl_rad.append(sample)
+   # add rad samples to mouse data
+   samples += samples_cr_rad
+   samples += samples_cl_rad
+   samples += samples_fu_rad
    
    ## WE WANT TO INCLUDE THE NEW MOUSE DATA, AND THEN EACH EPOCH
    ## TOP UP WITH THE SAME NUMBER OF HUMAN CRYPT DATA THAT IS 
    ## SAMPLED RANDOMLY FROM THE HUMAN DATA SET.
    # so now add human samples to global list samples_hu
-   imgfolder_hu = dnnfolder + "/input/train/"
-   maskfolder_hu = dnnfolder + "/input/train_masks/"
    crypts_hu = glob.glob(imgfolder_hu + "*_crypt.png")
    fufis_hu = glob.glob(imgfolder_hu + "*_fufi.png")
    clones_hu = glob.glob(imgfolder_hu + "*_clone.png")
@@ -274,12 +308,11 @@ if __name__=="__main__":
       samples_cl_hu.append(sample)
    # add crypt samples
    samples_hu += samples_cr_hu
-   # add repeats of clone and fufi data to get about one in ten
-   n1 = int(len(samples_cr_hu)/len(samples_cl_hu)/10.)
-   n2 = int(len(samples_cr_hu)/len(samples_fu_hu)/2.)
+   # add repeats of clone and fufi data to get desired ratios
+   n1 = int(len(samples_cr_hu)/len(samples_cl_hu)/1.5)
+   n2 = int(len(samples_cr_hu)/len(samples_fu_hu)/1.5)
    for i in range(n1): samples_hu += samples_cl_hu
    for i in range(n2): samples_hu += samples_fu_hu
-   shuffle(samples_hu)
       
    weights_name = dnnfolder+"/weights/mousecrypt_weights2.hdf5"
    logs_folder = dnnfolder+"/logs"
