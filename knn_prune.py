@@ -66,6 +66,7 @@ def nn2(dat_to, dat_from, nn=4):
    return distances, indices, all_xy_crypt, all_xy_target
 
 def inside_comparison_cryptin(indices, dat_to, xy_from):
+   if len(indices.shape)==1: indices = indices.reshape(indices.shape[0],1)      
    inside_compare = np.zeros(indices.shape)
    for i in range(indices.shape[0]):
       for j in range(indices.shape[1]):
@@ -170,18 +171,45 @@ def join_clones_in_fufi(contours, target_overlay, nn=4):
    return check_length(fixed_contour_list)
       
 def crypt_indexing_clone(crypt_contours, target_overlay, nn=1, crypt_dict={}):
-   ## sanity check
-   target_overlay = check_length(target_overlay)
    crypt_contours = check_length(crypt_contours)
-   ## label crypts as clones
-   clone_inds = []   
-   if len(target_overlay)>0:
-      distances, indices, all_xy_crypt, all_xy_target = nn2(crypt_contours, target_overlay, nn)
-      inside_compare1 = inside_comparison_incrypt(indices, crypt_contours, all_xy_target)
-      inside_compare2 = inside_comparison_cryptin(indices, target_overlay, all_xy_crypt)
-      for i in range(indices.shape[0]):
-         if (inside_compare1[i,0]>=0 or inside_compare2[i,0]>=0):
-            clone_inds.append(indices[i,0])
+   num_repeats = 1
+   while num_repeats>0:
+      ## sanity check
+      target_overlay = check_length(target_overlay)      
+      ## label crypts as clones
+      clone_inds = []
+      if len(target_overlay)>0:
+         distances, indices, all_xy_crypt, all_xy_target = nn2(crypt_contours, target_overlay, nn)
+         inside_compare1 = inside_comparison_incrypt(indices, crypt_contours, all_xy_target)
+         inside_compare2 = inside_comparison_cryptin(indices, target_overlay, all_xy_crypt)
+         for i in range(indices.shape[0]):
+            if (inside_compare1[i,0]>=0 or inside_compare2[i,0]>=0):
+               clone_inds.append(indices[i,0])
+      # account for the fact that two clones can reside in the same crypt
+      u_inds, u_counts = np.unique(clone_inds, return_counts=True)
+      repeats = np.where(u_counts>1)[0]
+      num_repeats = len(repeats)
+      rmv_cnts = []
+      add_cnts = []
+      for r in repeats:
+         rinds = np.where(indices[:,0]==u_inds[r])[0]
+         cr_area = contour_Area(crypt_contours[u_inds[r]])
+         cl_area = [cr_area]
+         for rc in rinds:
+            cl_area.append(contour_Area(target_overlay[rc]))
+         maxarea = np.argmax(cl_area)
+         for rc in rinds: rmv_cnts.append(rc)
+         if maxarea==0:
+            # take crypt contour
+            add_cnts.append(crypt_contours[u_inds[r]])
+         else:
+            # take one of clone contours
+            add_cnts.append(target_overlay[rinds[maxarea-1]])
+      # get rid of unneeded contours
+      keep_inds = np.setdiff1d(np.array(range(len(target_overlay))), rmv_cnts)
+      target_overlay = [target_overlay[i] for i in keep_inds]
+      # add remaining contours
+      for cnt in add_cnts: target_overlay.append(cnt)         
    crypt_dict["clone_label"] = np.zeros(len(crypt_contours))
    for ind in clone_inds: crypt_dict["clone_label"][ind] = 1
    return crypt_dict

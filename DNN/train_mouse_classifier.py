@@ -13,7 +13,7 @@ import numpy               as np
 import matplotlib.pyplot   as plt
 import DNN.u_net           as unet
 import DNN.params          as params
-from random             import shuffle
+import random
 from DNN.augmentation   import plot_img, randomHueSaturationValue, randomShiftScaleRotate, randomHorizontalFlip, fix_mask
 from DNN.losses         import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss
 from DNN.losses         import dice_coeff, MASK_VALUE, build_masked_loss, masked_accuracy, masked_dice_coeff
@@ -224,8 +224,7 @@ if __name__=="__main__":
    dnnfolder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
 
    # Redefine new network with new classification
-   model = params.model_factory(input_shape=(params.input_size, params.input_size, 3), num_classes=5)
-   model.load_weights(dnnfolder+"/weights/mousecrypt_weights.hdf5")
+   model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
 
    # Set up training data   
    imgfolder = dnnfolder + "/input/mouse/train/"
@@ -309,13 +308,17 @@ if __name__=="__main__":
    # add crypt samples
    samples_hu += samples_cr_hu
    # add repeats of clone and fufi data to get desired ratios
-   n1 = int(len(samples_cr_hu)/len(samples_cl_hu)/1.5)
-   n2 = int(len(samples_cr_hu)/len(samples_fu_hu)/1.5)
+   n1 = int(len(samples_cr_hu)/len(samples_cl_hu)/4.)
+   n2 = int(len(samples_cr_hu)/len(samples_fu_hu)/4.)
    for i in range(n1): samples_hu += samples_cl_hu
    for i in range(n2): samples_hu += samples_fu_hu
       
+   
+
+   curr_weights = "/weights/cryptfuficlone_weights.hdf5"
    weights_name = dnnfolder+"/weights/mousecrypt_weights2.hdf5"
-   logs_folder = dnnfolder+"/logs"
+   model.load_weights(dnnfolder+curr_weights)
+   logs_folder = dnnfolder+"/logs"   
    
    callbacks = [ModelCheckpoint(monitor='loss', filepath=weights_name, save_best_only=True, 
                 save_weights_only=True), TensorBoard(log_dir=logs_folder)]

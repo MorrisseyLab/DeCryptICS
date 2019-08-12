@@ -62,9 +62,24 @@ def main():
    slide = osl.OpenSlide(img_path)
    scale = slide.level_downsamples[dwnsmpl_lvl]
    imgsize = 256
-   ## create backup of crypt network data
+   ## create backup of crypt network data; replace with backup each time you run to allow do-overs
+   ## (Also, re-running on an already-curated set of clones will mix up the indices, so either need to
+   ##  always use the backup, or fix the issue.)
    if os.path.isfile(folder_to_analyse + "/crypt_network_data.txt"):
-      shutil.copy2(folder_to_analyse + "/crypt_network_data.txt", folder_to_analyse + "/crypt_network_data.bac")
+      if not os.path.isfile(folder_to_analyse + "/crypt_network_data.bac"):
+         shutil.copy2(folder_to_analyse + "/crypt_network_data.txt", folder_to_analyse + "/crypt_network_data.bac")
+      else:
+         shutil.copy2(folder_to_analyse + "/crypt_network_data.bac", folder_to_analyse + "/crypt_network_data.txt")
+   if os.path.isfile(folder_to_analyse + "/clone_scores.txt"):
+      if not os.path.isfile(folder_to_analyse + "/clone_scores.bac"):
+         shutil.copy2(folder_to_analyse + "/clone_scores.txt", folder_to_analyse + "/clone_scores.bac")
+      else:
+         shutil.copy2(folder_to_analyse + "/clone_scores.bac", folder_to_analyse + "/clone_scores.txt")
+   if os.path.isfile(folder_to_analyse + "/patch_sizes.txt"):
+      if not os.path.isfile(folder_to_analyse + "/patch_sizes.bac"):
+         shutil.copy2(folder_to_analyse + "/patch_sizes.txt", folder_to_analyse + "/patch_sizes.bac")
+      else:
+         shutil.copy2(folder_to_analyse + "/patch_sizes.bac", folder_to_analyse + "/patch_sizes.txt")
    ## load graph of slide analysis output
    graphpath = folder_to_analyse + "/crypt_network_data.txt"
    try:
@@ -150,19 +165,19 @@ def main():
       write_score_text_file(patch_sizes, folder_to_analyse + "/patch_sizes.txt")
       
       # finally update the clone and patch counts in the batch csv using the slide number for the row reference
-      if "\\" in folder_to_analyse:
-         pathsep = "\\"
+      if '\\' in folder_to_analyse:
+         pathsep = '\\'
          listsep = folder_to_analyse.split('\\')[:-1]
          counts_folder = pathsep.join(listsep)
-      if "/" in folder_to_analyse:
+      if '/' in folder_to_analyse:
          counts_folder = '/'+os.path.join(*folder_to_analyse.split('/')[:-1])
       counts = np.asarray(pd.read_csv(counts_folder+"/slide_counts.csv"))
-      slide_ind = np.where(counts[:,0]==slide_number)[0][0]
+      slide_ind = np.where(counts[:,0].astype(str)==str(slide_number))[0][0]
       counts[slide_ind, 3] = len(good_inds)
       counts[slide_ind, 4] = len(good_inds) - patchsum + numpatches
       counts[slide_ind, 5] = numpatches
       counts = pd.DataFrame(counts, columns=['Slide_ID', 'NCrypts', 'NFufis', 'NMutantCrypts', 'NClones', 'NPatches'])
-      counts.to_csv(counts_folder + 'slide_counts.csv', sep=',', index=False)
+      counts.to_csv(counts_folder + '/slide_counts.csv', sep=',', index=False)
 
 if __name__=="__main__":
    main()

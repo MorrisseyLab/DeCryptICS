@@ -23,19 +23,19 @@ from cnt_Feature_Functions     import joinContoursIfClose_OnlyKeepPatches, conto
 from GUI_ChooseROI_class       import getROI_svs
 
 
-if keras.backend._BACKEND=="tensorflow":
-   import tensorflow as tf
-   input_shape = (params.input_size_run, params.input_size_run, 3)
-   chan_num = 3
-elif keras.backend._BACKEND=="mxnet":
-   import mxnet
-   input_shape = (3, params.input_size_run, params.input_size_run)
-   chan_num = 1
-model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
+#if keras.backend._BACKEND=="tensorflow":
+#   import tensorflow as tf
+#   input_shape = (params.input_size_run, params.input_size_run, 3)
+#   chan_num = 3
+#elif keras.backend._BACKEND=="mxnet":
+#   import mxnet
+#   input_shape = (3, params.input_size_run, params.input_size_run)
+#   chan_num = 1
+#model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
 #maindir = os.path.dirname(os.path.abspath(__file__))
 #weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')
 #model.load_weights(weightsin)
-model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
+#model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
 
 def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size_run, params.input_size_run)):
     all_indx = []
@@ -179,9 +179,8 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, cha
       ## thus build up an index system for the crypt contours to assess a knn network
       fixed_crypt_contours, fixed_fufi_contours, fixed_clone_contours, crypt_dict = fix_fufi_clone_patch_specifications(crypt_contours, fufi_contours, clone_contours)      
       
-      ## Fix fufi clones and join patches
-      clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict = fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_dict)
-      fixed_clone_contours = [fixed_crypt_contours[cc] for cc in np.where(crypt_dict['clone_label']>0)[0]]
+      ## Fix fufi clones and join patches; join clones inside same crypts
+      fixed_clone_contours, clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict = fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_dict)      
       # Can we do all the patch size/patch contour editing via crypt_dict too?
 
       ## Find each crypt's patch size (and possibly their patch neighbours' ID/(x,y)?)
@@ -297,7 +296,7 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, chan_nu
       fixed_crypt_contours, fixed_fufi_contours, fixed_clone_contours, crypt_dict = fix_fufi_clone_patch_specifications(crypt_contours, fufi_contours, clone_contours)
          
       ## Fix fufi clones and join patches
-      clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict = fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_dict)
+      fixed_clone_contours, clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict = fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_dict)
 
       ## Find each crypt's patch size (and possibly their patch neighbours' ID/(x,y)?)
       crypt_dict = get_crypt_patchsizes_and_ids(patch_indices, crypt_dict)
@@ -377,12 +376,13 @@ def fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_di
       # Label crypts as clones
       crypt_dict = crypt_indexing_clone(fixed_crypt_contours, fixed_clone_contours, nn=1, crypt_dict=crypt_dict)
       clone_inds = np.where(crypt_dict["clone_label"]==1)[0]
+      fixed_clone_contours = [fixed_crypt_contours[cc] for cc in np.where(crypt_dict['clone_label']>0)[0]]
       clone_scores = np.ones(len(fixed_clone_contours))*0.5 # default score is 1/2 before manual curation
       # Join patches as contours
       if (len(fixed_clone_contours) < 0.25*len(fixed_crypt_contours) and len(fixed_crypt_contours)>0 and len(fixed_clone_contours)>1):
          patch_contours, patch_sizes, patch_indices = joinContoursIfClose_OnlyKeepPatches(fixed_crypt_contours, crypt_dict, clone_inds)
          patch_indices_local = convert_to_local_clone_indices(patch_indices, clone_inds)  
-   return clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict
+   return fixed_clone_contours, clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict
 
 def get_contour_features(fixed_crypt_contours, crypt_dict):
    crypt_dict["area"] = np.asarray([contour_Area(i) for i in fixed_crypt_contours])

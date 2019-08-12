@@ -135,4 +135,23 @@ if __name__=="__main__":
         if (mask.shape!=(256,256)):
            mask = mask[:256, :256]
            cv2.imwrite(path, mask)
+
+
+    ## Setting background to black for manually masked images
+    ##########################################################################
+    # load images
+    dnnpath = "/home/doran/Work/py_code/joining_serial_slides/DNN/input/"
+    inpath = dnnpath + "/tissue_segment/mask3/"
+    outpath = dnnpath + "/tissue_segment/mask3/"
+    imfiles = glob.glob(inpath + "*.png")
+
+    # run processing and save
+    for path in imfiles:
+        img = cv2.imread(path, cv2.IMREAD_COLOR)
+        mask = set_background_to_black(img)
+        #im_number = path.split("/")[-1][8:] # remove "premask_"
+        im_number = path.split("/")[-1][4:] # remove "img_"
+        outfile = "mask_" + im_number
+        cv2.imwrite(outpath + outfile, mask)
+
     
