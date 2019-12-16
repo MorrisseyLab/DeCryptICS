@@ -5,7 +5,7 @@ from DNN.losses         import *
 import keras.backend as K
  
 def get_unet_256_for_X(input_shape=(512, 512, 3),
-                 num_classes=1, chan_num=3):
+                       num_classes=1, chan_num=3):
     inputs = Input(shape=input_shape)
     # 256
     down0 = Conv2D(32, (3, 3), padding='same')(inputs)
@@ -137,7 +137,15 @@ def get_unet_256_for_X(input_shape=(512, 512, 3),
                               masked_dice_coeff_perchannel2,
                               masked_dice_coeff_perchannel3,
                               masked_dice_coeff_perchannel4,
-                              masked_dice_coeff_perchannel5])      
+                              masked_dice_coeff_perchannel5])
+    if (num_classes==6):
+       model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), 
+                     metrics=[masked_dice_coeff_perchannel1,
+                              masked_dice_coeff_perchannel2,
+                              masked_dice_coeff_perchannel3,
+                              masked_dice_coeff_perchannel4,
+                              masked_dice_coeff_perchannel5,
+                              masked_dice_coeff_perchannel6])
     if (num_classes==7):
        model.compile(optimizer=RMSprop(lr=0.0001), loss=build_masked_loss(K.binary_crossentropy), 
                      metrics=[masked_dice_coeff_perchannel1,

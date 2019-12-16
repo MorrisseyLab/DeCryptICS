@@ -119,6 +119,22 @@ def read_cnt_text_file(file_name):
         cnts_out.append(a)
     return cnts_out         
 
+def load_all_contours2(filename_list, scales = None, H_mats = None):
+   cntsout = []
+   if not (type(filename_list)==list): filename_list = [filename_list]
+   if (scales is not None):
+      if not (type(scales)==list): scales = [scales]
+   if (H_mats is not None):
+      if not (type(H_mats)==list): H_mats = [H_mats]
+   for ff in range(len(filename_list)):
+      cnts_m = read_cnt_text_file(filename_list[ff][:-len(filename_list[ff].split('/')[-1])] + 'Analysed_slides/Analysed_' + filename_list[ff].split('/')[-1].split('.')[0] + '/crypt_contours.txt')
+      if (scales is not None):
+         cnts_m = rescale_contours(cnts_m, 1./scales[ff])
+      if (H_mats is not None): 
+         cnts_m = rotate_contours(cnts_m, H_mats[ff])
+      cntsout.append(cnts_m)
+   return cntsout
+
 def simplify_contours(cnt_list):
     new_cnts = []
     for i in cnt_list:

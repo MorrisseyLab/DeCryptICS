@@ -63,7 +63,7 @@ def randomShiftScaleRotate(image, mask,
     if np.random.random() < u:
         height, width, channel = image.shape
 
-        angle = np.random.uniform(rotate_limit[0], rotate_limit[1])  # degree
+        angle = np.random.choice([90.,-90.,180.]) #np.random.uniform(rotate_limit[0], rotate_limit[1])  # degree
         scale = np.random.uniform(1 + scale_limit[0], 1 + scale_limit[1])
         aspect = np.random.uniform(1 + aspect_limit[0], 1 + aspect_limit[1])
         sx = scale * aspect / (aspect ** 0.5)
@@ -71,8 +71,8 @@ def randomShiftScaleRotate(image, mask,
         dx = round(np.random.uniform(shift_limit[0], shift_limit[1]) * width)
         dy = round(np.random.uniform(shift_limit[0], shift_limit[1]) * height)
 
-        cc = np.math.cos(angle / 180 * np.math.pi) * sx
-        ss = np.math.sin(angle / 180 * np.math.pi) * sy
+        cc = np.math.cos(angle / 180. * np.math.pi) * sx
+        ss = np.math.sin(angle / 180. * np.math.pi) * sy
         rotate_matrix = np.array([[cc, -ss], [ss, cc]])
 
         box0 = np.array([[0, 0], [width, 0], [width, height], [0, height], ])

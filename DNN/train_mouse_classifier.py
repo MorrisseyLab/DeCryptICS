@@ -143,14 +143,14 @@ def train_process_random():
       dontmask = 0
       img = randomHueSaturationValue(img,
                                      hue_shift_limit=(-100, 100),
-                                     sat_shift_limit=(0, 0),
+                                     sat_shift_limit=(-25, 25),
                                      val_shift_limit=(-25, 25))
    elif (mname[-4:]=="fufi"):
       mask[:,:,1] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
       dontmask = 1
       img = randomHueSaturationValue(img,
                                      hue_shift_limit=(-100, 100),
-                                     sat_shift_limit=(0, 0),
+                                     sat_shift_limit=(-25, 25),
                                      val_shift_limit=(-25, 25))
    elif (mname[-5:]=="clone"):
       mname_broken = mask_f.split('/')[-1].split('_')
@@ -176,8 +176,8 @@ def train_process_random():
          mask[:,:,4] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 4
       img = randomHueSaturationValue(img,
-                                     hue_shift_limit=(-25, 25),
-                                     sat_shift_limit=(0, 0),
+                                     hue_shift_limit=(-5, 5),
+                                     sat_shift_limit=(-15, 15),
                                      val_shift_limit=(-15, 15))
 
 

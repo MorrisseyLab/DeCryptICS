@@ -41,11 +41,10 @@ if __name__=="__main__":
    ##########################################################################
    # load image list
    #train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/pre-mask/"
-   #train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/mouse/pre-mask/"
    #train_path =     "/home/doran/Work/py_code/experimental_DeCryptICS/DNN/input/pre-mask/"
-   train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/immune_nodes/pre-mask/"
-   train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/p53/pre-mask/"
-   flist = glob.glob(train_path+"*.png")
+   train_path =     "/home/doran/Work/py_code/DeCryptICS/DNN/input/new_train_set/premask/"
+   flist = glob.glob(train_path+"set*/*.png")
+#   flist = glob.glob(train_path+"*.png")
    #mlist = ['/' + os.path.join(*f.split('/')[:-2]) + '/pre-mask/premask_' + f.split('/')[-1] for f in flist]
    mlist = flist
    for i in range(len(flist)):

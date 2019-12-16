@@ -17,25 +17,26 @@ from knn_prune                 import *
 from MiscFunctions             import simplify_contours, write_clone_image_snips,\
                                      convert_to_local_clone_indices, mkdir_p,\
                                      getROI_img_osl, add_offset, write_cnt_text_file,\
-                                     rescale_contours, write_score_text_file
+                                     rescale_contours, write_score_text_file, plot_img
 from cnt_Feature_Functions     import joinContoursIfClose_OnlyKeepPatches, contour_Area,\
                                      contour_EccMajorMinorAxis, contour_xy
 from GUI_ChooseROI_class       import getROI_svs
 
 
-#if keras.backend._BACKEND=="tensorflow":
-#   import tensorflow as tf
-#   input_shape = (params.input_size_run, params.input_size_run, 3)
-#   chan_num = 3
-#elif keras.backend._BACKEND=="mxnet":
-#   import mxnet
-#   input_shape = (3, params.input_size_run, params.input_size_run)
-#   chan_num = 1
-#model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
-#maindir = os.path.dirname(os.path.abspath(__file__))
-#weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')
-#model.load_weights(weightsin)
+if keras.backend._BACKEND=="tensorflow":
+   import tensorflow as tf
+   input_shape = (params.input_size_run, params.input_size_run, 3)
+   chan_num = 3
+elif keras.backend._BACKEND=="mxnet":
+   import mxnet
+   input_shape = (3, params.input_size_run, params.input_size_run)
+   chan_num = 1
+model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
+maindir = os.path.dirname(os.path.abspath(__file__))
+weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')
+model.load_weights(weightsin)
 #model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
+
 
 def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size_run, params.input_size_run)):
     all_indx = []
@@ -63,7 +64,8 @@ def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size_run, param
             all_indx[i].append((x0, y0, width, height))
     return all_indx
 
-def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, chan_num, prob_thresh = 0.75):
+def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, chan_num, 
+                      prob_thresh = 0.6, clone_prob_thresh = 0.05):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -106,7 +108,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, cha
    fufi_contours  = []
    clone_contours = []         
    x_tiles = len(all_indx)
-   y_tiles = len(all_indx[0])  
+   y_tiles = len(all_indx[0])
    for i in range(x_tiles):
       for j in range(y_tiles):
          xy_vals = (int(all_indx[i][j][0]), int(all_indx[i][j][1]))
@@ -127,7 +129,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, cha
 
          # Perform prediction and find contours
          predicted_mask_batch = model.predict(x_batch)
-         newcnts = mask_to_contours(predicted_mask_batch, prob_thresh, chan_num)
+         newcnts = mask_to_contours(predicted_mask_batch, prob_thresh, clone_prob_thresh, chan_num) # add lower prob_thresh for clonal channels to increase sensitivity?
          for k in range(predicted_mask_batch.shape[chan_num]):
             newcnts[k] = [cc for cc in newcnts[k] if len(cc)>4] # throw away points and lines (needed in contour class)
          
@@ -192,6 +194,11 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, cha
       
       ## Save output
       print("Saving results...")
+      ## IF .BAC FILES EXIST, DELETE THEM FIRST!!!!!
+      if os.path.exists(folder_to_analyse + "/clone_scores.bac"): os.remove(folder_to_analyse + "/clone_scores.bac")
+      if os.path.exists(folder_to_analyse + "/patch_sizes.bac"): os.remove(folder_to_analyse + "/patch_sizes.bac")
+      if os.path.exists(folder_to_analyse + "/patch_contours.bac"): os.remove(folder_to_analyse + "/patch_contours.bac")
+      if os.path.exists(folder_to_analyse + "/crypt_network_data.bac"): os.remove(folder_to_analyse + "/crypt_network_data.bac")
       write_cnt_text_file(fixed_crypt_contours, folder_to_analyse + "/crypt_contours.txt")
       write_cnt_text_file(fixed_fufi_contours , folder_to_analyse + "/fufi_contours.txt")
       write_cnt_text_file(fixed_clone_contours, folder_to_analyse + "/clone_contours.txt")
@@ -208,7 +215,8 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, cha
                                                                                crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"][i], crypt_dict["minorax"][i]))
    print("...Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")
    
-def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, chan_num, prob_thresh = 0.75, downsample = True):
+def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, chan_num, 
+                  prob_thresh = 0.6, clone_prob_thresh = 0.05, downsample = False):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -248,7 +256,7 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, chan_nu
             x_batch = keras.utils.to_channels_first(x_batch)
          # Perform prediction and find contours
          predicted_mask_batch = model.predict(x_batch)
-         newcnts = mask_to_contours(predicted_mask_batch, prob_thresh)
+         newcnts = mask_to_contours(predicted_mask_batch, prob_thresh, clone_prob_thresh, chan_num)
          for k in range(predicted_mask_batch.shape[chan_num]):
             newcnts[k] = [cc for cc in newcnts[k] if len(cc)>4] # throw away points and lines (needed in contour class)
          
@@ -263,6 +271,10 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, chan_nu
             clone_contours += newcnts[cK]
       print("Found %d crypt contours, %d fufi contours and %d clone contours so far, tile %d of %d" % (len(crypt_contours), len(fufi_contours), len(clone_contours), i*y_tiles+j + 1, x_tiles*y_tiles))         
    del img, predicted_mask_batch, newcnts
+   
+   ## add clone and fufi contours to crypt contours
+   crypt_contours += fufi_contours
+   crypt_contours += clone_contours
    
    ## Remove tiling overlaps and simplify remaining contours
    print("Of %d crypt contours, %d fufi contours and %d clone contours..." % (len(crypt_contours), len(fufi_contours), len(clone_contours)))
@@ -281,6 +293,7 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, chan_nu
       print("Outputting zilch as no crypts found!")
       
    else:
+      print("Processing clones and fufis...")
       ## Reduce number of vertices per contour to save space/QuPath loading time
       crypt_contours = simplify_contours(crypt_contours)
       fufi_contours  = simplify_contours(fufi_contours)
@@ -293,40 +306,49 @@ def predict_image(file_name, folder_to_analyse, clonal_mark_type, model, chan_nu
 
       ## Assess overlap of crypt contours with fufi and clone contours,
       ## thus build up an index system for the crypt contours to assess a knn network
-      fixed_crypt_contours, fixed_fufi_contours, fixed_clone_contours, crypt_dict = fix_fufi_clone_patch_specifications(crypt_contours, fufi_contours, clone_contours)
-         
-      ## Fix fufi clones and join patches
-      fixed_clone_contours, clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict = fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_dict)
+      fixed_crypt_contours, fixed_fufi_contours, fixed_clone_contours, crypt_dict = fix_fufi_clone_patch_specifications(crypt_contours, fufi_contours, clone_contours)      
+      
+      ## Fix fufi clones and join patches; join clones inside same crypts
+      fixed_clone_contours, clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict = fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_dict)      
+      # Can we do all the patch size/patch contour editing via crypt_dict too?
 
       ## Find each crypt's patch size (and possibly their patch neighbours' ID/(x,y)?)
       crypt_dict = get_crypt_patchsizes_and_ids(patch_indices, crypt_dict)
-
+      
       ## Add crypt features
       crypt_dict = get_contour_features(fixed_crypt_contours, crypt_dict)
+      print("...Done!")
       
       ## Save output
+      print("Saving results...")
+      ## IF .BAC FILES EXIST, DELETE THEM FIRST!!!!!
+      if os.path.exists(folder_to_analyse + "/clone_scores.bac"): os.remove(folder_to_analyse + "/clone_scores.bac")
+      if os.path.exists(folder_to_analyse + "/patch_sizes.bac"): os.remove(folder_to_analyse + "/patch_sizes.bac")
+      if os.path.exists(folder_to_analyse + "/crypt_network_data.bac"): os.remove(folder_to_analyse + "/crypt_network_data.bac")
       write_cnt_text_file(fixed_crypt_contours, folder_to_analyse + "/crypt_contours.txt")
       write_cnt_text_file(fixed_fufi_contours , folder_to_analyse + "/fufi_contours.txt")
       write_cnt_text_file(fixed_clone_contours, folder_to_analyse + "/clone_contours.txt")
       write_cnt_text_file(patch_contours      , folder_to_analyse + "/patch_contours.txt")
-      write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt")
+      write_score_text_file(patch_sizes       , folder_to_analyse + "/patch_sizes.txt") # redundant after slide_counts.csv created
       write_score_text_file(clone_scores      , folder_to_analyse + "/clone_scores.txt")
-#      pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) )
-#      if write_clone_imgs==True: write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours, scaling_val)
+#      pickle.dump( patch_indices_local ,  open( folder_to_analyse + "/patch_indices.pickle", "wb" ) ) # redundant
+#      if write_clone_imgs==True: write_clone_image_snips(folder_to_analyse, file_name, fixed_clone_contours[:25], scaling_val)
       with open(folder_to_analyse + "/crypt_network_data.txt", 'w') as fo:
          fo.write("#<x>\t<y>\t<fufi>\t<mutant>\t<patch_size>\t<patch_id>\t<area>\t<eccentricity>\t<major_axis>\t<minor_axis>\n")
          for i in range(len(fixed_crypt_contours)):
             fo.write("%d\t%d\t%d\t%d\t%d\t%d\t%1.8g\t%1.8g\t%1.8g\t%1.8g\n" % (crypt_dict["crypt_xy"][i,0], crypt_dict["crypt_xy"][i,1], crypt_dict["fufi_label"][i], 
                                                                                crypt_dict["clone_label"][i], crypt_dict["patch_size"][i], crypt_dict["patch_id"][i],
                                                                                crypt_dict["area"][i], crypt_dict["ecc"][i], crypt_dict["majorax"][i], crypt_dict["minorax"][i]))
-   print("Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================")      
+   print("...Done " + imnumber + " in " +  str((time.time() - start_time)/60.) + " min =========================================") 
   
-def mask_to_contours(preds, thresh, chan_num):
+def mask_to_contours(preds, prob_thresh, clone_thresh, chan_num):
    n_class = preds.shape[chan_num]
    all_class_cnts = []
    for j in range(n_class): # ensure correct number of elements
       all_class_cnts.append([])
    for j in range(n_class):
+      if j<2: thresh = prob_thresh
+      if j>=2: thresh = clone_thresh
       contours = []
       for i in range(preds.shape[0]):
          # convert to np.uint8

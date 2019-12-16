@@ -69,7 +69,7 @@ def signal_width_ndo(av_sig_clone, outlier_val, clonal_mark_type, numbins):
             maxwedge, ind = wedge[1], i
       normed_wedge = maxwedge/float(numbins) ## [len(clone_trues)] # instead use total number of bins
       normed_totalsig = total_sig/float(numbins)
-      return normed_wedge, normed_totalsig   
+      return normed_wedge, normed_totalsig
  
 def extractCloneSignal(cnt_roi, img_ROI_c, morph_pair):
     mask_fill1    = np.zeros(img_ROI_c.shape[0:2], np.uint8)

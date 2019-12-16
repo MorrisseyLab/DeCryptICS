@@ -8,12 +8,12 @@ Created on Tue Mar  6 09:16:23 2018
 import cv2
 import glob
 import io
+import random
 import keras
 import numpy               as np
 import matplotlib.pyplot   as plt
 import DNN.u_net           as unet
 import DNN.params          as params
-from random             import shuffle
 from DNN.augmentation   import plot_img, randomHueSaturationValue, randomShiftScaleRotate, randomHorizontalFlip, fix_mask
 from DNN.losses         import bce_dice_loss, dice_loss, weighted_bce_dice_loss, weighted_dice_loss
 from DNN.losses         import dice_coeff, MASK_VALUE, build_masked_loss, masked_accuracy, masked_dice_coeff
@@ -23,6 +23,7 @@ from PIL                import Image
 from keras.preprocessing.image import img_to_array
 
 samples = []
+samples_cr = []
 
 if keras.backend._BACKEND=="tensorflow":
    import tensorflow as tf
@@ -58,7 +59,7 @@ SIZE = (input_size, input_size)
 epochs = params.max_epochs
 batch_size = params.batch_size
 
-def train_process(data):
+def train_process_events(data):
    img_f, mask_f = data
    img = cv2.imread(img_f, cv2.IMREAD_COLOR)
    if (not img.shape==SIZE): img = cv2.resize(img, SIZE)
@@ -68,14 +69,8 @@ def train_process(data):
    
    # choose which channel to load mask into
    mname = mask_f.split('/')[-1].split('.')[-2]
-   if (mname[-5:]=="crypt"):
-      mask[:,:,0] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
-      dontmask = 0
-      img = randomHueSaturationValue(img,
-                                     hue_shift_limit=(-100, 100),
-                                     sat_shift_limit=(-25, 25),
-                                     val_shift_limit=(-25, 25))
-   elif (mname[-4:]=="fufi"):
+
+   if (mname[-4:]=="fufi"):
       mask[:,:,1] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
       dontmask = 1
       img = randomHueSaturationValue(img,
@@ -112,7 +107,40 @@ def train_process(data):
 
 
    img, mask = randomShiftScaleRotate(img, mask,
-                                    shift_limit=(-0.0625, 0.0625),
+                                    shift_limit=(-0.0125, 0.0125),
+                                    scale_limit=(-0.1, 0.1))
+   img, mask = randomHorizontalFlip(img, mask)
+   fix_mask(mask)
+   
+   ## Need to make masking values on outputs in float32 space, as uint8 arrays can't deal with it
+   img = img.astype(np.float32) / 255
+   mask = mask.astype(np.float32) / 255
+   # choose which channel to mask (i.e. all other channels are masked)
+   for i in range(mask.shape[2]):
+      if (not i==dontmask):
+         mask[:,:,i].fill(MASK_VALUE) 
+   return (img, mask)
+
+def train_process_random_crypts():   
+   img_f, mask_f = samples_cr[random.randint(0, len(samples_cr)-1)]
+   img = cv2.imread(img_f, cv2.IMREAD_COLOR)
+   if (not img.shape==SIZE): img = cv2.resize(img, SIZE)
+   
+   mask = np.zeros([img.shape[0], img.shape[1], 5]) # for crypt, fufis + 3 mark types
+   # Order clone channels: crypts, fufis, (KDM6A, MAOA, NONO, HDAC6, STAG2), p53, mPAS
+   
+   # choose which channel to load mask into
+   mname = mask_f.split('/')[-1].split('.')[-2]
+   
+   mask[:,:,0] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
+   dontmask = 0
+   img = randomHueSaturationValue(img,
+                                  hue_shift_limit=(-100, 100),
+                                  sat_shift_limit=(-25, 25),
+                                  val_shift_limit=(-25, 25))
+
+   img, mask = randomShiftScaleRotate(img, mask,
+                                    shift_limit=(-0.0125, 0.0125),
                                     scale_limit=(-0.1, 0.1))
    img, mask = randomHorizontalFlip(img, mask)
    fix_mask(mask)
@@ -133,10 +161,15 @@ def train_generator():
             y_batch = []
             end = min(start + batch_size, len(samples))
             ids_train_batch = samples[start:end]
+            key = 0
             for ids in ids_train_batch:
-                img, mask = train_process(ids)
-                x_batch.append(img)
-                y_batch.append(mask)
+               if key%3==0: # set the ratio of crypts to events
+                  img, mask = train_process_events(ids)                  
+               else:
+                  img, mask = train_process_random_crypts()
+               x_batch.append(img)
+               y_batch.append(mask)
+               key += 1
             x_batch = np.array(x_batch)
             y_batch = np.array(y_batch)
             if keras.backend._BACKEND=="mxnet":
@@ -148,7 +181,7 @@ if __name__=="__main__":
    base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/" # as training data is in DeCryptICS folder
    dnnfolder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
    
-   # Redefine new network with new classification
+   # Define network
    model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
    
    # Set up training data   
@@ -158,11 +191,13 @@ if __name__=="__main__":
    crypts = glob.glob(imgfolder + "*_crypt.png")
    fufis = glob.glob(imgfolder + "*_fufi.png")
    clones = glob.glob(imgfolder + "*_clone.png")
-   samples_cr = []
+
+   # get crypt samples from which to sample from
    for i in range(len(crypts)):
       mask = maskfolder+"mask"+crypts[i][(len(imgfolder)+3):]
       sample = (crypts[i], mask)
       samples_cr.append(sample)
+   # get event samples
    samples_fu = []
    for i in range(len(fufis)):
       mask = maskfolder+"mask"+fufis[i][(len(imgfolder)+3):]
@@ -192,24 +227,18 @@ if __name__=="__main__":
 #      mask = maskfolder_m+"mask"+clones_m[i][(len(imgfolder_m)+3):]
 #      sample = (clones_m[i], mask)
 #      samples_cl.append(sample)
-         
-   # add crypt samples
-   samples += samples_cr
-   # add repeats of clone and fufi data to scale up to same as crypts?
-   n1 = int(len(samples_cr)/len(samples_cl)/1.)
-   n2 = int(len(samples_cr)/len(samples_fu)/1.)
-   for i in range(n1): samples += samples_cl
-   for i in range(n2): samples += samples_fu
-   shuffle(samples)  
+            
+   samples += samples_cl
+   samples += samples_fu
+   random.shuffle(samples)
    
    curr_weights = "/weights/cryptfuficlone_weights.hdf5"
    weights_name = dnnfolder+"/weights/cryptfuficlone_weights2.hdf5"
    model.load_weights(dnnfolder+curr_weights)
    logs_folder = dnnfolder+"/logs"
-
    
-   callbacks = [EarlyStopping(monitor='loss', patience=10, verbose=1, min_delta=1e-8),
-                ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, min_delta=1e-8),
+   callbacks = [EarlyStopping(monitor='loss', patience=500, verbose=1, min_delta=1e-11),
+                ReduceLROnPlateau(monitor='loss', factor=0.1, patience=50, verbose=1, min_delta=1e-9),
                 ModelCheckpoint(monitor='loss', filepath=weights_name, save_best_only=True, save_weights_only=True),
                 TensorBoard(log_dir=logs_folder)]
                 #TensorBoardImage(log_dir=logs_folder, tags=test_tags, test_image_batches=test_batches)]

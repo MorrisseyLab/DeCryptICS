@@ -63,24 +63,24 @@ def train_process(data):
       dontmask = 0
       img = randomHueSaturationValue(img,
                                      hue_shift_limit=(-100, 100),
-                                     sat_shift_limit=(0, 0),
+                                     sat_shift_limit=(-25, 25),
                                      val_shift_limit=(-25, 25))
    elif (mname[-4:]=="fufi"):
       mask[:,:,1] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
       dontmask = 1
       img = randomHueSaturationValue(img,
                                      hue_shift_limit=(-100, 100),
-                                     sat_shift_limit=(0, 0),
+                                     sat_shift_limit=(-25, 25),
                                      val_shift_limit=(-25, 25))
    elif (mname[-5:]=="clone"):
-      mname_broken = mask_f.split('/')[-1].split('_')
+      mname_broken = mask_f.upper().split('/')[-1].split('_')
       if "KDM6A" in mname_broken:
          mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 2
       if "MAOA" in mname_broken:
          mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 2
-      if "NONO" in mname_broken:
+      if "NONO" in mname_broken.:
          mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 2
       if "HDAC6" in mname_broken:
@@ -89,22 +89,20 @@ def train_process(data):
       if "STAG2" in mname_broken:
          mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 2
-      if "p53" in mname_broken:
+      if "P53" in mname_broken:
          mask[:,:,3] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 3
-      if "mPAS" in mname_broken:
+      if "MPAS" in mname_broken:
          mask[:,:,4] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
          dontmask = 4
       img = randomHueSaturationValue(img,
-                                     hue_shift_limit=(-25, 25),
-                                     sat_shift_limit=(0, 0),
+                                     hue_shift_limit=(-5, 5),
+                                     sat_shift_limit=(-15, 15),
                                      val_shift_limit=(-15, 15))
-
 
    img, mask = randomShiftScaleRotate(img, mask,
                                     shift_limit=(-0.0625, 0.0625),
-                                    scale_limit=(-0.1, 0.1),
-                                    rotate_limit=(-20, 20))
+                                    scale_limit=(-0.1, 0.1))
    img, mask = randomHorizontalFlip(img, mask)
    fix_mask(mask)
    

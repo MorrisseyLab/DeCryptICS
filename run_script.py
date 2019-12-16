@@ -201,29 +201,29 @@ def run_analysis():
                pass
             else:
                print("Beginning segmentation on %s with clonal mark type %d." % (full_paths[i], clonal_mark_list[i]))
-               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, chan_num, prob_thresh = 0.6)
+               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, chan_num, prob_thresh = 0.6, clone_prob_thresh = 0.05)
                
       ## DO NOT USE -- NOT FULLY IMPLEMENTED
       if (method=="B"):
-         print("Don't use method=='B': Bayesian segmentation method not implemented in new version.")
+         print("Don't use method=='B': Bayesian segmentation method not implemented in new software version.")
          return 0
-         from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder
-         ## Get parameters and pickle for all desired runs
-         print("Pickling parameters for analysis")
-         for i in range(num_to_run):
-            if (os.path.isfile(folders_to_analyse[i]+"params.pickle") and args.r==False):
-               print("Passing on %s, parameters previously pickled." % file_in[i])
-               pass
-            else: 
-               GetThresholdsPrepareRun(full_paths[i], file_in[i], folder_out, clonal_mark_list[i])                    
-         ## Perform analysis
-         print("Performing analysis")
-         for i in range(num_to_run):
-            if (os.path.isfile(folders_to_analyse[i]+"crypt_contours.txt") and args.r==False):
-               print("Passing on %s, image previously analysed." % folders_to_analyse[i])
-               pass
-            else:
-               SegmentFromFolder(folders_to_analyse[i], clonal_mark_list[i], False)
+#         from SegmentTiled_gen import GetThresholdsPrepareRun, SegmentFromFolder
+#         ## Get parameters and pickle for all desired runs
+#         print("Pickling parameters for analysis")
+#         for i in range(num_to_run):
+#            if (os.path.isfile(folders_to_analyse[i]+"params.pickle") and args.r==False):
+#               print("Passing on %s, parameters previously pickled." % file_in[i])
+#               pass
+#            else: 
+#               GetThresholdsPrepareRun(full_paths[i], file_in[i], folder_out, clonal_mark_list[i])                    
+#         ## Perform analysis
+#         print("Performing analysis")
+#         for i in range(num_to_run):
+#            if (os.path.isfile(folders_to_analyse[i]+"crypt_contours.txt") and args.r==False):
+#               print("Passing on %s, image previously analysed." % folders_to_analyse[i])
+#               pass
+#            else:
+#               SegmentFromFolder(folders_to_analyse[i], clonal_mark_list[i], False)
                 
       ## Extract crypt counts from all analysed slides into base path
       extract_counts_csv(file_in, folder_out)

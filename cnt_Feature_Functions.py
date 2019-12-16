@@ -67,7 +67,7 @@ def add_nearby_clones(patch, indices, clone_inds, i, j):
    return patch
 
 def joinContoursIfClose_OnlyKeepPatches(crypt_contours, crypt_dict, clone_inds):
-   nn = np.minimum(7, len(crypt_contours)-1)
+   nn = np.minimum(9, len(crypt_contours)-1)
    nbrs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(crypt_dict['crypt_xy'])
    distances, indices = nbrs.kneighbors(crypt_dict['crypt_xy'])    
    patches = []
