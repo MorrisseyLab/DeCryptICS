@@ -15,6 +15,7 @@
 *.svs
 *.csv
 *.tsv
+*.zip
 
 # Tensorboard logs
 events.out.tfevents.*
