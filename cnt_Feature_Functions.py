@@ -94,36 +94,23 @@ def joinContoursIfClose_OnlyKeepPatches(crypt_contours, crypt_dict, clone_inds):
    used_patches = []
    for pp in range(len(cut_patches)):
       thispatch = cut_patches[pp]
+      if np.any([thispatch.issubset(aset) for aset in cut_patches2]):
+         # this patch is already part of a bigger patch
+         continue
       used_patches.append(thispatch)
-      subset_bool = [thispatch.issubset(aset) for aset in cut_patches]
-      good_subsets = np.where(subset_bool)[0]
+      # get  quicker version of power set and check for all matching subsets
+      allsubsets = list(thispatch)
+      good_subsets = []
+      for sbset in allsubsets:
+         subset_bool = [set([sbset]).issubset(aset) for aset in cut_patches]
+         good_subsets += list(np.where(subset_bool)[0])
+      good_subsets = list(set(good_subsets))
       for jj in good_subsets:
          if cut_patches[jj] not in used_patches:
             thispatch |= cut_patches[jj]
       cut_patches2.append(thispatch)
-   
+  
    # check lengths and occurrences of indices
-#   allinds = []
-#   for pp in cut_patches2:
-#      for ind in pp: allinds.append(ind)
-    
-   # old; broken
-   # join any repeated subsets
-#   cut_patches2 = []
-#   j = 0
-#   joined_patch_ids = []
-#   for s in cut_patches:
-#      if j not in joined_patch_ids:
-#         curr_set = s.copy()
-#         joined_patch_ids.append(j)
-#         for ind in s:
-#            for i in range(j+1, len(cut_patches)):
-#               s2 = cut_patches[i]
-#               if ind in s2:
-#                  curr_set |= s2
-#                  joined_patch_ids.append(i)
-#         cut_patches2.append(curr_set)
-#         j += 1
    patch_size = [len(s) for s in cut_patches2]
    cnt_joined = []
    for patch in cut_patches2:
@@ -135,7 +122,6 @@ def joinContoursIfClose_OnlyKeepPatches(crypt_contours, crypt_dict, clone_inds):
       patch = list(patch)
       newpatchinds.append(patch)
    return cnt_joined, patch_size, newpatchinds
-
 
 ## Modified version of 
 ## http://dsp.stackexchange.com/questions/2564/opencv-c-connect-nearby-contours-based-on-distance-between-them

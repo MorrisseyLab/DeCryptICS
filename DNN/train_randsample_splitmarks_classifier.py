@@ -423,8 +423,8 @@ if __name__=="__main__":
    samples_cl_f += fsamps_clones_ch1 + fsamps_clones_ch2 + fsamps_clones_ch3 + fsamps_clones_ch4
 
    ## Train   
-   curr_weights = "/weights/cryptfuficlone_split_weights3.hdf5"
-   weights_name = dnnfolder+"/weights/cryptfuficlone_split_weights.hdf5"
+   curr_weights = "/weights/cryptfuficlone_split_weights2.hdf5"
+   weights_name = dnnfolder+"/weights/cryptfuficlone_split_weights3.hdf5"
    model_split.load_weights(dnnfolder+curr_weights)
    logs_folder = dnnfolder+"/logs"
    

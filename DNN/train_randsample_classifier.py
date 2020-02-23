@@ -77,7 +77,8 @@ def train_process_events(data):
                                      hue_shift_limit=(-100, 100),
                                      sat_shift_limit=(-25, 25),
                                      val_shift_limit=(-25, 25))
-   elif (mname[-5:]=="clone"):
+   elif (mname[-5:].lower()=="clone" or 
+         mname[-7:].lower()=="partial"):
       mname_broken = mask_f.upper().split('/')[-1].split('_')
       if "KDM6A" in mname_broken:
          mask[:,:,2] = cv2.imread(mask_f, cv2.IMREAD_GRAYSCALE)
@@ -188,9 +189,10 @@ if __name__=="__main__":
    training_base_folder = "/home/doran/Work/py_code/DeCryptICS/DNN/"
    imgfolder = training_base_folder + "/input/train/"
    maskfolder = training_base_folder + "/input/train_masks/"
-   crypts = glob.glob(imgfolder + "*_crypt.png")
-   fufis = glob.glob(imgfolder + "*_fufi.png")
-   clones = glob.glob(imgfolder + "*_clone.png")
+   crypts = glob.glob(imgfolder + "*_*rypt.png")
+   fufis = glob.glob(imgfolder + "*_*ufi.png")
+   clones = glob.glob(imgfolder + "*_*lone.png") # case insensitive only on first letter!
+   clones = clones + glob.glob(imgfolder + "*_*artial.png") # add any partials so labelled
 
    # get crypt samples from which to sample from
    for i in range(len(crypts)):
@@ -227,8 +229,20 @@ if __name__=="__main__":
 #      mask = maskfolder_m+"mask"+clones_m[i][(len(imgfolder_m)+3):]
 #      sample = (clones_m[i], mask)
 #      samples_cl.append(sample)
-            
+   
+   # load Kate manual curation clones
+   training_base_folder2 = dnnfolder + '/input/new_train_set/'
+   imgfolder2 = training_base_folder2 + "/img/"
+   maskfolder2 = training_base_folder2 + "/mask/"
+   t_clones = glob.glob(imgfolder2 + '/set_*/slide_*/img*T_*lone.png')
+   t_clones_masks = [s.replace('img', 'mask') for s in t_clones]
+   samples_cl_2 = []
+   for i in range(len(t_clones)):
+      sample = (t_clones[i], t_clones_masks[i])
+      samples_cl_2.append(sample)
+               
    samples += samples_cl
+   samples += samples_cl_2
    samples += samples_fu
    random.shuffle(samples)
    

@@ -93,8 +93,22 @@ def randomShiftScaleRotate(image, mask,
 
     return image, mask
 
+def ReproducerandomHueSaturationValue(image, hue_shift, sat_shift, val_shift):
+   image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+   h, s, v = cv2.split(image)
+   h = cv2.add(h, hue_shift)
+   s = cv2.add(s, sat_shift)
+   v = cv2.add(v, val_shift)
+   image = cv2.merge((h, s, v))
+   image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
+   return image
+
 def randomHorizontalFlip(image, mask, u=0.5):
     if np.random.random() < u:
         image = cv2.flip(image, 1)
         mask = cv2.flip(mask, 1)
     return image, mask
+    
+def HorizontalFlip(image):
+   image = cv2.flip(image, 1)
+   return image    

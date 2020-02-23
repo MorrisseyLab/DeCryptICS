@@ -31,6 +31,37 @@ def add_single_offset(contour, xy_offset):
    new_cnt_l = new_cnt_l.reshape(shape_prior)
    return new_cnt_l
 
+def pull_contour_check(img_path, cnts, points, scale, imgsize, dwnsmpl_lvl):
+   # find the correct patch contour by checking centroids are inside
+   inside_cnt = None
+   count = 0
+   for cnt_i in cnts:
+      allgood = True
+      for k in range(points.shape[0]):
+         x = points[k,0]
+         y = points[k,1]
+         if not (cv2.pointPolygonTest(cnt_i, (int(x/scale), int(y/scale)), False)==0 or
+                 cv2.pointPolygonTest(cnt_i, (int(x/scale), int(y/scale)), False)==1   ):
+            allgood = False
+            count += 1
+            break
+      if allgood==True:
+         inside_cnt = cnt_i
+         break
+
+   cnt = inside_cnt
+   # create bounded box
+   bb_m = np.asarray(cv2.boundingRect(cnt))
+   bb_m[0] = int(bb_m[0] - np.maximum(100, (imgsize - bb_m[2])/2.))
+   bb_m[1] = int(bb_m[1] - np.maximum(100, (imgsize - bb_m[3])/2.))
+   bb_m[2] = int(bb_m[2] + np.maximum(100, (imgsize - bb_m[2])))
+   bb_m[3] = int(bb_m[3] + np.maximum(100, (imgsize - bb_m[3])))
+   bb_m[bb_m<0] = 0
+   img = getROI_img_osl(img_path, (bb_m[0], bb_m[1]), (bb_m[2], bb_m[3]), dwnsmpl_lvl)
+   rec_cnt = add_single_offset(cnt, (-bb_m[0], -bb_m[1]))
+   cv2.drawContours(img, [rec_cnt], 0, (80,80,50), 2)
+   return img
+
 def pull_contour(img_path, cnt, dwnsmpl_lvl, imgsize):
    # create bounded box
    bb_m = np.asarray(cv2.boundingRect(cnt))
@@ -151,13 +182,43 @@ def main():
       gg = np.zeros(10)
    if len(gg.shape)==1:
       gg = gg.reshape((1,gg.shape[0]))
+      
+   ## Put a check in here to alter the patch sizes to match the number of clones with the unique id
    allclones = np.where(gg[:,3]>0)[0]
-   patchsize_inds = np.where(gg[:,4]>0)[0]
    patchid_inds = np.where(gg[:,5]>0)[0]
-   sizes_ = gg[patchsize_inds, 4]
-   ids_ = gg[patchid_inds, 5].astype(np.int32)
+   sizes_ = gg[patchid_inds,4]
+   ids_ = gg[patchid_inds,5].astype(np.int32)
    uniq_ids_ = np.unique(ids_).astype(np.int32)
+
+   all_okay = False
+   while all_okay==False:
+      all_okay = True
+      for jj in uniq_ids_:
+         quoted_sizes = sizes_[np.where(ids_==jj)[0]]
+         crypts_with_size = len(sizes_[np.where(ids_==jj)[0]])
+         if (np.all(quoted_sizes==crypts_with_size)==False):
+            all_okay = False
+            # reduce the patch size for the rest of the patch
+            thispatch = np.where(gg[:,5]==jj)[0]
+            for k in thispatch:
+               gg[k,4] = crypts_with_size
+            if len(thispatch)==1:
+               # no longer a patch
+               gg[thispatch[0],4] = 0
+               gg[thispatch[0],5] = 0
+      # recalculate arrays
+      allclones = np.where(gg[:,3]>0)[0]
+      patchid_inds = np.where(gg[:,5]>0)[0]
+      sizes_ = gg[patchid_inds,4]
+      ids_ = gg[patchid_inds,5].astype(np.int32)
+      uniq_ids_ = np.unique(ids_).astype(np.int32)
    
+#   #tests 
+#   for jj in uniq_ids_:
+#      print(sizes_[np.where(ids_==jj)[0]])
+#      print(jj)
+#      print(np.all(sizes_[np.where(ids_==jj)[0]]==len(sizes_[np.where(ids_==jj)[0]])))
+      
    # get patch contours
    patchcnts_fn = folder_to_analyse + "/patch_contours.txt"
    patchcnts = load_contours(patchcnts_fn, scale = scale)
@@ -167,6 +228,9 @@ def main():
    examine_inds = []
    lastbinned_l = []
    i = 0
+   print("Use '1' or 'a' for good patches and '0' or 'd' for bad patches!")
+   print("Use '3' or 'w' for patches that you want to curate in more detail afterwards.")
+   print("(Or press 'p' to undo the last choice and go back to the previous image.)")
    while i<(len(uniq_ids_)+1):
       if i==len(uniq_ids_):
          # allow one last 'p' in case final image was wrongly catergorised
@@ -187,8 +251,11 @@ def main():
          ind = uniq_ids_[i]
          thissize = sizes_[np.where(ids_==ind)[0][0]]
          print("patch size = %d" % int(thissize))
-         thiscnt = patchcnts[i]
-         img = pull_contour(img_path, thiscnt, dwnsmpl_lvl, imgsize)
+#         thiscnt = patchcnts[i]
+#         img = pull_contour(img_path, thiscnt, dwnsmpl_lvl, imgsize)
+         # tests
+         pnts = gg[np.where(gg[:,5]==ind)[0], :2]
+         img = pull_contour_check(img_path, patchcnts, pnts, scale, imgsize, dwnsmpl_lvl)
          decision_flag = plot_img_keep_decision(img, resolution = resolution)
          if (decision_flag == ord('a') or decision_flag == ord('1')):
             good_patches.append(int(ind))
@@ -235,12 +302,14 @@ def main():
             cur_pid = gg[j,5]
             gg[j,5] = 0 # patch id
             if cur_pid>0:
+               # reduce the patch size for the rest of the patch
                thispatch = np.where(gg[:,5]==cur_pid)[0]
                for k in thispatch:
                   gg[k,4] = gg[k,4] - 1
                if len(thispatch)==1:
+                  # no longer a patch
                   gg[thispatch[0],4] = 0
-                  gg[thispatch[0],5] = 0   
+                  gg[thispatch[0],5] = 0
    
    # find the clones remaining after patch curation
    clone_inds = np.setdiff1d(np.where(gg[:,3]>0)[0], patchid_inds)
@@ -330,10 +399,12 @@ def main():
          cur_pid = gg[j,5]
          gg[j,5] = 0 # patch id
          if cur_pid>0:
+            # reduce the patch size for the rest of the patch
             thispatch = np.where(gg[:,5]==cur_pid)[0]
             for k in thispatch:
                gg[k,4] = gg[k,4] - 1
             if len(thispatch)==1:
+               # no longer a patch
                gg[thispatch[0],4] = 0
                gg[thispatch[0],5] = 0
 
@@ -359,7 +430,7 @@ def main():
       clone_scores[local_good_inds] = 1
       write_score_text_file(clone_scores, folder_to_analyse + "/clone_scores.txt")
 
-      unique_patches = np.vstack(list({tuple(row) for row in gg[allclones, 4:6]}))
+      unique_patches = np.vstack(list({tuple(row) for row in gg[allclones, 4:6]})) # size, id
       numpatches = unique_patches.shape[0] - 1 # get rid of zero-zero row
       patchsum = int(np.sum(unique_patches, axis=0)[0])
       patch_sizes = unique_patches[unique_patches[:,0]>0, 0].astype(int)

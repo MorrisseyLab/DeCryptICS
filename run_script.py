@@ -201,7 +201,7 @@ def run_analysis():
                pass
             else:
                print("Beginning segmentation on %s with clonal mark type %d." % (full_paths[i], clonal_mark_list[i]))
-               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, chan_num, prob_thresh = 0.6, clone_prob_thresh = 0.05)
+               predict_slide_DNN(full_paths[i], folders_to_analyse[i], clonal_mark_list[i], dnn_model, chan_num, prob_thresh = 0.6, clone_prob_thresh = 0.45)
                
       ## DO NOT USE -- NOT FULLY IMPLEMENTED
       if (method=="B"):

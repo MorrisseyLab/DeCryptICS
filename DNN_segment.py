@@ -32,10 +32,12 @@ elif keras.backend._BACKEND=="mxnet":
    input_shape = (3, params.input_size_run, params.input_size_run)
    chan_num = 1
 model = params.model_factory(input_shape=input_shape, num_classes=5, chan_num=chan_num)
+#model = params.model_factory(input_shape=input_shape, num_classes=6, chan_num=chan_num) # split negative nuclear/cytoplasmic marks into 1 and 2
 maindir = os.path.dirname(os.path.abspath(__file__))
 weightsin = os.path.join(maindir, 'DNN', 'weights', 'cryptfuficlone_weights.hdf5')
 model.load_weights(weightsin)
 #model.load_weights("./DNN/weights/cryptfuficlone_weights.hdf5")
+#model.load_weights("./DNN/weights/cryptfuficlone_split_weights2.hdf5")
 
 
 def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size_run, params.input_size_run)):
@@ -65,7 +67,7 @@ def get_tile_indices(maxvals, overlap = 50, SIZE = (params.input_size_run, param
     return all_indx
 
 def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, chan_num, 
-                      prob_thresh = 0.6, clone_prob_thresh = 0.05):
+                      prob_thresh = 0.6, clone_prob_thresh = 0.45):
    start_time = time.time()
    imnumber = file_name.split("/")[-1].split(".")[0]
    mkdir_p(folder_to_analyse)
@@ -179,7 +181,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, cha
 
       ## Assess overlap of crypt contours with fufi and clone contours,
       ## thus build up an index system for the crypt contours to assess a knn network
-      fixed_crypt_contours, fixed_fufi_contours, fixed_clone_contours, crypt_dict = fix_fufi_clone_patch_specifications(crypt_contours, fufi_contours, clone_contours)      
+      fixed_crypt_contours, fixed_fufi_contours, fixed_clone_contours, crypt_dict = fix_fufi_clone_patch_specifications(crypt_contours, fufi_contours, clone_contours)
       
       ## Fix fufi clones and join patches; join clones inside same crypts
       fixed_clone_contours, clone_scores, patch_contours, patch_sizes, patch_indices, patch_indices_local, crypt_dict = fix_patch_specification(fixed_crypt_contours, fixed_clone_contours, crypt_dict)      

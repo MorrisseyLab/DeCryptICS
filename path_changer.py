@@ -42,6 +42,10 @@ def main():
    # replace in load contours file
    if '\\' in newpath:
       newpath = newpath.replace('\\', '\\\\')
+      end_bool = True
+      while end_bool:
+         end_bool = newpath[-2:]=='\\\\'
+         if end_bool: newpath = newpath[:-2]
       inplace_replace(groovyfile, oldpath, newpath+"\\\\Analysed_slides\\\\")
    if '/' in newpath:
       inplace_replace(groovyfile, oldpath, newpath+"/Analysed_slides/")
@@ -60,18 +64,25 @@ def main():
    # replace in project file
    if '\\' in oldpath:
       oldpathlist = oldpath.split('\\')[:-1]
-      sepp = "\\\\"
-      sep = "\\"
+      sepp = '\\\\'
+      sep = '\\'
       ## catch both examples (doesn't deal with a mixed \ \\ file path)
-      oldpath1 = sepp.join(oldpathlist) + sepp
-      oldpath2 = sep.join(oldpathlist) + sep
-      inplace_replace(projfile, oldpath1, newpath + sepp)
-      inplace_replace(projfile, oldpath2, newpath + sepp)
+      oldpath1 = sepp.join([s for s in oldpathlist if s!='']) + sepp
+      oldpath2 = sep.join([s for s in oldpathlist if s!='']) + sep
+      if '\\' in newpath:
+         inplace_replace(projfile, oldpath1, newpath + sepp)
+         inplace_replace(projfile, oldpath2, newpath + sepp)
+      elif '/' in newpath:
+         inplace_replace(projfile, oldpath1, newpath + '/')
+         inplace_replace(projfile, oldpath2, newpath + '/')
    if '/' in oldpath:
       oldpathlist = oldpath.split('/')[:-1]
       sepp = '/'
-      oldpath1 = sepp.join(oldpathlist) + sepp
-      inplace_replace(projfile, oldpath1, newpath)
+      oldpath1 = sepp.join([s for s in oldpathlist if s!='']) + sepp
+      if '\\' in newpath:
+         inplace_replace(projfile, oldpath1, newpath + '\\\\')
+      elif '/' in newpath:
+         inplace_replace(projfile, oldpath1, newpath + '/')
 
 if __name__=="__main__":
    main()

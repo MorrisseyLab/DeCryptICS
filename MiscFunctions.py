@@ -135,6 +135,89 @@ def load_all_contours2(filename_list, scales = None, H_mats = None):
       cntsout.append(cnts_m)
    return cntsout
 
+def load_single_contour(filename, cnt_id = 0, scale = None, H_mat = None):   
+   with open(filename) as fp:
+      for i, line in enumerate(fp):
+         if i == (cnt_id*2):
+            x = line
+         elif i == (cnt_id*2+1):
+            y = line
+         elif i > (cnt_id*2+1):
+            break
+   cnt_out = []
+   lx = x[:-1].split(',')
+   lx = [int(float(cx)) for cx in lx]
+   ly = y[:-1].split(',')
+   ly = [int(float(cy)) for cy in ly]
+   numpnts = len(lx)
+   a = np.zeros([numpnts,1,2], dtype=np.int32)
+   for k in range(numpnts):
+      a[k,0,0] = lx[k]
+      a[k,0,1] = ly[k]
+   if (scale is not None):
+      a = rescale_contours(a, 1./scale)
+   if (H_mat is not None): 
+      a = rotate_contours(a, H_mat)
+   cnt_out.append(a)
+   return cnt_out
+
+def rotate_contours(cnts, H_mat):
+   new_cnts = []
+   for l in range(len(cnts)):
+      shape_prior = cnts[l].shape
+      cnt_l = cnts[l].reshape((cnts[l].shape[0],cnts[l].shape[2]))
+      new_cnt_l = np.around(transform_XY(cnt_l, H_mat)).astype(np.int32)
+      new_cnt_l = new_cnt_l.reshape(shape_prior)
+      new_cnts.append(new_cnt_l)
+   return new_cnts
+
+def contour_xy(cnt, reverse = False):
+    m_ij   = cv2.moments(cnt)
+    pos_xy = (int(m_ij['m10']/m_ij['m00']), int(m_ij['m01']/m_ij['m00']))
+    if reverse:
+        pos_xy = (pos_xy[1],pos_xy[0])
+    return(pos_xy)
+
+def transform_XY(XY, H_mat):
+   XYZ = np.ones((3, XY.shape[0]))
+   XYZ[:2,:] = XY.T
+   new_XYZ = np.dot(H_mat, XYZ)
+   return new_XYZ[:2,:].T
+
+def RotationTranslationMatrix(theta, xt, yt, midpointxy, opencv=True):
+   # rotate by rot_angle theta (-180,180] and then translate by vector (xt, yt)
+   theta_rad = theta/180. * np.pi
+   if opencv==False:
+      RT = np.array([[np.cos(theta_rad), -np.sin(theta_rad), xt],
+                     [np.sin(theta_rad), np.cos(theta_rad) , yt],
+                     [0            , 0             , 1 ]])
+   else:
+      RT = np.array([[np.cos(theta_rad) , np.sin(theta_rad), xt],
+                     [-np.sin(theta_rad), np.cos(theta_rad), yt],
+                     [0            , 0             , 1 ]])
+   # alter rotation axis from origin to centre of image
+   cx_f = midpointxy[0]
+   cy_f = midpointxy[1]
+   rot_mat = RT.copy()
+   rot_mat[:2, 2] = np.array([0,0]) # extract pure rotation
+   extra_translate = (np.around(np.dot(rot_mat, np.array([cx_f, cy_f, 1])))).astype(np.int32)
+   RT[:2,2] = RT[:2,2] - extra_translate[:2] + np.array([cx_f, cy_f])
+   return RT
+
+def rotate_contour_about_centre(cnt, H_mat, centre=None):
+   shape_prior = cnt.shape
+   cnt = cnt.reshape((cnt.shape[0],cnt.shape[2]))
+   if centre==None:
+      try:
+         centre = contour_xy(cnt)
+      except:
+         centre = np.mean(cnt, axis=0)
+   theta = np.angle(H_mat[0,0] + 1j*H_mat[0,1], deg=True)
+   RT = RotationTranslationMatrix(theta, 0, 0, centre)   
+   new_cnt = np.around(transform_XY(cnt, RT)).astype(np.int32)
+   new_cnt = new_cnt.reshape(shape_prior)
+   return new_cnt
+
 def simplify_contours(cnt_list):
     new_cnts = []
     for i in cnt_list:
