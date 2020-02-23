@@ -6,7 +6,7 @@ from keras.regularizers import l2
 from keras.optimizers   import RMSprop, Adam
 from keras.losses import binary_crossentropy
 from DNN.losses         import *
-from DNN.autocuration.layers import ROIPoolingLayer, LayerNormalization
+#from DNN.autocuration.layers import ROIPoolingLayer, LayerNormalization
 from math import sqrt
 import keras.backend as K
 
@@ -45,6 +45,71 @@ def make_A(tensors):
    Ax = K.sum(Axy, axis=2, keepdims=True)
    return K.sum(Ax, axis=1, keepdims=True)
 
+def roi_pool(tensors, pooled_width, pooled_height):
+         """ Applies ROI pooling to a single image and a single region of interest
+         """
+         feature_map = tensors[0]
+         roi = tensors[1]
+         
+         ## Compute the region of interest
+         feature_map_height = int(feature_map.shape[0])
+         feature_map_width  = int(feature_map.shape[1])
+
+         x_start = tf.cast(feature_map_width  * roi[0], 'int32')
+         y_start = tf.cast(feature_map_height * roi[1], 'int32')
+         x_end   = tf.cast(feature_map_width  * roi[2], 'int32')
+         y_end   = tf.cast(feature_map_height * roi[3], 'int32')
+
+         region = feature_map[y_start:y_end, x_start:x_end, :]
+
+         ## Divide the region into non overlapping areas
+         region_height = y_end - y_start
+         region_width  = x_end - x_start
+#         numpixels_x = K.get_value(region_width)
+#         numpixels_y = K.get_value(region_height)
+         nbins_x = pooled_width
+         nbins_y = pooled_height
+         x_inds = [0]*(nbins_x)
+         y_inds = [0]*(nbins_y)
+         overhang_x  = K.get_value(region_width) % nbins_x
+         overhang_y  = K.get_value(region_height) % nbins_y
+#         normal_bin_width_x = numpixels_x // nbins_x
+#         normal_bin_width_y = numpixels_y // nbins_y
+         normal_bin_width_y = tf.cast( region_height / pooled_height, 'int32')
+         normal_bin_width_x = tf.cast( region_width  / pooled_width , 'int32')
+         ## (nbins - overhang) * normal_bin_width + overhang*(normal_bin_width + 1) == numpixels
+         cw = normal_bin_width_x
+         for i in range(nbins_x-overhang_x):
+            x_inds[i] = (i*cw, (i+1)*cw)
+         done = (nbins_x-overhang_x)*normal_bin_width_x
+         cw   = normal_bin_width_x + 1
+         for i in range(overhang_x):
+            x_inds[i + nbins_x-overhang_x] = (done + i*cw, done + (i+1)*cw)
+
+         cw = normal_bin_width_y
+         for i in range(nbins_y-overhang_y):
+            y_inds[i] = (i*cw, (i+1)*cw)
+         done = (nbins_y-overhang_y)*normal_bin_width_y
+         cw   = normal_bin_width_y + 1
+         for i in range(overhang_y):
+            y_inds[i + nbins_y-overhang_y] = (done + i*cw, done + (i+1)*cw)
+
+         areas = [[(
+                       xx[0], 
+                       yy[0], 
+                       xx[1], 
+                       yy[1]
+                    ) 
+                      for xx in x_inds] 
+                     for yy in y_inds]
+        
+         # take the maximum of each area and stack the result
+         def pool_area(x): 
+            return K.max(region[x[1]:x[3], x[0]:x[2], :], axis=[0,1])
+
+         pooled_features = tf.stack([[pool_area(x) for x in row] for row in areas])
+         return pooled_features
+
 def test(input_shape=(512, 512, 3), queryroi_shape=(4,), poolsize=(7, 7), chan_num=3):
    ## feed rois as (y, x, h, w)
    inputs = Input(shape=input_shape)
@@ -69,7 +134,9 @@ def test(input_shape=(512, 512, 3), queryroi_shape=(4,), poolsize=(7, 7), chan_n
    feature_maps = Activation('relu')(down1)  
    
    # extract query crypt features and remove the n_rois dimension
-   roi_pool = ROIPoolingLayer(poolsize[1], poolsize[0])([feature_maps, query])
+   roi_pool = Lambda(roi_pool, arguments={'pooled_width':poolsize[0], 
+                                          'pooled_height':poolsize[1]})([feature_maps, query])
+#   roi_pool = ROIPoolingLayer(poolsize[1], poolsize[0])([feature_maps, query])
 #   roi_pool = Lambda(remove_roi_channel)(roi_pool)
 
    # process query
