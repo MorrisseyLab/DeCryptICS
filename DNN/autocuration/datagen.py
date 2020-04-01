@@ -9,7 +9,7 @@ import multiprocessing
 from sklearn.neighbors import NearestNeighbors
 from MiscFunctions import getROI_img_osl, read_cnt_text_file, rescale_contours, mkdir_p,\
                           load_all_contours2, plot_img, load_single_contour,\
-                          rotate_contour_about_centre, add_offset, load_all_contours2
+                          rotate_contour_about_centre, add_offset
 
 datapath = "./DNN/autocuration/data/"
 
@@ -89,6 +89,25 @@ def pad_image(img_hi_bb, DNN_size):
          img_hi_bb = np.vstack([pad, img_hi_bb, pad])
          img_hi_bb = cv2.resize(img_hi_bb, (DNN_size, DNN_size), interpolation = cv2.INTER_AREA)
    return img_hi_bb
+   
+def pad_image_keeppadding(img_hi_bb, DNN_size):
+   pad_lr = 0
+   pad_tb = 0
+   if (img_hi_bb.shape[0]>=img_hi_bb.shape[1]):
+      img_hi_bb, r = image_resize_keepscaling(img_hi_bb, height = DNN_size)
+      if (img_hi_bb.shape[1]!=DNN_size):
+         pad = np.zeros((DNN_size, (DNN_size-img_hi_bb.shape[1])//2, 3), dtype=np.uint8)
+         img_hi_bb = np.hstack([pad, img_hi_bb, pad])
+         img_hi_bb = cv2.resize(img_hi_bb, (DNN_size, DNN_size), interpolation = cv2.INTER_AREA)
+         pad_lr = pad.shape[1]         
+   else:
+      img_hi_bb, r = image_resize_keepscaling(img_hi_bb, width = DNN_size)
+      if (img_hi_bb.shape[0]!=DNN_size):
+         pad = np.zeros(((DNN_size-img_hi_bb.shape[0])//2, DNN_size, 3), dtype=np.uint8)
+         img_hi_bb = np.vstack([pad, img_hi_bb, pad])
+         img_hi_bb = cv2.resize(img_hi_bb, (DNN_size, DNN_size), interpolation = cv2.INTER_AREA)
+         pad_lr = pad.shape[0]         
+   return img_hi_bb, r, pad_lr, pad_tb
 
 def image_resize(image, width = None, height = None, inter = cv2.INTER_AREA):
     # initialize the dimensions of the image to be resized and
@@ -115,6 +134,32 @@ def image_resize(image, width = None, height = None, inter = cv2.INTER_AREA):
     resized = cv2.resize(image, dim, interpolation = inter)
     # return the resized image
     return resized
+    
+def image_resize_keepscaling(image, width = None, height = None, inter = cv2.INTER_AREA):
+    # initialize the dimensions of the image to be resized and
+    # grab the image size
+    dim = None
+    (h, w) = image.shape[:2]
+    # if both the width and height are None, then return the
+    # original image
+    if width is None and height is None:
+        return image, 1.
+    # check to see if the width is None
+    if width is None:
+        # calculate the ratio of the height and construct the
+        # dimensions
+        r = height / float(h)
+        dim = (int(w * r), height)
+    # otherwise, the height is None
+    else:
+        # calculate the ratio of the width and construct the
+        # dimensions
+        r = width / float(w)
+        dim = (width, int(h * r))
+    # resize the image
+    resized = cv2.resize(image, dim, interpolation = inter)
+    # return the resized image
+    return resized, r
 
 def pull_centered_img(XY, imgpath, tilesize, ROTATE=False, RT_m=0, dwnsample_lvl=1):
    # get slide maximum dims
@@ -327,6 +372,50 @@ def pull_crypt_from_cnt(XY, imgpath, cnt, size_small,
    img_m_cr = img[bb_m[1]:(bb_m[1]+bb_m[3]), bb_m[0]:(bb_m[0]+bb_m[2]), :]
    img_m_cr = pad_image(img_m_cr, size_small)
    return img_m_cr
+ 
+def pull_crypt_from_cnt_keepbbox(XY, imgpath, cnt, size_small, 
+                                 ROTATE=False, RT_m=0, dwnsample_lvl=0):
+   cv2.setNumThreads(0)
+   if type(cnt)!=list: cnt = [cnt]
+   # get slide maximum dims
+   slide = osl.OpenSlide(imgpath)
+   maxdims = slide.level_dimensions[dwnsample_lvl]
+   scale = slide.level_downsamples[dwnsample_lvl]
+   xy_m = XY/scale
+   if dwnsample_lvl>0:
+      cnt = rescale_contours(cnt.copy(), 1./scale)
+   # create initial bounding box to get size_big requirements
+   lt = int(-60/scale) # add to left and top boundaries
+   rb = int(120/scale) # add to width and height
+   bb_pad = np.array([lt, lt, rb, rb], dtype=np.int32)
+   bb_m = np.asarray(cv2.boundingRect(cnt[0])) + bb_pad
+   bb_m[bb_m<0] = 0
+   size_big = int(1.5*np.max(bb_m[-2:]))
+   # create centred tile
+   xy_vals_m_ds_in2 = centred_tile(xy_m, size_big, maxdims, edge_adjust = False)
+   cnt_sub = add_offset(cnt.copy(), -xy_vals_m_ds_in2)
+   Lx = np.maximum(0,int(np.around(xy_vals_m_ds_in2[0])))
+   Ty = np.maximum(0,int(np.around(xy_vals_m_ds_in2[1])))
+   # pull out image and rotate if required
+   img = getROI_img_osl(imgpath, (Lx,Ty), (size_big, size_big), dwnsample_lvl)
+   if ROTATE==True:
+      img = cv2.warpAffine(img.copy(), RT_m[:2,:], img.shape[1::-1])
+      cnt_sub = [rotate_contour_about_centre(cnt_sub[0], RT_m)]
+   # create padded bounded box
+   bb_m = np.asarray(cv2.boundingRect(cnt_sub[0])) + bb_pad
+   bb_m[bb_m<0] = 0
+   img_m_cr = img[bb_m[1]:(bb_m[1]+bb_m[3]), bb_m[0]:(bb_m[0]+bb_m[2]), :]
+   img_m_cr, r, pad_lr, pad_tb = pad_image_keeppadding(img_m_cr, size_small)
+   # rescale for image resize
+   cnt_sub2 = add_offset(cnt.copy(), -(xy_vals_m_ds_in2-bb_m[:2]))
+   lt = int(-40/scale) # add to left and top boundaries
+   rb = int(80/scale) # add to width and height
+   bb_pad2 = np.array([lt, lt, rb, rb], dtype=np.int32)
+   bb_out = np.asarray(cv2.boundingRect(cnt_sub2[0])) + bb_pad2
+   bb_out = bb_out * r
+   # trim for padding
+   bb_out = np.array([bb_out[0]+pad_lr, bb_out[1]+pad_tb, bb_out[2]-pad_lr, bb_out[3]-pad_tb])
+   return img_m_cr, bb_out
    
 def create_nbr_stack(XY, imgpath, cnts, slide_data, ind_m, scr_size=50, nn=30, sampsize=200, multicore=True):
    ## take 20 or 30 closest crypts, and put the centre crypt, ind_m, first
@@ -395,8 +484,8 @@ def get_bounding_box(cnt, imgpath, xy_lt, pad_lt, dwnsample_lvl=0):
    xy_rc = np.array([xy_lt[0]-pad_lt[0], xy_lt[1]-pad_lt[1]])
    cnt_sub = add_offset(cnt.copy(), -xy_rc)
    # create bounding box
-   lt = int(-40/scale) # add to left and top boundaries
-   rb = int(80/scale) # add to width and height
+   lt = int(-60/scale) # add to left and top boundaries
+   rb = int(120/scale) # add to width and height
    bb_pad = np.array([lt, lt, rb, rb], dtype=np.int32)
    bb_m = np.asarray(cv2.boundingRect(cnt_sub[0])) + bb_pad
    bb_m[bb_m<0] = 0

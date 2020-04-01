@@ -155,7 +155,8 @@ def main():
          shutil.copy2(folder_to_analyse + "/crypt_network_data.txt", folder_to_analyse + "/crypt_network_data.bac")
       else:
          shutil.copy2(folder_to_analyse + "/crypt_network_data.bac", folder_to_analyse + "/crypt_network_data.txt")
-         
+   if os.path.isfile(folder_to_analyse + "/crypt_network_data.npy"):
+      os.remove(folder_to_analyse + "/crypt_network_data.npy") # remove binary as may need to update with new one
    if os.path.isfile(folder_to_analyse + "/clone_scores.txt"):
       if not os.path.isfile(folder_to_analyse + "/clone_scores.bac"):
          shutil.copy2(folder_to_analyse + "/clone_scores.txt", folder_to_analyse + "/clone_scores.bac")
@@ -253,7 +254,6 @@ def main():
          print("patch size = %d" % int(thissize))
 #         thiscnt = patchcnts[i]
 #         img = pull_contour(img_path, thiscnt, dwnsmpl_lvl, imgsize)
-         # tests
          pnts = gg[np.where(gg[:,5]==ind)[0], :2]
          img = pull_contour_check(img_path, patchcnts, pnts, scale, imgsize, dwnsmpl_lvl)
          decision_flag = plot_img_keep_decision(img, resolution = resolution)
