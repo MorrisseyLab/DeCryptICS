@@ -140,7 +140,7 @@ sudo apt-get install git
 cd /path/to/software
 git clone https://github.com/MorrisseyLab/DeCryptICS.git
 mkdir ./DeCryptICS/DNN/weights
-wget "https://www.dropbox.com/s/ab4i6o49qzlwifz/cryptfuficlone_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/cryptfuficlone_weights.hdf5
+wget "https://www.dropbox.com/s/2ibwp5npt1jtcrm/cryptfuficlone_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/cryptfuficlone_weights.hdf5
 wget "https://www.dropbox.com/s/rzrf2sm6840obye/mousecrypt_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/mousecrypt_weights.hdf5
 
 # Then, when your run DeCryptICS, make sure to activate your conda environment first, using SHORTCUT_NAME or "source /full/path/to/install-dir/bin/activate NAME_OF_ENV".
