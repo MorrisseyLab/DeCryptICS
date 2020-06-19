@@ -2,7 +2,7 @@ from tensorflow.keras.models       import Model
 from tensorflow.keras.layers       import Input, concatenate, Conv2D, MaxPooling2D, Activation, UpSampling2D, BatchNormalization
 from tensorflow.keras.optimizers   import RMSprop
 from DNN.losses         import *
-import tensorflow.keras.backend as K
+import keras.backend as K
  
 def get_unet_256_for_X(input_shape=(256, 256, 3),
                        num_classes=1, chan_num=3):
