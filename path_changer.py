@@ -79,6 +79,7 @@ def main():
       oldpathlist = oldpath.split('/')[:-1]
       sepp = '/'
       oldpath1 = sepp.join([s for s in oldpathlist if s!='']) + sepp
+      if oldpath1[0]!=sepp: oldpath1 = sepp + oldpath1
       if '\\' in newpath:
          inplace_replace(projfile, oldpath1, newpath + '\\\\')
       elif '/' in newpath:
