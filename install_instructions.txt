@@ -4,71 +4,64 @@ mkdir /your/folder
 cd /your/folder
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh -b -p /full/path/to/install-dir
-# config:
+
+# config
 export PATH=/full/path/to/your/folder/bin:$PATH
-cd ./bin
 conda config --add channels conda-forge
 conda config --add channels defaults
 conda config --add channels r
 conda config --add channels bioconda
 conda update -n base conda
 
-# create a conda environment, where you can choose the name_of_env
-./conda create -n name_of_env
+## python dependencies
+##################
+## EITHER run:
+# create a conda environment, where you can choose the NAME_OF_ENV
+#conda create -n NAME_OF_ENV python=3.6
+#source activate NAME_OF_ENV
+#conda install openslide opencv keras keras-gpu matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
+#pip install xlrd openslide-python
+#pip install -U tensorflow-gpu==1.6.0
 
-# activate environment
-source /full/path/to/install-dir/bin/activate name_of_env
+conda create -n NAME_OF_ENV python=3.7
+source activate NAME_OF_ENV
+<<<<<<< HEAD
+conda install openslide opencv matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
+pip install xlrd openslide-python
+pip install --upgrade tensorflow
+=======
+conda install openslide opencv matplotlib scikit-learn joblib pandas numpy scipy libiconv ipython
+pip install xlrd openslide-python
+pip install -U tensorflow-gpu==1.6.0
+conda install keras-gpu=2.15 tensorflow-gpu=1.6.0
+# numba
 
-# add shortcut to activate env
+
+>>>>>>> aed0c93898af7f0b887b039f260a11824f71f473
+
+## OR use the .yml file:
+conda env create -f dcrypt_env.yml
+# (first changing the first and last lins of dcrypt_env.yml, "name:" and "prefix:", to NAME_OF_ENV, and giving the correct conda install path.)
+# You may also need to run
+source activate NAME_OF_ENV
+conda install openslide
+
+## THEN
+# add shortcut to activate env by:
+# opening the "~/.bashrc" file with any text editor (I'm using vim)
 vim ~/.bashrc
-# add the following line at bottom of file, where you can choose the shortcut_name:
-alias shortcut_name="source /full/path/to/install-dir/bin/activate name_of_env"
+# then adding the following line at bottom of the "~/.bashrc" file, where you can choose the SHORTCUT_NAME:
+alias SHORTCUT_NAME="source /full/path/to/install-dir/bin/activate NAME_OF_ENV"
+
 # save the file and quit, then source:
 source ~/.bashrc
-# now, just typing shortcut_name will activate your new conda environment
 
-## install openslide:
-###################
-wget https://github.com/openslide/openslide/releases/download/v3.4.1/openslide-3.4.1.tar.gz
-tar -xvzf openslide-3.4.1.tar.gz
-cd openslide-3.4.1
-# dependencies:
-sudo apt-get install libopenjp2-7 libopenjp2-7-dev libtiff5-dev libcairo2-dev libgdk-pixbuf2.0-dev libxml2-dev libsqlite3-dev
-# install:
-./configure
-make
-sudo make install
-sudo ldconfig
+# now, just typing SHORTCUT_NAME will activate your new conda environment!
 
-## install libvips:
-###################
-git clone git://github.com/jcupitt/libvips.git
-# dependencies:
-sudo apt-get install gtk-doc-tools swig libtool libglib2.0-dev gobject-introspection
-# install:
-./autogen.sh
-make
-sudo make install
-sudo ldconfig
+# (More instructions below the optional GPU part -- scroll down!)
+*******************START OPTIONAL*************************
 
-## installing python requirements
-###################
-conda install opencv
-conda install -c defaults libprotobuf protobuf
-conda install keras (if you intend to follow the GPU installation below, this will be removed and replaced with keras-gpu)
-conda install matplotlib
-conda update ffmpeg
-pip install --user pyvips
-pip install openslide-python
-conda install scikit-learn
-conda install numba
-conda install joblib
-conda install pandas numpy scipy
-pip install xlrd
-
-## If you just want to run DeCryptICS on your CPU, then the follow installation of CUDA, CUDNN and tensorflow can be skipped. Scroll down to "Final touches".
-
-## install GPU:
+### install GPU:
 ###################
 # CUDA 9.0
 # CUDNN 7.0.4
@@ -140,13 +133,6 @@ export CUDA_HOME=/usr/local/cuda
 export PATH="$PATH:/usr/local/cuda/bin"
 source ~/.bashrc
 
-# Replacing keras with keras-gpu
-# first activate your conda environment using your shortcut
-shortcut_name
-conda uninstall keras
-conda install keras-gpu
-# may now need to update numpy, scipy and pandas
-conda install pandas numpy scipy
 # install correct version of tensorflow:
 pip install -U tensorflow-gpu==1.6.0
 
@@ -157,6 +143,8 @@ from tensorflow.python.client import device_lib
 print(device_lib.list_local_devices())
 # which should show device information about your GPU and CPU
 
+*******************END OPTIONAL*************************
+
 ## Final touches
 ##################
 # All that remains is to clone DeCryptICS from github and download the optimised weights for the neural network:
@@ -164,9 +152,8 @@ sudo apt-get install git
 cd /path/to/software
 git clone https://github.com/MorrisseyLab/DeCryptICS.git
 mkdir ./DeCryptICS/DNN/weights
-wget "https://www.dropbox.com/s/6nlqsed99x5ourl/tile256_for_X_best_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/tile256_for_X_best_weights.hdf5
+wget "https://www.dropbox.com/s/2ibwp5npt1jtcrm/cryptfuficlone_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/cryptfuficlone_weights.hdf5
+wget "https://www.dropbox.com/s/rzrf2sm6840obye/mousecrypt_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/mousecrypt_weights.hdf5
 
-# Then, when your run DeCryptICS, make sure to activate your conda environment first.
+# Then, when your run DeCryptICS, make sure to activate your conda environment first, using SHORTCUT_NAME or "source /full/path/to/install-dir/bin/activate NAME_OF_ENV".
 # That's it!
-
-
