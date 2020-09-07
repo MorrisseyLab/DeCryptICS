@@ -1,539 +1,333 @@
 import tensorflow as tf
-from keras.layers import Layer
-import keras.backend as K
+import tensorflow.keras.backend as K
+from tensorflow.keras.layers import Layer, Conv2D, concatenate, SeparableConv2D, Add,\
+                                    LayerNormalization, Dropout, Activation                                    
 from tensorflow.python.framework import constant_op
-from tensorflow.python.keras import constraints
-from tensorflow.python.keras import initializers
-from tensorflow.python.keras import regularizers
-from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import nn
-from keras.initializers import Ones, Zeros
+from tensorflow.python.keras import constraints, initializers, regularizers
+from tensorflow.python.ops import array_ops, nn
+from tensorflow.keras.initializers import Ones, Zeros
 
-class LayerNormalization(Layer):
-    def __init__(self, eps=1e-6, **kwargs):
-        self.eps = eps
-        super(LayerNormalization, self).__init__(**kwargs)
-    def build(self, input_shape):
-        self.gamma = self.add_weight(name='gamma', shape=input_shape[-1:],
-                                     initializer=Ones(), trainable=True)
-        self.beta = self.add_weight(name='beta', shape=input_shape[-1:],
-                                    initializer=Zeros(), trainable=True)
-        super(LayerNormalization, self).build(input_shape)
-    def call(self, x):
-        mean = K.mean(x, axis=-1, keepdims=True)
-        std = K.std(x, axis=-1, keepdims=True)
-        return self.gamma * (x - mean) / (std + self.eps) + self.beta
-    def compute_output_shape(self, input_shape):
-        return input_shape
+class AttentionAugmentation2D(tf.keras.models.Model):
+    def __init__(self, Fout, k, dk, dv, Nh, relative=False):
+        super(AttentionAugmentation2D,self).__init__()
+        self.output_filters = Fout
+        self.depth_k = dk
+        self.depth_v = dv
+        self.num_heads = Nh
+        self.relative = relative
 
-#class ROIPoolingLayer(Layer):
-#      """ Implements Region Of Interest Max Pooling 
-#        for channel-last images and relative bounding box coordinates
-#        
-#        # Constructor parameters
-#            pooled_width, pooled_height (int) -- 
-#              specify width and height of layer outputs
-#        
-#        Shape of inputs
-#            [(batch_size, pooled_width, pooled_height, n_channels),
-#             (batch_size, 4)]
-#           
-#        Shape of output
-#            (batch_size, pooled_width, pooled_height, n_channels)
+        self.conv_out = SeparableConv2D(filters = Fout - dv, kernel_size = k, padding="same")
+        self.qkv = Conv2D(filters = 2*dk + dv, kernel_size= 1)
+        self.attn_out_conv = Conv2D(filters = dv, kernel_size = 1)
 
-#      """
-#      def __init__(self, pooled_width, pooled_height, **kwargs):
-#         self.pooled_height = pooled_height
-#         self.pooled_width = pooled_width
+    def call(self,inputs):
+        out = self.conv_out(inputs)
+        shape = K.int_shape(inputs)
+        if None in shape:
+            shape = [-1 if type(v)==type(None) else v for v in shape]
+        Batch,H,W,_ = shape
 
-#         super(ROIPoolingLayer, self).__init__(**kwargs)
-#        
-#      def compute_output_shape(self, input_shape):
-#         """ Returns the shape of the ROI Layer output
-#         """
-#         feature_map_shape, rois_shape = input_shape
-#         assert feature_map_shape[0] == rois_shape[0]
-#         batch_size = feature_map_shape[0]
-#         n_channels = feature_map_shape[3]
-#         return (batch_size, self.pooled_width, 
-#                self.pooled_height, n_channels)
-
-#      def call(self, x):
-#         """ Maps the input tensor of the ROI layer to its output
-
-#            # Parameters
-#                x[0] -- Convolutional feature map tensor,
-#                        shape (batch_size, pooled_height, pooled_width, n_channels)
-#                x[1] -- Tensor of region of interests from candidate bounding boxes,
-#                        shape (batch_size, 4)
-#                        Each region of interest is defined by four relative 
-#                        coordinates (x_min, y_min, x_max, y_max) between 0 and 1
-#            # Output
-#                pooled_areas -- Tensor with the pooled region of interest, shape
-#                    (batch_size, num_rois, pooled_height, pooled_width, n_channels)
-#         """
-#         pooled_areas = self._pool_roi(x[0], x[1], 
-#                                      self.pooled_width, 
-#                                      self.pooled_height)
-#         return pooled_areas
-#    
-#      def _pool_roi(self, feature_map, roi, pooled_width, pooled_height):
-#         """ Applies ROI pooling to a single image and a single region of interest
-#         """
-
-#         # Compute the region of interest        
-#         feature_map_height = int(feature_map.shape[1])
-#         feature_map_width  = int(feature_map.shape[2])
-
-#         x_start = tf.cast(feature_map_width  * roi[0], 'int32')
-#         y_start = tf.cast(feature_map_height * roi[1], 'int32')
-#         x_end   = tf.cast(feature_map_width  * roi[2], 'int32')
-#         y_end   = tf.cast(feature_map_height * roi[3], 'int32')
-
-#         region = feature_map[y_start:y_end, x_start:x_end, :]
-
-#         # Divide the region into non overlapping areas
-#         region_height = y_end - y_start
-#         region_width  = x_end - x_start
-#         y_step = tf.cast( region_height / pooled_height, 'int32')
-#         x_step = tf.cast( region_width  / pooled_width , 'int32')
-#        
-#        # this just puts all remainder at edge, get better binning!
-##        areas = [[(
-##                    i*y_step, 
-##                    j*x_step, 
-##                    (i+1)*y_step if i+1 < pooled_height else region_height, 
-##                    (j+1)*x_step if j+1 < pooled_width else region_width
-##                   ) 
-##                   for j in range(pooled_width)] 
-##                  for i in range(pooled_height)]
-
-#         numpixels_x = K.get_value(region_width)
-#         nbins_x = pooled_width
-#         x_inds = [0]*(nbins_x)
-#         overhang_x  = numpixels_x % nbins_x
-#         normal_bin_width_x = numpixels_x // nbins_x
-#         # (nbins - overhang) * normal_bin_width + overhang*(normal_bin_width + 1) == numpixels
-#         cw = normal_bin_width_x
-#         for i in range(nbins_x-overhang_x):
-#            x_inds[i] = (i*cw, (i+1)*cw)
-#         done = (nbins_x-overhang_x)*normal_bin_width_x
-#         cw   = normal_bin_width_x + 1
-#         for i in range(overhang_x):
-#            x_inds[i + nbins_x-overhang_x] = (done + i*cw, done + (i+1)*cw)
-#            
-#         numpixels_y = K.get_value(region_height)
-#         nbins_y = pooled_height
-#         y_inds = [0]*(nbins_y)
-#         overhang_y  = numpixels_y % nbins_y
-#         normal_bin_width_y = numpixels_y // nbins_y
-#         cw = normal_bin_width_y
-#         for i in range(nbins_y-overhang_y):
-#            y_inds[i] = (i*cw, (i+1)*cw)
-#         done = (nbins_y-overhang_y)*normal_bin_width_y
-#         cw   = normal_bin_width_y + 1
-#         for i in range(overhang_y):
-#            y_inds[i + nbins_y-overhang_y] = (done + i*cw, done + (i+1)*cw)
-
-#         areas = [[(
-#                       xx[0], 
-#                       yy[0], 
-#                       xx[1], 
-#                       yy[1]
-#                    ) 
-#                      for xx in x_inds] 
-#                     for yy in y_inds]
-#        
-#         # take the maximum of each area and stack the result
-#         def pool_area(x): 
-#            return K.mean(region[x[1]:x[3], x[0]:x[2], :], axis=[0,1])
-#        
-#         pooled_features = tf.stack([[pool_area(x) for x in row] for row in areas])
-#         return pooled_features
-
-
-
-#class ROIPoolingLayer(Layer):
-#      """ Implements Region Of Interest Max Pooling 
-#        for channel-last images and relative bounding box coordinates
-#        
-#        # Constructor parameters
-#            pooled_width, pooled_height (int) -- 
-#              specify width and height of layer outputs
-#        
-#        Shape of inputs
-#            [(batch_size, pooled_width, pooled_height, n_channels),
-#             (batch_size, num_rois, 4)]
-#           
-#        Shape of output
-#            (batch_size, num_rois, pooled_width, pooled_height, n_channels)
-
-#      """
-#      def __init__(self, pooled_width, pooled_height, **kwargs):
-#         self.pooled_height = pooled_height
-#         self.pooled_width = pooled_width
-
-#         super(ROIPoolingLayer, self).__init__(**kwargs)
-#        
-#      def compute_output_shape(self, input_shape):
-#         """ Returns the shape of the ROI Layer output
-#         """
-#         feature_map_shape, rois_shape = input_shape
-#         assert feature_map_shape[0] == rois_shape[0]
-#         batch_size = feature_map_shape[0]
-#         n_rois = rois_shape[1]
-#         n_channels = feature_map_shape[3]
-#         return (batch_size, n_rois, self.pooled_width, 
-#                self.pooled_height, n_channels)
-
-#      def call(self, x):
-#         """ Maps the input tensor of the ROI layer to its output
-
-#            # Parameters
-#                x[0] -- Convolutional feature map tensor,
-#                        shape (batch_size, pooled_height, pooled_width, n_channels)
-#                x[1] -- Tensor of region of interests from candidate bounding boxes,
-#                        shape (batch_size, num_rois, 4)
-#                        Each region of interest is defined by four relative 
-#                        coordinates (x_min, y_min, x_max, y_max) between 0 and 1
-#            # Output
-#                pooled_areas -- Tensor with the pooled region of interest, shape
-#                    (batch_size, num_rois, pooled_height, pooled_width, n_channels)
-#         """
-#         def curried_pool_rois(x): 
-#            return ROIPoolingLayer._pool_rois(x[0], x[1], 
-#                                            self.pooled_width, 
-#                                            self.pooled_height)
-#        
-#        pooled_areas = tf.map_fn(curried_pool_rois, x, dtype=tf.float32)
-
-#        return pooled_areas
-#    
-#      @staticmethod
-#      def _pool_rois(feature_map, rois, pooled_width, pooled_height):
-#         """ Applies ROI pooling for a single image and varios ROIs
-#         """
-#         def curried_pool_roi(roi): 
-#            return ROIPoolingLayer._pool_roi(feature_map, roi, 
-#                                        pooled_width, pooled_height)
-
-#         pooled_areas = tf.map_fn(curried_pool_roi, rois, dtype=tf.float32)
-#         return pooled_areas
-#    
-#      @staticmethod
-#      def _pool_roi(feature_map, roi, pooled_width, pooled_height):
-#         """ Applies ROI pooling to a single image and a single region of interest
-#         """
-
-#         # Compute the region of interest        
-#         feature_map_height = int(feature_map.shape[0])
-#         feature_map_width  = int(feature_map.shape[1])
-
-#         x_start = tf.cast(feature_map_width  * roi[0], 'int32')
-#         y_start = tf.cast(feature_map_height * roi[1], 'int32')
-#         x_end   = tf.cast(feature_map_width  * roi[2], 'int32')
-#         y_end   = tf.cast(feature_map_height * roi[3], 'int32')
-
-#         region = feature_map[y_start:y_end, x_start:x_end, :]
-
-#         # Divide the region into non overlapping areas
-#         region_height = y_end - y_start
-#         region_width  = x_end - x_start
-#         y_step = tf.cast( region_height / pooled_height, 'int32')
-#         x_step = tf.cast( region_width  / pooled_width , 'int32')
-#        
-#        # this just puts all remainder at edge, get better binning!
-##        areas = [[(
-##                    i*y_step, 
-##                    j*x_step, 
-##                    (i+1)*y_step if i+1 < pooled_height else region_height, 
-##                    (j+1)*x_step if j+1 < pooled_width else region_width
-##                   ) 
-##                   for j in range(pooled_width)] 
-##                  for i in range(pooled_height)]
-
-#         numpixels_x = K.get_value(region_width)
-#         nbins_x = pooled_width
-#         x_inds = [0]*(nbins_x)
-#         overhang_x  = numpixels_x % nbins_x
-#         normal_bin_width_x = numpixels_x // nbins_x
-#         # (nbins - overhang) * normal_bin_width + overhang*(normal_bin_width + 1) == numpixels
-#         cw = normal_bin_width_x
-#         for i in range(nbins_x-overhang_x):
-#            x_inds[i] = (i*cw, (i+1)*cw)
-#         done = (nbins_x-overhang_x)*normal_bin_width_x
-#         cw   = normal_bin_width_x + 1
-#         for i in range(overhang_x):
-#            x_inds[i + nbins_x-overhang_x] = (done + i*cw, done + (i+1)*cw)
-#            
-#         numpixels_y = K.get_value(region_height)
-#         nbins_y = pooled_height
-#         y_inds = [0]*(nbins_y)
-#         overhang_y  = numpixels_y % nbins_y
-#         normal_bin_width_y = numpixels_y // nbins_y
-#         cw = normal_bin_width_y
-#         for i in range(nbins_y-overhang_y):
-#            y_inds[i] = (i*cw, (i+1)*cw)
-#         done = (nbins_y-overhang_y)*normal_bin_width_y
-#         cw   = normal_bin_width_y + 1
-#         for i in range(overhang_y):
-#            y_inds[i + nbins_y-overhang_y] = (done + i*cw, done + (i+1)*cw)
-
-#         areas = [[(
-#                       xx[0], 
-#                       yy[0], 
-#                       xx[1], 
-#                       yy[1]
-#                    ) 
-#                      for xx in x_inds] 
-#                     for yy in y_inds]
-#        
-#         # take the maximum of each area and stack the result
-#         def pool_area(x): 
-#            return K.mean(region[x[1]:x[3], x[0]:x[2], :], axis=[0,1])
-#        
-#         pooled_features = tf.stack([[pool_area(x) for x in row] for row in areas])
-#         return pooled_features
+        flat_q, flat_k, flat_v = self.compute_flat_qkv(inputs)
+        dkh = self.depth_k // self.num_heads
+        # might be able to calculate this differently as query will be "1x1xdepth"
+        # so same all over the spatial dimensions? (reduce size of problem)
+        logits = tf.matmul(flat_q, flat_k, transpose_b=True)
+        if self.relative:
+            h_rel_logits, w_rel_logits = self.relative_logits(self.q, H, W, self.num_heads,dkh)
+            logits += h_rel_logits
+            logits += w_rel_logits
         
-#class LayerNormalization(Layer):
-#  """Layer normalization layer (Ba et al., 2016).
-#  Normalize the activations of the previous layer for each given example in a
-#  batch independently, rather than across a batch like Batch Normalization.
-#  i.e. applies a transformation that maintains the mean activation within each
-#  example close to 0 and the activation standard deviation close to 1.
-#  Arguments:
-#    axis: Integer or List/Tuple. The axis that should be normalized
-#      (typically the features axis).
-#    epsilon: Small float added to variance to avoid dividing by zero.
-#    center: If True, add offset of `beta` to normalized tensor.
-#        If False, `beta` is ignored.
-#    scale: If True, multiply by `gamma`.
-#      If False, `gamma` is not used.
-#      When the next layer is linear (also e.g. `nn.relu`),
-#      this can be disabled since the scaling
-#      will be done by the next layer.
-#    beta_initializer: Initializer for the beta weight.
-#    gamma_initializer: Initializer for the gamma weight.
-#    beta_regularizer: Optional regularizer for the beta weight.
-#    gamma_regularizer: Optional regularizer for the gamma weight.
-#    beta_constraint: Optional constraint for the beta weight.
-#    gamma_constraint: Optional constraint for the gamma weight.
-#    trainable: Boolean, if `True` the variables will be marked as trainable.
-#  Input shape:
-#    Arbitrary. Use the keyword argument `input_shape`
-#    (tuple of integers, does not include the samples axis)
-#    when using this layer as the first layer in a model.
-#  Output shape:
-#    Same shape as input.
-#  References:
-#    - [Layer Normalization](https://arxiv.org/abs/1607.06450)
-#  """
+        weights = K.softmax(logits, axis=-1)
+        attn_out = tf.matmul(weights, flat_v)
+        attn_out = K.reshape(attn_out, [Batch, self.num_heads, H, W, self.depth_v // self.num_heads])
 
-#  def __init__(self,
-#               axis=-1,
-#               epsilon=1e-3,
-#               center=True,
-#               scale=True,
-#               beta_initializer='zeros',
-#               gamma_initializer='ones',
-#               beta_regularizer=None,
-#               gamma_regularizer=None,
-#               beta_constraint=None,
-#               gamma_constraint=None,
-#               trainable=True,
-#               name=None,
-#               **kwargs):
-#    super(LayerNormalization, self).__init__(
-#        name=name, trainable=trainable, **kwargs)
-#    if isinstance(axis, (list, tuple)):
-#      self.axis = axis[:]
-#    elif isinstance(axis, int):
-#      self.axis = axis
-#    else:
-#      raise ValueError('Expected an int or a list/tuple of ints for the '
-#                       'argument \'axis\', but received instead: %s' % axis)
+        attn_out = self.combine_heads_2d(attn_out)
+        attn_out = self.attn_out_conv(attn_out)
+        output =  concatenate([out,attn_out],axis=3)
+        return output
 
-#    self.epsilon = epsilon
-#    self.center = center
-#    self.scale = scale
-#    self.beta_initializer = initializers.get(beta_initializer)
-#    self.gamma_initializer = initializers.get(gamma_initializer)
-#    self.beta_regularizer = regularizers.get(beta_regularizer)
-#    self.gamma_regularizer = regularizers.get(gamma_regularizer)
-#    self.beta_constraint = constraints.get(beta_constraint)
-#    self.gamma_constraint = constraints.get(gamma_constraint)
+    def combine_heads_2d(self,x):
+        # [batch, num_heads, height, width, depth_v // num_heads]
+        transposed = K.permute_dimensions(x, [0, 2, 3, 1, 4])
+        # [batch, height, width, num_heads, depth_v // num_heads]
+        shape = K.int_shape(transposed)
+        if None in shape:
+            shape = [-1 if type(v)==type(None) else v for v in shape]
+        batch, h , w, a , b = shape 
+        ret_shape = [batch, h ,w, a*b]
+        # [batch, height, width, depth_v]
+        return K.reshape(transposed, ret_shape)
 
-#    self.supports_masking = True
+    def rel_to_abs(self, x):
+        shape = K.shape(x)
+        shape = [shape[i] for i in range(3)]
+        B, Nh, L = shape
+        col_pad = K.zeros((B, Nh, L, 1), name="zero1")
+        x = K.concatenate([x, col_pad], axis=3)
+        flat_x = K.reshape(x, [B, Nh, L * 2 * L])
+        flat_pad = K.zeros((B, Nh, L-1), name="zero2")
+        flat_x_padded = K.concatenate([flat_x, flat_pad], axis=2)
+        final_x = K.reshape(flat_x_padded, [B, Nh, L+1, 2*L-1])
+        final_x = final_x[:, :, :L, L-1:]
+        return final_x
 
-#    # Indicates whether a faster fused implementation can be used. This will be
-#    # set to True or False in build()"
-#    self._fused = None
+    def relative_logits_1d(self, q, rel_k, H, W, Nh, transpose_mask):
+        rel_logits = tf.einsum('bhxyd,md->bhxym', q, rel_k)
+        rel_logits = K.reshape(rel_logits, [-1, Nh*H, W, 2*W-1])
+        rel_logits = self.rel_to_abs(rel_logits)
+        rel_logits = K.reshape(rel_logits, [-1, Nh, H, W, W])
+        rel_logits = K.expand_dims(rel_logits, axis=3)
+        rel_logits = K.tile(rel_logits, [1, 1, 1, H, 1, 1])
+        rel_logits = K.permute_dimensions(rel_logits, transpose_mask)
+        rel_logits = K.reshape(rel_logits, [-1, Nh, H*W, H*W])
+        return rel_logits
 
-#  def _fused_can_be_used(self, ndims):
-#    """Return false if fused implementation cannot be used.
-#    Check if the axis is contiguous and can be collapsed into the last axis.
-#    The self.axis is assumed to have no duplicates.
-#    """
-#    axis = sorted(self.axis)
-#    can_use_fused = False
+    def relative_logits(self, q, H, W, Nh, dkh):
+        key_rel_w  = K.random_normal(shape = (int(2 * W - 1), dkh))
+        key_rel_h  = K.random_normal(shape = (int(2 * H - 1), dkh))
 
-#    if axis[-1] == ndims - 1 and axis[-1] - axis[0] == len(axis) - 1:
-#      can_use_fused = True
+        rel_logits_w = self.relative_logits_1d(q, key_rel_w, H, W, Nh, [0, 1, 2, 4, 3, 5])
 
-#    # fused_batch_norm will silently raise epsilon to be at least 1.001e-5, so
-#    # we cannot used the fused version if epsilon is below that value. Also, the
-#    # variable dtype must be float32, as fused_batch_norm only supports float32
-#    # variables.
-#    if self.epsilon < 1.001e-5:
-#      can_use_fused = False
+        rel_logits_h = self.relative_logits_1d(K.permute_dimensions(q, [0, 1, 3, 2, 4]), 
+                                               key_rel_h, W, H, Nh, [0, 1, 4, 2, 5, 3])
+        return rel_logits_h , rel_logits_w
 
-#    return can_use_fused
+    def split_heads_2d(self,q,Nh):
+        batch, height,width,channels = K.int_shape(q)
+        ret_shape = [-1,height,width,Nh,channels//Nh]
+        split = K.reshape(q,ret_shape)
+        transpose_axes = (0, 3, 1, 2, 4)
+        split = K.permute_dimensions(split, transpose_axes)
+        return split
 
-#  def build(self, input_shape):
-#    ndims = len(input_shape)
-#    if ndims is None:
-#      raise ValueError('Input shape %s has undefined rank.' % input_shape)
+    def compute_flat_qkv(self,inputs):
+        qkv = self.qkv(inputs)
+        B,H,W,_ = K.int_shape(inputs)
+        q,k,v = tf.split(qkv,[self.depth_k,self.depth_k,self.depth_v],axis=3)
 
-#    # Convert axis to list and resolve negatives
-#    if isinstance(self.axis, int):
-#      self.axis = [self.axis]
-#    elif isinstance(self.axis, tuple):
-#      self.axis = list(self.axis)
-#    for idx, x in enumerate(self.axis):
-#      if x < 0:
-#        self.axis[idx] = ndims + x
+        dkh = self.depth_k // self.num_heads
+        dvh = self.depth_v // self.num_heads
+        q *= dkh ** -0.5
 
-#    # Validate axes
-#    for x in self.axis:
-#      if x < 0 or x >= ndims:
-#        raise ValueError('Invalid axis: %d' % x)
-#    if len(self.axis) != len(set(self.axis)):
-#      raise ValueError('Duplicate axis: {}'.format(tuple(self.axis)))
+        self.q = self.split_heads_2d(q, self.num_heads)
+        self.k = self.split_heads_2d(k, self.num_heads)
+        self.v = self.split_heads_2d(v, self.num_heads)
 
-#    param_shape = [input_shape[dim] for dim in self.axis]
-#    if self.scale:
-#      self.gamma = self.add_weight(
-#          name='gamma',
-#          shape=param_shape,
-#          initializer=self.gamma_initializer,
-#          regularizer=self.gamma_regularizer,
-#          constraint=self.gamma_constraint,
-#          trainable=True)
-#    else:
-#      self.gamma = None
+        flat_q = K.reshape(self.q, [-1, self.num_heads, H * W, dkh])
+        flat_k = K.reshape(self.k, [-1, self.num_heads, H * W, dkh])
+        flat_v = K.reshape(self.v, [-1, self.num_heads, H * W, dvh])
 
-#    if self.center:
-#      self.beta = self.add_weight(
-#          name='beta',
-#          shape=param_shape,
-#          initializer=self.beta_initializer,
-#          regularizer=self.beta_regularizer,
-#          constraint=self.beta_constraint,
-#          trainable=True)
-#    else:
-#      self.beta = None
+        return flat_q, flat_k, flat_v
+    
+    def compute_output_shape(self, input_shape):
+        output_shape = list(input_shape)
+        output_shape[-1] = self.output_filters
+        return tuple(output_shape)
 
-#    self._fused = self._fused_can_be_used(ndims)
+class AttentionROI(tf.keras.models.Model):
+    def __init__(self, Fout, dk, dff, Nh, dr, relative=False):
+        super(AttentionROI,self).__init__()
+        self.output_filters = Fout
+        self.depth_k = dk
+        self.depth_v = Fout
+        self.num_heads = Nh
+        self.relative = relative
 
-#    self.built = True
+        # define sub layers
+        self.kv = Conv2D(filters = dk + Fout, kernel_size = 1)
+        self.q_init = Conv2D(filters = dk, kernel_size = 1)
+        self.attn_out_conv = Conv2D(filters = Fout, kernel_size = 1)
+        self.c_ffn_1 = Conv2D(filters = dff, kernel_size = 1)
+        self.c_ffn_2 = Conv2D(filters = Fout, kernel_size = 1)
+        self.dropout = Dropout(rate = dr)
+        self.activ = Activation('relu')
+        self.laynorm = LayerNormalization()
+        self.add = Add()
 
-#  def call(self, inputs):
-#    # Compute the axes along which to reduce the mean / variance
-#    input_shape = inputs.shape
-#    ndims = len(input_shape)
+    def call(self, inputs):
+        shape = K.int_shape(inputs[1])        
+        if None in shape:
+            shape = [-1 if type(v)==type(None) else v for v in shape]
+        Batch, H, W, _ = shape
+        tileby = tf.constant([1, H, W, 1], tf.int32)
+               
+        flat_q, flat_k, flat_v = self.compute_flat_qkv([inputs[0], inputs[1]])
+        
+        logits_red = tf.matmul(flat_q, flat_k, transpose_b=True)
+        weights_red = K.softmax(logits_red, axis=-1)
+        
+        attn_out_red = tf.matmul(weights_red, flat_v)
+        attn_out_red = K.reshape(attn_out_red, [Batch, self.num_heads, 1, 1, self.depth_v // self.num_heads])
+        attn_out_red = self.combine_heads_2d(attn_out_red)
+        attn_out_red = tf.tile(attn_out_red, tileby)   
+        
+        A = self.attn_out_conv(attn_out_red)
+        A = K.sum(A, axis=2, keepdims=True)
+        A = K.sum(A, axis=1, keepdims=True)        
+        # combine with query
+        A = self.dropout(A)
+        Qp = self.add([inputs[0], A])
+        Qp = self.laynorm(Qp)
+        # FFN
+        Qp_ff = self.c_ffn_1(Qp)
+        Qp_ff = self.activ(Qp_ff)
+        Qp_ff = self.c_ffn_2(Qp_ff)
+        Qp_ff = self.dropout(Qp_ff)
+        Qpp = self.add([Qp, Qp_ff])
+        Qpp = self.laynorm(Qpp)        
+        return Qpp
 
-#    # Broadcasting only necessary for norm where the axis is not just
-#    # the last dimension
-#    broadcast_shape = [1] * ndims
-#    for dim in self.axis:
-#      broadcast_shape[dim] = input_shape.dims[dim].value
-#    def _broadcast(v):
-#      if (v is not None and len(v.shape) != ndims and
-#          self.axis != [ndims - 1]):
-#        return array_ops.reshape(v, broadcast_shape)
-#      return v
+    def combine_heads_2d(self, x):
+        # [batch, num_heads, height, width, depth_v // num_heads]
+        transposed = K.permute_dimensions(x, [0, 2, 3, 1, 4])
+        # [batch, height, width, num_heads, depth_v // num_heads]
+        shape = K.int_shape(transposed)
+        if None in shape:
+            shape = [-1 if type(v)==type(None) else v for v in shape]
+        batch, h, w, a, b = shape 
+        ret_shape = [batch, h ,w, a*b]
+        # [batch, height, width, depth_v]
+        return K.reshape(transposed, ret_shape)
 
-#    if not self._fused:
-#      # Calculate the moments on the last axis (layer activations).
-#      mean, variance = nn.moments(inputs, self.axis, keep_dims=True)
+    def split_heads_2d(self,q,Nh):
+        batch, height, width, channels = K.int_shape(q)
+        ret_shape = [-1, height, width, Nh, channels//Nh]
+        split = K.reshape(q,ret_shape)
+        transpose_axes = (0, 3, 1, 2, 4)
+        split = K.permute_dimensions(split, transpose_axes)
+        return split
 
-#      scale, offset = _broadcast(self.gamma), _broadcast(self.beta)
+    def compute_flat_qkv(self, inputs_a):
+        kv = self.kv(inputs_a[1])
+        q = self.q_init(inputs_a[0])
+        B, H, W, _ = K.int_shape(inputs_a[1])
+        k, v = tf.split(kv, [self.depth_k, self.depth_v], axis=3)
 
-#      # Compute layer normalization using the batch_normalization function.
-#      outputs = nn.batch_normalization(
-#          inputs,
-#          mean,
-#          variance,
-#          offset=offset,
-#          scale=scale,
-#          variance_epsilon=self.epsilon)
-#    else:
-#      # Collapse dims before self.axis, and dims in self.axis
-#      pre_dim, in_dim = (1, 1)
-#      axis = sorted(self.axis)
-#      tensor_shape = array_ops.shape(inputs)
-#      for dim in range(0, ndims):
-#        dim_tensor = tensor_shape[dim]
-#        if dim < axis[0]:
-#          pre_dim = pre_dim * dim_tensor
-#        else:
-#          assert dim in axis
-#          in_dim = in_dim * dim_tensor
+        dkh = self.depth_k // self.num_heads
+        dvh = self.depth_v // self.num_heads
+        q *= dkh ** -0.5
 
-#      squeezed_shape = [1, pre_dim, in_dim, 1]
-#      # This fused operation requires reshaped inputs to be NCHW.
-#      data_format = 'NCHW'
+        self.q = self.split_heads_2d(q, self.num_heads)
+        self.k = self.split_heads_2d(k, self.num_heads)
+        self.v = self.split_heads_2d(v, self.num_heads)
 
-#      inputs = array_ops.reshape(inputs, squeezed_shape)
+        flat_q = K.reshape(self.q, [-1, self.num_heads, 1    , dkh])
+        flat_k = K.reshape(self.k, [-1, self.num_heads, H * W, dkh])
+        flat_v = K.reshape(self.v, [-1, self.num_heads, H * W, dvh])
 
-#      def _set_const_tensor(val, dtype, shape):
-#        return array_ops.fill(shape, constant_op.constant(val, dtype=dtype))
+        return flat_q, flat_k, flat_v
+    
+    def compute_output_shape(self, input_shape):
+        output_shape = list(input_shape[0])
+        output_shape[-1] = self.output_filters
+        return tuple(output_shape)
 
-#      # self.gamma and self.beta have the wrong shape for fused_batch_norm, so
-#      # we cannot pass them as the scale and offset parameters. Therefore, we
-#      # create two constant tensors in correct shapes for fused_batch_norm and
-#      # later contuct a separate calculation on the scale and offset.
-#      scale = _set_const_tensor(1.0, inputs.dtype, [pre_dim])
-#      offset = _set_const_tensor(0.0, inputs.dtype, [pre_dim])
+class ROIPoolingLayer(Layer):
+   """ Implements Region Of Interest Max Pooling 
+       for channel-last images and relative bounding box coordinates
 
-#      # Compute layer normalization using the fused_batch_norm function.
-#      outputs, _, _ = nn.fused_batch_norm(
-#          inputs,
-#          scale=scale,
-#          offset=offset,
-#          epsilon=self.epsilon,
-#          data_format=data_format)
+       # Constructor parameters
+          pooled_width, pooled_height (int) -- 
+          specify width and height of layer outputs
 
-#      outputs = array_ops.reshape(outputs, tensor_shape)
+       Shape of inputs
+          [(batch_size, pooled_width, pooled_height, n_channels),
+           (batch_size, 4)]
+        
+       Shape of output
+          (batch_size, pooled_width, pooled_height, n_channels)
 
-#      scale, offset = _broadcast(self.gamma), _broadcast(self.beta)
+   """
+   def __init__(self, pooled_width, pooled_height, **kwargs):
+      self.pooled_height = pooled_height
+      self.pooled_width = pooled_width
 
-#      if scale is not None:
-#        outputs = outputs * scale
-#      if offset is not None:
-#        outputs = outputs + offset
+      super(ROIPoolingLayer, self).__init__(**kwargs)
+  
+   def compute_output_shape(self, input_shape):
+      """ Returns the shape of the ROI Layer output
+      """
+      feature_map_shape, rois_shape = input_shape
+      assert feature_map_shape[0] == rois_shape[0]
+      batch_size = feature_map_shape[0]
+      n_channels = feature_map_shape[3]
+      return (batch_size, self.pooled_width, 
+             self.pooled_height, n_channels)
 
-#    # If some components of the shape got lost due to adjustments, fix that.
-#    outputs.set_shape(input_shape)
+   def call(self, x):
+      """ Maps the input tensor of the ROI layer to its output
 
-#    return outputs
+         # Parameters
+             x[0] -- Convolutional feature map tensor,
+                     shape (batch_size, height, width, n_channels)
+             x[1] -- Tensor of region of interests from candidate bounding boxes,
+                     shape (batch_size, 4)
+                     Each region of interest is defined by four relative 
+                     coordinates (x_min, y_min, x_max, y_max) between 0 and 1
+         # Output
+             pooled_areas -- Tensor with the pooled region of interest, shape
+                 (batch_size, pooled_height, pooled_width, n_channels)
+      """
+      def curried_pool_rois(x): 
+         return ROIPoolingLayer._pool_roi(x[0], x[1], self.pooled_width, self.pooled_height)
+     
+      pooled_areas = tf.map_fn(curried_pool_rois, x, dtype=tf.float32)
+      return pooled_areas
+   
+   @staticmethod
+   def _pool_roi(feature_map, roi, pooled_width, pooled_height):
+      """ Applies ROI pooling to a single image and a single region of interest
+      """
 
-#  def compute_output_shape(self, input_shape):
-#    return input_shape
+      # Compute the region of interest        
+      feature_map_height = int(feature_map.shape[0])
+      feature_map_width  = int(feature_map.shape[1])
 
-#  def get_config(self):
-#    config = {
-#        'axis': self.axis,
-#        'epsilon': self.epsilon,
-#        'center': self.center,
-#        'scale': self.scale,
-#        'beta_initializer': initializers.serialize(self.beta_initializer),
-#        'gamma_initializer': initializers.serialize(self.gamma_initializer),
-#        'beta_regularizer': regularizers.serialize(self.beta_regularizer),
-#        'gamma_regularizer': regularizers.serialize(self.gamma_regularizer),
-#        'beta_constraint': constraints.serialize(self.beta_constraint),
-#        'gamma_constraint': constraints.serialize(self.gamma_constraint)
-#    }
-#    base_config = super(LayerNormalization, self).get_config()
-#    return dict(list(base_config.items()) + list(config.items()))
+      x_start = tf.cast(feature_map_width  * roi[0], 'int32')
+      y_start = tf.cast(feature_map_height * roi[1], 'int32')
+      x_end   = tf.cast(feature_map_width  * roi[2], 'int32')
+      y_end   = tf.cast(feature_map_height * roi[3], 'int32')
+
+      region = feature_map[y_start:y_end, x_start:x_end, :]
+
+      ## Divide the region into non overlapping areas
+      region_height_int = K.int_shape(region)[0]
+      region_width_int  = K.int_shape(region)[1]
+      region_height = y_end - y_start
+      region_width  = x_end - x_start
+      nbins_x = pooled_width
+      nbins_y = pooled_height
+      x_inds = [0]*(nbins_x)
+      y_inds = [0]*(nbins_y)
+      overhang_x = region_width_int // nbins_x
+      overhang_y = region_height_int // nbins_y
+      
+      normal_bin_width_y = tf.math.floordiv(region_height, pooled_height)
+      normal_bin_width_x = tf.math.floordiv(region_width, pooled_width)
+      ## (nbins - overhang) * normal_bin_width + overhang*(normal_bin_width + 1) == numpixels
+      cw = normal_bin_width_x
+      for i in range(nbins_x-overhang_x):
+         x_inds[i] = (i*cw, (i+1)*cw)
+      done = (nbins_x-overhang_x)*normal_bin_width_x
+      cw   = normal_bin_width_x + 1
+      for i in range(overhang_x):
+         x_inds[i + nbins_x-overhang_x] = (done + i*cw, done + (i+1)*cw)
+
+      cw = normal_bin_width_y
+      for i in range(nbins_y-overhang_y):
+         y_inds[i] = (i*cw, (i+1)*cw)
+      done = (nbins_y-overhang_y)*normal_bin_width_y
+      cw   = normal_bin_width_y + 1
+      for i in range(overhang_y):
+         y_inds[i + nbins_y-overhang_y] = (done + i*cw, done + (i+1)*cw)
+
+      areas = [ [(xx[0], yy[0], xx[1], yy[1]) for xx in x_inds] for yy in y_inds ]
+
+      # take the maximum of each area and stack the result
+      def pool_area(x): 
+         return K.max(region[x[1]:x[3], x[0]:x[2], :], axis=[0,1])
+
+      pooled_features = tf.stack([[pool_area(x) for x in row] for row in areas])
+      return pooled_features
+
 

@@ -6,45 +6,38 @@ from MiscFunctions import plot_img, write_score_text_file, getROI_img_osl, centr
                           read_cnt_text_file, rescale_contours, write_cnt_text_file
 import argparse
 import zipfile
-import keras
-from DNN.autocuration.mutant_net import *
+import tensorflow as tf
+#from DNN.autocuration.mutant_net import *
+from DNN.autocuration.context_net import *
 from DNN.autocuration.datagen import read_slide_data
-from DNN.autocuration.run_generator2 import run_generator
+from DNN.autocuration.run_generator5 import run_generator
 
-if keras.backend._BACKEND=="tensorflow":
-   import tensorflow as tf
-   num_cores = 16
-   GPU = True
-   CPU = False
+num_cores = 16
+GPU = True
+CPU = False
 
-   if GPU:
-       num_GPU = 1
-       num_CPU = 1
-   if CPU:
-       num_CPU = 1
-       num_GPU = 0
-       import os
-       os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+if GPU:
+    num_GPU = 1
+    num_CPU = 1
+if CPU:
+    num_CPU = 1
+    num_GPU = 0
+    import os
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-   config = tf.ConfigProto(intra_op_parallelism_threads=num_cores,\
-           inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
-           device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
-   session = tf.Session(config=config)
-   keras.backend.set_session(session)
+config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=num_cores,\
+        inter_op_parallelism_threads=num_cores, allow_soft_placement=True,\
+        device_count = {'CPU' : num_CPU, 'GPU' : num_GPU})
+session = tf.compat.v1.Session(config=config)
+tf.compat.v1.keras.backend.set_session(session)
 
-tilesize = 50
+tilesize = 512 # 50
 sizesmall = 384
-nn = 30
-nn_sampsize = 200
-if keras.backend._BACKEND=="mxnet":
-   import mxnet
-   input_size1 = (3*nn, tilesize, tilesize)
-   input_size2 = (3, sizesmall, sizesmall)
-   chan_num = 1
-else:
-   input_size1 = (tilesize, tilesize, 3*nn)
-   input_size2 = (sizesmall, sizesmall, 3)
-   chan_num = 3
+#nn = 30
+#nn_sampsize = 200
+input_size1 = (tilesize, tilesize, 3)
+input_size2 = (sizesmall, sizesmall, 3)
+chan_num = 3
 
 def main():
 #   parser = argparse.ArgumentParser(description = "This script allows manual curation of clones for a single slide. "
@@ -79,7 +72,7 @@ def main():
 #   random.seed()
 #   folder_to_analyse = os.path.abspath(args.folder_to_analyse)
 
-   batch_size = 10
+   batch_size = 25
    if "\\" in folder_to_analyse:
       listout = folder_to_analyse.split("\\")
       if listout[-1]=='':
@@ -140,8 +133,11 @@ def main():
 
    ## create model and load weights
    dnnfolder = "/home/doran/Work/py_code/DeCryptICS/DNN/autocuration/"
-   model = inet5(input_size1, input_size2, chan_num, modtype=1)
-   model.load_weights(dnnfolder + "/weights/autocurate_sqex_stack5.hdf5")
+   model = att_roi_net2(input_shape1=input_size1, input_shape2=input_size2,
+                        d_model=64, depth_k=6, depth_v=8, num_heads=2, dff=128, dropout_rate=0.3)
+   model.load_weights(dnnfolder + "/weights/att_roi_net_w2.hdf5")
+#   model = inet5(input_size1, input_size2, chan_num, modtype=1)   
+#   model.load_weights(dnnfolder + "/weights/autocurate_sqex_stack5.hdf5")
 
    ## read slide data
    slide_data, cnts, imgpath = read_slide_data(folder_to_analyse, folder_to_analyse)
@@ -152,7 +148,7 @@ def main():
    clone_probs = np.empty(num_to_test, dtype=np.float32)
    st = 0
    t1 = time.time()
-   for i in range(len(rungen)):
+   for i in range(len(rungen)+1):
       if (i%5==0): print(i)
       tb = rungen[i]
       pred = model.predict(tb)
@@ -162,49 +158,64 @@ def main():
    t2 = time.time()
    time_taken = t2-t1
    print("Time taken for slide: %1.2f minutes" % (time_taken/60.))
-   slide_data = np.hstack([slide_data, clone_probs])
-   np.save(folder_to_analyse + 'autoclone_probs.npy', slide_data)
-
+   slide_data = np.column_stack([slide_data, clone_probs])
+   np.save(folder_to_analyse + 'autoclone_probs2.npy', slide_data)
+   
+   
+   slide_data = np.load(folder_to_analyse + 'autoclone_probs2.npy')
+   from sklearn.metrics import confusion_matrix
+   cf = confusion_matrix(slide_data[:,3].astype(bool) , slide_data[:,-1]>0.5)
 
    # checks
-   cp_cut = clone_probs[:en]
-   mask = slide_data[:en, 3]
+   cp_cut = slide_data[:,-1]#[:en]
+   mask = slide_data[:,3]#[:en, 3]
    plt.figure(1)
    plt.hist(abs(mask-cp_cut))
    plt.figure(2)
    inds_1 = np.where(mask==1)[0]
    plt.hist(cp_cut[inds_1])
-   inds_0 = np.where(mask==0)[0]
    plt.figure(3)
+   inds_0 = np.where(mask==0)[0]   
    plt.hist(cp_cut[inds_0])
 
-   ## divide slide up into chunks and define a reference stack for each chunk that is then re-used
-   from sklearn.cluster import KMeans
-   nclusts = 8
-   kmeans = KMeans(n_clusters=nclusts, init='k-means++', n_init = 1, max_iter = 150).fit(slide_data[:,:2])
-   chunks = np.unique(kmeans.labels_)
-   chunks_lab = kmeans.labels_
-   slide_data = np.column_stack([slide_data, chunks_lab])
-   # create random stacks for each chunk, to re-use for any candidate crypt from that chunk
-   for ch in chunks:
-      sub_data = sub_data[in_inds,:]
-      sldinds = sub_data[:,2].astype(np.int32)
-      ## pull crypts and return stack
-      crypt_stack = np.zeros((scr_size, scr_size, 3*nn), dtype=np.uint8)
-      if multicore:
-         cv2.setNumThreads(0)
-         num_cores = multiprocessing.cpu_count()
-         results = Parallel(n_jobs=num_cores)(delayed(pull_crypt_from_cnt)(sub_data[ii,:2], imgpath, 
-                                                      cnts[int(sub_data[ii,2])], scr_size, ROTATE=False, 
-                                                      RT_m=0, dwnsample_lvl=1) for ii in range(in_inds.shape[0]))
-         for ii in range(in_inds.shape[0]):
-            crypt_stack[:,:,(3*ii):(3*(ii+1))] = results[ii]
-      else:
-      for ii in range(in_inds.shape[0]):
-         tind = int(sub_data[ii,2])
-         crypt_stack[:,:,(3*ii):(3*(ii+1))] = pull_crypt_from_cnt(sub_data[ii,:2], imgpath, 
-                                                                  cnts[tind], scr_size, ROTATE=False, 
-                                                                  RT_m=0, dwnsample_lvl=1)
+
+badinds = np.where(abs(mask-cp_cut) > 0.5)[0]
+for i in range(500,520,1):
+   tb = rungen[badinds[i]]
+   pred = model.predict(tb)
+   print(pred)
+   plot_img(tb[1][0,:,:,:])
+   
+
+
+
+#   ## divide slide up into chunks and define a reference stack for each chunk that is then re-used
+#   from sklearn.cluster import KMeans
+#   nclusts = 8
+#   kmeans = KMeans(n_clusters=nclusts, init='k-means++', n_init = 1, max_iter = 150).fit(slide_data[:,:2])
+#   chunks = np.unique(kmeans.labels_)
+#   chunks_lab = kmeans.labels_
+#   slide_data = np.column_stack([slide_data, chunks_lab])
+#   # create random stacks for each chunk, to re-use for any candidate crypt from that chunk
+#   for ch in chunks:
+#      sub_data = sub_data[in_inds,:]
+#      sldinds = sub_data[:,2].astype(np.int32)
+#      ## pull crypts and return stack
+#      crypt_stack = np.zeros((scr_size, scr_size, 3*nn), dtype=np.uint8)
+#      if multicore:
+#         cv2.setNumThreads(0)
+#         num_cores = multiprocessing.cpu_count()
+#         results = Parallel(n_jobs=num_cores)(delayed(pull_crypt_from_cnt)(sub_data[ii,:2], imgpath, 
+#                                                      cnts[int(sub_data[ii,2])], scr_size, ROTATE=False, 
+#                                                      RT_m=0, dwnsample_lvl=1) for ii in range(in_inds.shape[0]))
+#         for ii in range(in_inds.shape[0]):
+#            crypt_stack[:,:,(3*ii):(3*(ii+1))] = results[ii]
+#      else:
+#      for ii in range(in_inds.shape[0]):
+#         tind = int(sub_data[ii,2])
+#         crypt_stack[:,:,(3*ii):(3*(ii+1))] = pull_crypt_from_cnt(sub_data[ii,:2], imgpath, 
+#                                                                  cnts[tind], scr_size, ROTATE=False, 
+#                                                                  RT_m=0, dwnsample_lvl=1)
 
 
 
