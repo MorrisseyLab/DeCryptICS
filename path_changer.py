@@ -17,16 +17,7 @@ def inplace_replace(file_in, old_string, new_string):
          print('Changing %s to %s in %s' % (old_string, new_string, file_in))
          f.write(s)
 
-def main():
-   parser = argparse.ArgumentParser(description = "This script changes the image file paths hard-coded into the QuPath project files at runtime. ")
-
-   parser.add_argument("path_to_qupath_project", help = "The full or relative path to the QuPath project folder containing project.qpproj")
-   parser.add_argument("new_path_to_images", help = "The desired full path to the folder containing the relevant .svs image files ")
-
-   # parse arguments
-   args = parser.parse_args()
-   projfolder = args.path_to_qupath_project # os.path.abspath(args.path_to_qupath_project)
-   newpath = args.new_path_to_images # os.path.abspath(args.new_path_to_images)
+def change_paths(projfolder, newpath):
    projfile = projfolder + '/project.qpproj'
    groovyfile = projfolder + '/scripts/load_contours.groovy'
 
@@ -84,6 +75,18 @@ def main():
          inplace_replace(projfile, oldpath1, newpath + '\\\\')
       elif '/' in newpath:
          inplace_replace(projfile, oldpath1, newpath + '/')
+
+def main():
+   parser = argparse.ArgumentParser(description = "This script changes the image file paths hard-coded into the QuPath project files at runtime. ")
+
+   parser.add_argument("path_to_qupath_project", help = "The full or relative path to the QuPath project folder containing project.qpproj")
+   parser.add_argument("new_path_to_images", help = "The desired full path to the folder containing the relevant .svs image files ")
+
+   # parse arguments
+   args = parser.parse_args()
+   projfolder = args.path_to_qupath_project # os.path.abspath(args.path_to_qupath_project)
+   newpath = args.new_path_to_images # os.path.abspath(args.new_path_to_images)
+   change_paths(projfolder, newpath)
 
 if __name__=="__main__":
    main()
