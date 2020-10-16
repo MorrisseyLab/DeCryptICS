@@ -17,8 +17,19 @@ conda update -n base conda
 ##################
 ## EITHER run:
 # create a conda environment, where you can choose the NAME_OF_ENV
-conda create -n NAME_OF_ENV python=3.6
+#conda create -n NAME_OF_ENV python=3.6
+#source activate NAME_OF_ENV
+#conda install openslide opencv keras keras-gpu matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
+#pip install xlrd openslide-python
+#pip install -U tensorflow-gpu==1.6.0
+
+conda create -n NAME_OF_ENV python=3.7
 source activate NAME_OF_ENV
+<<<<<<< HEAD
+conda install openslide opencv matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
+pip install xlrd openslide-python
+pip install --upgrade tensorflow
+=======
 conda install openslide opencv matplotlib scikit-learn joblib pandas numpy scipy libiconv ipython
 pip install xlrd openslide-python
 pip install -U tensorflow-gpu==1.6.0
@@ -26,6 +37,7 @@ conda install keras-gpu=2.15 tensorflow-gpu=1.6.0
 # numba
 
 
+>>>>>>> aed0c93898af7f0b887b039f260a11824f71f473
 
 ## OR use the .yml file:
 conda env create -f dcrypt_env.yml
