@@ -80,7 +80,7 @@ def predict_svs_slide(file_name, folder_to_analyse, clonal_mark_type, model, cha
    slide = osl.OpenSlide(file_name)
    mpp = float(slide.properties['openslide.mpp-x'])
    mpp_fin = 2.0144 # ~ desired microns per pixel
-   errlevel = 0.5 # allowable distance from mpp_fin
+   errlevel = 0.35 # allowable distance from mpp_fin
    dsls = slide.level_downsamples
    mpp_test = []
    for lvl in dsls:

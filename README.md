@@ -5,14 +5,15 @@ The tool is currently a work-in-progress.  Crypt counting is fully functional.
 
 Install instructions in brief:
 
-* Install Miniconda and create a conda environment with Python 3.6
-* Run: conda install openslide opencv keras keras-gpu matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython 
+* Install Miniconda and create a conda environment with Python 3.7
+* Run: conda install openslide opencv matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
 * Run: pip install xlrd openslide-python
-* Run: pip install -U tensorflow-gpu==1.6.0 
+* Run: pip install --upgrade tensorflow 
+* Run: pip install --upgrade tensorflow-gpu (if you want to use a CUDA-enabled GPU)
 * Git clone this repository, https://github.com/MorrisseyLab/DeCryptICS.git
 * Download the neural network weights from the Dropbox link listed in install\_instructions.txt and put them in ./DNN/weights/
 
-And that's it! See the install\_instructions.txt file for a step-by-step (Linux) guide that may help, and for details on how to get the nerual network running on your GPU.
+And that's it! See the install\_instructions.txt file for a step-by-step (Linux) guide that may help, and for details on how to get the neural network running on your GPU.
 
 Main dependencies are currently:
 
@@ -20,8 +21,6 @@ Main dependencies are currently:
 * OpenCV
 * TensorFlow / Keras
 * ~~PyVips~~
-
-We are aiming to roll these dependencies into a Conda package alongside the DeCryptICS tool. (GPU drivers and CUDA/CUDNN need to be installed separately.)
 
 ---
 
@@ -39,7 +38,7 @@ If the folder contains slides with different stainings, for instance if they are
 
 python generate\_block\_list.py /full/path/to/block/
 
-This will produce an input\_files.txt listing the paths to the slides and the makr to be used in clone finding.
+This will produce an input\_files.txt listing the paths to the slides and the mark to be used in clone finding.
 
 ---
 
@@ -49,7 +48,7 @@ Run run\_script.py with an action and the path to the input file list. For examp
 
 python run\_script.py count /full/path/to/block/input\_files.py
 
-View the help with "python run\_script.py -h" to see all available options. For example, if you are analysing mouse tissue, then use the "-mouse" flag:
+View the help with "python run\_script.py -h" to see all available options. For example, if you are analysing mouse tissue, then use the "-mouse" flag to use the mouse-specific network weights:
 
 python run\_script.py count /full/path/to/mouseblock/input\_files.py -mouse
 

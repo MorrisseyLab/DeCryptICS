@@ -22,12 +22,11 @@ conda install openslide opencv matplotlib scikit-learn numba joblib pandas numpy
 pip install xlrd openslide-python
 pip install --upgrade tensorflow
 
-## OLD
-#conda create -n NAME_OF_ENV python=3.6
-#source activate NAME_OF_ENV
-#conda install openslide opencv keras keras-gpu matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
-#pip install xlrd openslide-python
-#pip install -U tensorflow-gpu==1.6.0
+## Then download network weights from Dropbox, e.g.:
+wget "https://www.dropbox.com/s/2ibwp5npt1jtcrm/cryptfuficlone_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/cryptfuficlone_weights.hdf5
+
+
+
 
 
 
