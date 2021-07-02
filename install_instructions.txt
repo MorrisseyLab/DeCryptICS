@@ -7,20 +7,20 @@ bash Miniconda3-latest-Linux-x86_64.sh -b -p /full/path/to/install-dir
 
 # config
 export PATH=/full/path/to/your/folder/bin:$PATH
-conda config --add channels conda-forge
+conda init bash
 conda config --add channels defaults
+conda config --add channels conda-forge
 conda config --add channels r
 conda config --add channels bioconda
-conda update -n base conda
+conda update -n base conda -c defaults
 
 ## python dependencies
 ##################
 # create a conda environment, where you can choose the NAME_OF_ENV
-conda create -n NAME_OF_ENV python=3.7
-source activate NAME_OF_ENV
-conda install openslide opencv matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
-pip install xlrd openslide-python
-pip install --upgrade tensorflow
+conda create -n NAME_OF_ENV python=3.8
+conda activate NAME_OF_ENV
+conda install openslide opencv matplotlib scikit-learn joblib pandas numpy scipy libiconv ipython scikit-image pyvips
+pip install xlrd openslide-python networkx community albumentations tensorflow==2.4 tensorflow-addons==0.13
 
 ## Then download network weights from Dropbox, e.g.:
 wget "https://www.dropbox.com/s/2ibwp5npt1jtcrm/cryptfuficlone_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/cryptfuficlone_weights.hdf5

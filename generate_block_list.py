@@ -21,10 +21,15 @@ def output_blocklist(fnames, imgids, marks, ext=''):
       outpath = '/' + os.path.join(*initpath.split('/')[:-1]) + '/'
    if (linux_test==1 and windows_test==1):
       outpath = os.getcwd() + '/'   
-   with open(outpath + 'input_files' + ext + '.txt', 'w') as fo:      
-      fo.write("#<full paths to slides>\t<clonal mark>\n")
-      for i in range(len(imorder)):
-         fo.write(fpaths[imorder[i]] + '\t' + str(marks_order[i]) + '\n')
+#   with open(outpath + 'input_files' + ext + '.txt', 'w') as fo:      
+#      fo.write("#<full paths to slides>\t<clonal mark>\n")
+#      for i in range(len(imorder)):
+#         fo.write(fpaths[imorder[i]] + '\t' + str(marks_order[i]) + '\n')
+   fpath_imorder = [fpaths[imorder[i]] for i in range(len(imorder))]
+   cmark_imorder = [str(marks_order[i]) for i in range(len(imorder))]
+   out_df = pd.DataFrame(data = {'image_path' : fpath_imorder, 'clonal_mark' : cmark_imorder})
+   out_df.to_csv(outpath + 'input_files' + ext + '.txt', sep = '\t', index=False)
+
 
 def main():
    parser = argparse.ArgumentParser(description = "First argument -f denotes the full path to folder containing "
@@ -38,9 +43,10 @@ def main():
    parser.add_argument('-c', dest    = "clonal_mark",
                              default = "1", 
                              help    = "Clonal mark type for all input images. "
-                                       "1: KDM6A/NONO/MAOA/HDAC6/STAG2 "
-                                       "2: p53 "
-                                       "3: mPAS "
+                                       "1: KDM6A/NONO/STAG2/UTX (nuclear negative) "
+                                       "2: MAOA/HDAC6 (cytoplasmic/nuclear negative) "
+                                       "3: p53 (nuclear positive) "
+                                       "4: mPAS (cytoplasmic positive) "
                                        "0: H&E (must be passed in quotation marks to use the ampersand if passing by name) "
                                        "A slide info file will supersede -c flag. "
                                        "If -c is not passed and no slide info file is found, defaults to 1.")
@@ -52,12 +58,13 @@ def main():
    input_folder = args.input_folder
    clonal_mark = args.clonal_mark
    if str(clonal_mark).upper()=="KDM6A": clonal_mark = 1
-   if str(clonal_mark).upper()=="MAOA":  clonal_mark = 1
    if str(clonal_mark).upper()=="NONO":  clonal_mark = 1
-   if str(clonal_mark).upper()=="HDAC6": clonal_mark = 1
    if str(clonal_mark).upper()=="STAG2": clonal_mark = 1
-   if str(clonal_mark).upper()=="P53":   clonal_mark = 2
-   if str(clonal_mark).upper()=="MPAS":  clonal_mark = 3
+   if str(clonal_mark).upper()=="UTX":   clonal_mark = 1
+   if str(clonal_mark).upper()=="HDAC6": clonal_mark = 2
+   if str(clonal_mark).upper()=="MAOA":  clonal_mark = 2
+   if str(clonal_mark).upper()=="P53":   clonal_mark = 3
+   if str(clonal_mark).upper()=="MPAS":  clonal_mark = 4
    if str(clonal_mark).upper()=="H&E":   clonal_mark = 0
    ## get file list                     
    if input_folder!="":

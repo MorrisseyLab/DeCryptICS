@@ -9,5 +9,5 @@ blocklist=(/home/doran/Work/images/Leeds_May2019/curated_cryptdata/test/KM*/inpu
 
 for i in "${blocklist[@]}"
 do
-	python ./run_script.py count "$i" -q v2
+	python ./process_output.py "$i" -c 0.5 -p 0.5 -f 0.25 -g 0.5 -r
 done

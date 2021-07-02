@@ -1,3 +1,9 @@
+# training metadata
+training/manual_curation_files/
+training/logs/
+training/__pycache__/
+__pycache__/
+
 # Pickled matrices
 *.npy
 

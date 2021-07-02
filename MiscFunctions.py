@@ -1,27 +1,93 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jul 24 10:39:01 2015
-
-@author: edward
-"""
-
 from __future__ import division
+import os
 import cv2
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
-#import pyvips
+import pyvips
 import openslide as osl
 from openslide_python_fix import _load_image_lessthan_2_29, _load_image_morethan_2_29
-#import h5py
-import os, errno
+from pathlib import Path
 
 def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else: raise
+    Path(path).mkdir(parents=True, exist_ok=True)
+
+def contour_mean_Area(cnt, img):
+    # Get mean colour of object
+    roi           = cv2.boundingRect(cnt)
+    Start_ij_ROI  = np.array(roi)[0:2] # get x,y of bounding box
+    cnt_roi       = cnt - Start_ij_ROI # change coords to start from x,y
+    img_ROI       = img[roi[1]:roi[1]+roi[3], roi[0]:roi[0]+roi[2]]
+    mask_fill     = np.zeros(img_ROI.shape[0:2], np.uint8)
+    cv2.drawContours(mask_fill, [cnt_roi], 0, 255, -1) ## Get mask
+    mean_col_ii   = cv2.mean(img_ROI, mask_fill)[0]/255.
+    return(mean_col_ii)
+
+def bbox_y1_x1_y2_x2(cnti):
+    bb_cv2 = cv2.boundingRect(cnti)
+    # x,y,w,h -> y1, x1, y2, x2
+    return np.array([bb_cv2[1], bb_cv2[0], bb_cv2[1] + bb_cv2[3], bb_cv2[0] + bb_cv2[2]])
+    
+def box_overlap(A,B):
+    return (A[0] < B[2] and A[2] > B[0] and A[1] < B[3] and A[3] > B[1])
+
+def process_input_file(input_file):
+   input_file = os.path.abspath(input_file)
+   linux_test = len(input_file.split('/'))
+   windows_test = len(input_file.split('\\'))
+   if (linux_test==1 and windows_test>1):
+      base_path = '\\' + os.path.join(*input_file.split('\\')[:-1]) + '\\'
+   if (linux_test>1 and windows_test==1):
+      base_path = '/' + os.path.join(*input_file.split('/')[:-1]) + '/'
+   if (linux_test==1 and windows_test==1):
+      base_path = os.getcwd() + '/'
+ 
+   ## Read input file
+   ftype = input_file.split('.')[-1]   
+   
+   ext1 = "svs"; ext2 = "svs"
+   if (input_file.split('_')[-1].split('.')[0] == "tif"):
+      ext1 = "tif"; ext2 = "tiff"
+   if (input_file.split('_')[-1].split('.')[0] == "png"):
+      ext1 = "png"; ext2 = "png"
+   if (input_file.split('_')[-1].split('.')[0] == "jpg"):
+      ext1 = "jpg"; ext2 = "jpeg"
+
+   # check if we loaded a value as a header
+   if (ftype=="csv"):      a = pd.read_csv(input_file)
+   elif (ftype[:2]=="xl"): a = pd.read_excel(input_file)
+   else:                   a = pd.read_table(input_file)
+   heads = list(a.columns.values)
+   img_sum = 0
+   for hh in heads:
+      if (hh.split('.')[-1]==ext1 or hh.split('.')[-1]==ext2): img_sum += 1
+   if img_sum>0:
+      if (ftype=="csv"):      a = pd.read_csv(input_file  , header=None)
+      elif (ftype[:2]=="xl"): a = pd.read_excel(input_file, header=None)
+      else:                   a = pd.read_table(input_file, header=None)
+   a = np.asarray(a).reshape(a.shape)
+   
+   # extract file paths
+   ncols = a.shape[1]   
+   for i in range(ncols):
+      if type(a[0,i]) == str:
+         if (a[0,i].split('.')[-1]==ext1 or a[0,i].split('.')[-1]==ext2):
+            pathind = i
+   full_paths = list(a[:,pathind]) # take correct column
+#   clonal_mark_list = list(a[:,pathind+1])
+
+   linux_test = len(full_paths[0].split('/'))
+   windows_test = len(full_paths[0].split('\\'))
+   if (linux_test==1 and windows_test>1):
+      file_in = [name.split("\\")[-1].split(".")[0] for name in full_paths]
+   if (linux_test>1 and windows_test==1):
+      file_in = [name.split("/")[-1].split(".")[0] for name in full_paths]
+   
+   ## Define file structures
+   folder_out = base_path + '/' + "Analysed_slides/" 
+   mkdir_p(folder_out)
+   folders_to_analyse = [folder_out+fldr for fldr in ["Analysed_"+fnum+"/" for fnum in file_in]]
+   return base_path, folder_out, file_in, folders_to_analyse, full_paths
 
 def centred_tile(XY, tilesize, max_xy, edge_adjust = True):
    x0y = XY[0] - tilesize/2.
@@ -59,12 +125,25 @@ def rescale_contours(contour_list, scaling_val):
       cnt_list_out.append(a)
     return cnt_list_out
 
-def convert_to_local_clone_indices(patch_indices, clone_inds):
-   newpatchinds = []
-   for patch in patch_indices:
-      patch = [np.where(clone_inds==i)[0][0] for i in patch]
-      newpatchinds.append(patch)
-   return newpatchinds
+def contour_EccMajorMinorAxis(cnt):
+    try:    
+        # Get mean colour of object
+        _, axes,_ = cv2.fitEllipse(cnt)
+    
+        # length of MAJOR and minor axis
+        majoraxis_length = max(axes)
+        minoraxis_length = min(axes)    
+        # eccentricity = sqrt( 1 - (ma/MA)^2) --- ma= minor axis --- MA= major axis
+        eccentricity = np.sqrt(1-(minoraxis_length/majoraxis_length)**2)
+    except:
+        eccentricity = 0
+        majoraxis_length = 0
+        minoraxis_length = 0
+    return eccentricity, majoraxis_length, minoraxis_length
+
+def contour_Area(cnt):
+    if len(cnt) == 1: return 1        
+    return(cv2.contourArea(cnt))
 
 def write_cnt_text_file(cnt_list, file_name):
     with open(file_name, 'w') as ff:
@@ -117,7 +196,7 @@ def read_cnt_text_file(file_name):
             a[k,0,0] = lx[k]
             a[k,0,1] = ly[k]
         cnts_out.append(a)
-    return cnts_out         
+    return cnts_out
 
 def load_all_contours2(filename_list, scales = None, H_mats = None):
    cntsout = []
@@ -173,7 +252,10 @@ def rotate_contours(cnts, H_mat):
 
 def contour_xy(cnt, reverse = False):
     m_ij   = cv2.moments(cnt)
-    pos_xy = (int(m_ij['m10']/m_ij['m00']), int(m_ij['m01']/m_ij['m00']))
+    if m_ij['m00']==0:
+        pos_xy = (np.mean(cnt[:,0,0]), np.mean(cnt[:,0,1]))
+    else:
+        pos_xy = (int(m_ij['m10']/m_ij['m00']), int(m_ij['m01']/m_ij['m00']))
     if reverse:
         pos_xy = (pos_xy[1],pos_xy[0])
     return(pos_xy)
@@ -370,16 +452,28 @@ def correct_wh(max_vals, xy_vals, wh_vals):
     if final_y > max_vals[1] : new_wh_y = max_vals[1] - xy_vals[1]    
     return int(new_wh_x), int(new_wh_y)
 
-#def getROI_img_vips(file_name, x_y, w_h, level = 0):
-#    vim           = pyvips.Image.openslideload(file_name, level = level)   #openslideload
-#    max_vals      = (vim.width, vim.height)
-#    wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors 
-#    area          = vim.extract_area(x_y[0], x_y[1], wh_vals_final[0], wh_vals_final[1])
-#    size          = (area.width, area.height)
-#    data          = area.write_to_memory()
-#    new_img1       = np.fromstring(data, dtype=np.uint8).reshape(size[1], size[0], 4)  ## Remove alpha channel  
-#    new_img1       = cv2.cvtColor(new_img1[:,:,0:3], cv2.COLOR_RGB2BGR)
-#    return new_img1
+# def getROI_img_vips(file_name, x_y, w_h, level = 0):
+#     vim           = pyvips.Image.openslideload(file_name, level = level)   #openslideload
+#     max_vals      = (vim.width, vim.height)
+#     wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors 
+#     area          = vim.extract_area(x_y[0], x_y[1], wh_vals_final[0], wh_vals_final[1])
+#     size          = (area.width, area.height)
+#     data          = area.write_to_memory()
+#     new_img       = np.fromstring(data, dtype=np.uint8).reshape(size[1], size[0], 4)  ## Remove alpha channel  
+#     new_img       = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
+#     return new_img
+
+def getROI_img_vips(file_name, x_y, w_h, level = 0):
+    vim           = pyvips.Image.openslideload(file_name, level = level)   #openslideload
+    max_vals      = (vim.width, vim.height)
+    wh_vals_final = correct_wh(max_vals, x_y, w_h) ## Correct rounding errors 
+    area          = vim.crop(x_y[0], x_y[1], wh_vals_final[0], wh_vals_final[1])   
+    new_img       = np.ndarray(buffer=area.write_to_memory(),
+                       dtype=np.uint8,
+                       shape=[area.height, area.width, area.bands])
+    new_img       = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
+    return new_img
+
 
 def getROI_img_osl(file_name, x_y, w_h, level = 0):
     vim           = osl.OpenSlide(file_name)
@@ -394,6 +488,15 @@ def getROI_img_osl(file_name, x_y, w_h, level = 0):
     new_img = np.array(vim.read_region(location = newxy, level = level, size = wh_vals_final))
     new_img = cv2.cvtColor(new_img[:,:,0:3], cv2.COLOR_RGB2BGR)
     return new_img
+    
+def getROI_img(file_name, x_y, w_h, level = 0, lib = 'vips'):
+   if lib=='osl':
+      return getROI_img_osl(file_name, x_y, w_h, level = level)
+   elif lib=='vips':
+      return getROI_img_vips(file_name, x_y, w_h, level = level)
+   else:
+      print("choose a valid image library: lib = 'vips' or 'osl'")
+      return 1
     
 def getIndexesTileImage(max_vals, scalingVal, ROI_crop, max_num_pix  = 10000): # 22000
     ## Index stuff to tile image
