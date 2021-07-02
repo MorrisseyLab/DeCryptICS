@@ -1,26 +1,28 @@
 # DeCryptICS
 # Deep Crypt Image Classifier and Segmenter
 
-The tool is currently a work-in-progress.  Crypt counting is fully functional.
+This is a tool for segmenting and classifying intestinal glands on IHC and H&E slides. The functionality:
+* crypts will be segmented and counted
+* mutations/perturbations that cause loss of nuclear or cytoplasmic staining will be classified as full-crypt clones or partial-crypt clones
+* multi-crypt clones will be organised into clonal patches and patch sizes will be recorded
+* fusion/fission (fufi) events will be classified and counted
 
 Install instructions in brief:
 
-* Install Miniconda and create a conda environment with Python 3.7
-* Run: conda install openslide opencv matplotlib scikit-learn numba joblib pandas numpy scipy libiconv ipython
-* Run: pip install xlrd openslide-python
-* Run: pip install --upgrade tensorflow 
-* Run: pip install --upgrade tensorflow-gpu (if you want to use a CUDA-enabled GPU)
+* Install Miniconda, add the bioconda, conda-forge and r channels and create a conda environment with Python 3.8
+* conda install openslide opencv matplotlib scikit-learn joblib pandas numpy scipy libiconv ipython scikit-image pyvips 
+* pip install xlrd openslide-python networkx community albumentations tensorflow==2.4 tensorflow-addons==0.13 
 * Git clone this repository, https://github.com/MorrisseyLab/DeCryptICS.git
-* Download the neural network weights from the Dropbox link listed in install\_instructions.txt and put them in ./DNN/weights/
+* Download the neural network weights from the Dropbox link listed in install\_instructions.txt and put them in ./weights/
 
-And that's it! See the install\_instructions.txt file for a step-by-step (Linux) guide that may help, and for details on how to get the neural network running on your GPU.
+And that's it! See https://www.tensorflow.org/install/gpu for a instructions to get your GPU working.
 
 Main dependencies are currently:
 
 * OpenSlide
 * OpenCV
 * TensorFlow / Keras
-* ~~PyVips~~
+* PyVips
 
 ---
 
@@ -48,11 +50,19 @@ Run run\_script.py with an action and the path to the input file list. For examp
 
 python run\_script.py count /full/path/to/block/input\_files.py
 
-View the help with "python run\_script.py -h" to see all available options. For example, if you are analysing mouse tissue, then use the "-mouse" flag to use the mouse-specific network weights:
+View the help with "python run\_script.py -h" to see all available options.
 
-python run\_script.py count /full/path/to/mouseblock/input\_files.py -mouse
+# Processing the raw output
 
-Note: if running on a GPU and you receive an out-of-memory error, try reducing the "input\_size" in DeCryptICS/DNN/params.py (in nice powers of 2 so that downsampling always creates an integer size: 128, 256, 512, 1024, 2048...)
+Raw output is given in terms of probabilities of each bounding box being each object type (clone, partial, fufi). The processing step threshold these probabilities either with constant thresholds or manually with a slider by passing the -m flag:
+
+python process\_output.py /full/path/to/block/input\_files.py -m
+
+Thresholds can be set for non-manual processing as follows:
+
+python process\_output.py /full/path/to/block/input\_files.py -c 0.5 -p 0.5 -f 0.5
+
+for -c, -p and -f being clone, partial and fufi, respectively.
 
 ---
 

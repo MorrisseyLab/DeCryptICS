@@ -2,12 +2,8 @@
 
 # get block list as variable
 shopt -s nullglob
+# write uncommented variable assignment of form:
 #blocklist=(/full/path/to/block/folders/blocknames*/)
-#blocklist=(/home/doran/Work/images/Leeds_May2019/splitbyKM/KM*/)
-#blocklist=(/home/doran/Work/images/Serial_blocks_Oct2019/block*/)
-#blocklist=(/home/doran/Work/images/KRAS_study/block*/)
-blocklist=(/home/doran/Work/images/Leeds_May2019/curated_cryptdata/test/KM*)
-#blocklist=(/home/doran/Work/images/Anne-Claire_curated_2021/HR*/)
 
 for i in "${blocklist[@]}"
 do

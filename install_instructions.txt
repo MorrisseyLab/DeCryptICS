@@ -23,7 +23,7 @@ conda install openslide opencv matplotlib scikit-learn joblib pandas numpy scipy
 pip install xlrd openslide-python networkx community albumentations tensorflow==2.4 tensorflow-addons==0.13
 
 ## Then download network weights from Dropbox, e.g.:
-wget "https://www.dropbox.com/s/2ibwp5npt1jtcrm/cryptfuficlone_weights.hdf5?dl=0" -O ./DeCryptICS/DNN/weights/cryptfuficlone_weights.hdf5
+wget "https://www.dropbox.com/s/k64wpse5l0a8177/decrypt_weights.hdf5?dl=0" -O ./DeCryptICS/weights/decrypt_weights.hdf5
 
 
 
