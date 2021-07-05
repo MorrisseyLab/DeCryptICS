@@ -41,10 +41,10 @@ def main():
                               default = 0.5, 
                               help = 'FuFi probability threshold. ')
                               
-   parser.add_argument('-g',  action = 'store',
-                              dest = 'p_g', 
-                              default = 0.01, 
-                              help = 'Gland (crypt) probability threshold. ')
+#   parser.add_argument('-g',  action = 'store',
+#                              dest = 'p_g', 
+#                              default = 0.01, 
+#                              help = 'Gland (crypt) probability threshold. ')
                                  
    args = parser.parse_args()
    ## check args
@@ -55,11 +55,11 @@ def main():
    print('p_c = {!r}'.format(args.p_c))
    print('p_p = {!r}'.format(args.p_p))
    print('p_f = {!r}'.format(args.p_f))
-   print('p_g = {!r}'.format(args.p_g))
+#   print('p_g = {!r}'.format(args.p_g))
    p_c = float(args.p_c)
    p_p = float(args.p_p)
    p_f = float(args.p_f)
-   p_g = float(args.p_g)
+#   p_g = float(args.p_g)
    use_manual_thresholding = bool(args.m)
    r = bool(args.r)
 
@@ -74,7 +74,7 @@ def main():
       else:
          print('Processing %s.' % full_paths[i])
          try:
-            process_events(folders_to_analyse[i], use_manual_thresholding, p_c, p_p, p_f, p_g)
+            process_events(folders_to_analyse[i], use_manual_thresholding, p_c, p_p, p_f)#, p_g)
          except:
             print('Passing due to error.')
          

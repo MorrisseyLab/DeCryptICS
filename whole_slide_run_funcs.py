@@ -14,7 +14,6 @@ from slide_gen import slide_tile_gen
 params = set_params()
 st_3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
 
-#dnnfolder = "/home/doran/Work/py_code/new_DeCryptICS/newfiles/"
 dnnfolder = os.path.dirname(os.path.abspath(__file__))
 mixed_precision.set_global_policy('mixed_float16')
 
