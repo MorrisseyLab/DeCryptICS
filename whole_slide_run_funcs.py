@@ -24,6 +24,12 @@ model.load_weights(weights_name)
 def run_slide(file_name, output_folder, crypt_thresh=0.5, seg_max_len=20, seg_batch_size=16, min_micrn_overlap=80, bbox_batch_size=25, max_bboxes=400, repeat_method='largest', save_contours=True):
    a_full = time.time()
 
+   #test
+#   crypt_thresh=0.5; seg_max_len=20; seg_batch_size=16; min_micrn_overlap=80; bbox_batch_size=25; max_bboxes=400; repeat_method='largest'; save_contours=True
+#   dnnfolder = '/home/doran/Work/py_code/DeCryptICS/'
+#   file_name = '/home/doran/Work/images/Blocks/block_118193/624516.svs'   
+#   output_folder = file_name[:-(len(file_name.split('/')[-1]))] + 'Analysed_slides/Analysed_' + file_name.split('/')[-1].split('.')[0] + '/'
+   
    wh_gen = slide_tile_gen(file_name, mpp=params['umpp'], tile_size=params['tilesize_train'], max_len=seg_max_len, batch_size=seg_batch_size, min_micrn_overlap = min_micrn_overlap)
    
 #   wh_gen.get_img_thmb_tilerect()
@@ -31,8 +37,7 @@ def run_slide(file_name, output_folder, crypt_thresh=0.5, seg_max_len=20, seg_ba
    ## segment crypts
    a_u = time.time()
    mask_cr, fmap_all = segment_tiles(wh_gen)
-   b_u = time.time()
-   print('Segmentation done in %1.1f seconds' % (b_u - a_u))
+   print('Segmentation done in %1.1f seconds' % (time.time() - a_u))
 
    ## join kept tiles to create full mask and feature map
    fullmask, fullfmap, tilesize_masks, tilesize_fmaps, indx_at22 = process_mask_and_fmaps(wh_gen, mask_cr, fmap_all, crypt_thresh=crypt_thresh)
@@ -49,8 +54,7 @@ def run_slide(file_name, output_folder, crypt_thresh=0.5, seg_max_len=20, seg_ba
    ## predict clone, partial and fufi probabilities for bounding boxes
    a_t = time.time()
    raw_df = predict_bbox_probs(cnts, cnt_xy, fullfmap, indx_at22, tilesize_masks, tilesize_fmaps, batchsize=bbox_batch_size, max_crypts=params['num_bbox'])
-   b_t = time.time()
-   print('Bounding box probability predictions done in %1.1f seconds' % (b_t - a_t))
+   print('Bounding box probability predictions done in %1.1f seconds' % (time.time() - a_t))
    del(fullfmap)
 
    ## take averages for repeated crypts? or take prediction for largest bbox?
@@ -112,8 +116,7 @@ def run_slide(file_name, output_folder, crypt_thresh=0.5, seg_max_len=20, seg_ba
       cnts = simplify_contours(cnts)
       write_cnt_text_file(cnts, output_folder + "/crypt_contours.txt")
 
-   b_full = time.time()
-   print('Full slide analysis for %s done in %1.1f seconds' % (file_name, b_full - a_full))
+   print('Full slide analysis for %s done in %1.1f seconds' % (file_name, time.time() - a_full))
 
 def get_contour_features(cnts, out_df):
    out_df['area'] = np.asarray([contour_Area(i) for i in cnts])
@@ -177,7 +180,7 @@ def find_contours_from_full_mask(fullmask):
    return cnts, cnt_xy
 
 def predict_bbox_probs(cnts, cnt_xy, fullfmap, indx_at22, tilesize_masks, tilesize_fmaps, batchsize=20, max_crypts=400):
-   out_df = pd.DataFrame()   
+   out_df = pd.DataFrame()
    fmap_batch = []
    bbox_batch = []
    indices_batch = []
@@ -191,6 +194,7 @@ def predict_bbox_probs(cnts, cnt_xy, fullfmap, indx_at22, tilesize_masks, tilesi
       fmap_ij = indx_at22[tile_i,:]//2
       # get the contours present and the correct feature map, create mask dummy
       these_cnts, these_inds, these_xy = get_cnts_in_tile(cnts, cnt_xy, tile_xy, tilesize_masks)
+      if len(these_cnts)==0: continue
       this_fmap = fullfmap[fmap_ij[0]:(fmap_ij[0]+tilesize_fmaps), fmap_ij[1]:(fmap_ij[1]+tilesize_fmaps), :]
       # create bounding boxes in correct order and fix overhanging countours
       bboxes, these_cnts, these_inds, these_xy = get_bbox_from_contours(these_cnts, these_inds, these_xy, tilesize_masks, max_crypts = max_crypts)

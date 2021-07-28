@@ -102,22 +102,22 @@ def process_events(output_folder, use_manual_thresholding=True, clone_thresh=0.5
       if 'p_crypt' in svs.raw_data.columns:
          svs.set_event_type('p_crypt')
          svs.plot_sampled_events()
-      # create masks
+      # update thresholds
+      clone_thresh   = svs.clone_threshold
+      partial_thresh = svs.partial_threshold
+      fufi_thresh    = svs.fufi_threshold
+      if 'p_crypt' in out_df.columns: crypt_thresh = svs.crypt_threshold
       out_df = svs.raw_data
-      clone_mask   = np.asarray(out_df['p_clone']   >= svs.clone_threshold).astype(np.int32)
-      partial_mask = np.asarray(out_df['p_partial'] >= svs.partial_threshold).astype(np.int32)
-      fufi_mask    = np.asarray(out_df['p_fufi']    >= svs.fufi_threshold).astype(np.int32)
-      if 'p_crypt' in svs.raw_data.columns:
-         crypt_mask = np.asarray(out_df['p_crypt'] >= svs.crypt_threshold).astype(np.int32)
    else:
       # load raw output
       out_df = pd.read_csv(output_folder + '/raw_crypt_output.csv')
-      # get masks that can be used for loading contours in qupath, output these
-      clone_mask   = np.asarray(out_df['p_clone']   >= clone_thresh).astype(np.int32)
-      partial_mask = np.asarray(out_df['p_partial'] >= partial_thresh).astype(np.int32)
-      fufi_mask    = np.asarray(out_df['p_fufi']    >= fufi_thresh).astype(np.int32)
-      if 'p_crypt' in out_df.columns:
-         crypt_mask = np.asarray(out_df['p_crypt'] >= crypt_thresh).astype(np.int32)
+      
+   # create masks
+   clone_mask   = np.asarray(out_df['p_clone']   >= clone_thresh).astype(np.int32)
+   partial_mask = np.asarray(out_df['p_partial'] >= partial_thresh).astype(np.int32)
+   fufi_mask    = np.asarray(out_df['p_fufi']    >= fufi_thresh).astype(np.int32)
+   if 'p_crypt' in out_df.columns:
+      crypt_mask = np.asarray(out_df['p_crypt'] >= crypt_thresh).astype(np.int32)
       
    clone_inds   = np.where(clone_mask==1)[0]
    # binarise output columns    
@@ -126,6 +126,11 @@ def process_events(output_folder, use_manual_thresholding=True, clone_thresh=0.5
    out_df.loc[:,'p_fufi']    = list(fufi_mask)
    if 'p_crypt' in out_df.columns:
       out_df.loc[:,'p_crypt'] = list(crypt_mask)
+
+   # add thresholds to output dataframe
+   out_df['clone_threshold']   = clone_thresh
+   out_df['partial_threshold'] = partial_thresh
+   out_df['fufi_threshold']    = fufi_thresh
       
    # Join patches as contours
    patch_indices = join_clones_if_close(out_df, clone_inds)
@@ -221,12 +226,12 @@ def join_clones_if_close(out_df, clone_inds):
 def folder_from_image(image_num_str):
     return "/Analysed_"+str(image_num_str)+'/'
 
-def extract_counts_csv(file_in, folder_out, base_path):
+def extract_counts_csv(file_in, folder_out, base_path, clone_thresh=None, partial_thresh=None, fufi_thresh=None):
    contour_folders = [folder_from_image(im) for im in file_in]
    num = len(contour_folders)
-   slide_counts = np.zeros([num, 8], dtype=object)
+   slide_counts = np.zeros([num, 11], dtype=object)
    slide_names = list(file_in)
-   cols = ['Slide_ID', 'NCrypts', 'NFufis', 'NMutantCrypts', 'NClones', 'NMonoclonals', 'NPartials', 'NPatches', 'PatchSizes']
+   cols = ['Slide_ID', 'NCrypts', 'NFufis', 'NMutantCrypts', 'NClones', 'NMonoclonals', 'NPartials', 'NPatches', 'PatchSizes', 'Clone_threshold', 'Partial_threshold', 'Fufi_threshold']
    for i in range(num):
       try:
          df = pd.read_csv(base_path+'/Analysed_slides/'+contour_folders[i]+"/processed_output.csv")
@@ -256,7 +261,7 @@ def extract_counts_csv(file_in, folder_out, base_path):
       patchsum = np.sum(unique_patches, axis=0)[0]
       patch_sizes = np.sort(unique_patches[unique_patches[:,0]>0, 0])
       patchsize_str = str(list(patch_sizes)).replace('[','').replace(']','').replace(' ', '')
-
+      
       slide_counts[i,0] = cryptcount # 'NCrypts'
       slide_counts[i,1] = fuficount # 'NFufis',
       slide_counts[i,2] = mutantcryptcount # 'NMutantCrypts'
@@ -265,6 +270,14 @@ def extract_counts_csv(file_in, folder_out, base_path):
       slide_counts[i,5] = partialcount # 'NPartials'
       slide_counts[i,6] = numpatches # 'NPatches'
       slide_counts[i,7] = patchsize_str # 'PatchSizes'
+      
+      
+      if 'clone_threshold' in df.columns:
+         # get thresholds
+         slide_counts[i,8 ] = df['clone_threshold']
+         slide_counts[i,9 ] = df['partial_threshold']
+         slide_counts[i,10] = df['fufi_threshold']
+         
    slidecounts_p = pd.DataFrame(slide_counts, columns=cols[1:])
    slidecounts_p = pd.concat([pd.DataFrame({'Slide_ID':slide_names}), slidecounts_p], axis=1)
    outname = "/slide_counts.csv"

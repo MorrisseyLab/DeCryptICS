@@ -7,37 +7,7 @@ from pathlib import Path
 from qupath_project import create_qupath_project
 from MiscFunctions  import mkdir_p, process_input_file
 
-def run_analysis():
-   parser = argparse.ArgumentParser(description = "This script takes as input a list of full paths (local or remote) to .svs files, "
-                                                   "or a larger dataframe that contains such a list as a column. "
-                                                   "The output is a QuPath project containing all .svs slides. "
-                                                   "Optionally, the .svs slides can be analysed to count crypts and clones, "
-                                                   "or crypts only; detected contours are added to the QuPath project. " )
-    
-   parser.add_argument("action", choices = ["read" , "count"], 
-                                 default = "read", 
-                                 help = "Action to carry out. "
-                                        "read: create QuPath project for input slides; "
-                                        "count: counts crypts (and possibly clones) and creates QuPath project. ")
-
-   parser.add_argument("input_file", help = "A file containing a list of full paths to slides (or array with column acting as said list). ")
-
-   parser.add_argument('-q', action = "store",
-                        dest = "qp_proj_name", 
-                        default = "qupath_project_"+datetime.datetime.now().strftime("%d-%m-%Y_%H-%M"),
-                        help = "Optionally set the name of the QuPath project folder to be created. "
-                               "Defaults to 'qupath_project_DATE_TIME'. ")
-
-   parser.add_argument('-r', action = "store_true", 
-                             default = False,
-                             help = "Forces repeat analysis of slides with existing crypt contour files. "
-                                    "Defaults to False if -r flag missing. ")
-
-#   parser.add_argument('-mouse', action = "store_true", 
-#                                 default = False,
-#                                 help    = "Indicates we are analysing mouse tissue. ")
-                                 
-   args = parser.parse_args()
+def run_analysis(args):
    ## check args
    print("Running with the following inputs:")
    print('action       = {!r}'.format(args.action))
@@ -74,5 +44,35 @@ def run_analysis():
                print('Passing due to error.')
                     
 if __name__=='__main__':
-   run_analysis()
+   parser = argparse.ArgumentParser(description = "This script takes as input a list of full paths (local or remote) to .svs files, "
+                                                   "or a larger dataframe that contains such a list as a column. "
+                                                   "The output is a QuPath project containing all .svs slides. "
+                                                   "Optionally, the .svs slides can be analysed to count crypts and clones, "
+                                                   "or crypts only; detected contours are added to the QuPath project. " )
+    
+   parser.add_argument("action", choices = ["read" , "count"], 
+                                 default = "read", 
+                                 help = "Action to carry out. "
+                                        "read: create QuPath project for input slides; "
+                                        "count: counts crypts (and possibly clones) and creates QuPath project. ")
+
+   parser.add_argument("input_file", help = "A file containing a list of full paths to slides (or array with column acting as said list). ")
+
+   parser.add_argument('-q', action = "store",
+                        dest = "qp_proj_name", 
+                        default = "qupath_project_"+datetime.datetime.now().strftime("%d-%m-%Y_%H-%M"),
+                        help = "Optionally set the name of the QuPath project folder to be created. "
+                               "Defaults to 'qupath_project_DATE_TIME'. ")
+
+   parser.add_argument('-r', action = "store_true", 
+                             default = False,
+                             help = "Forces repeat analysis of slides with existing crypt contour files. "
+                                    "Defaults to False if -r flag missing. ")
+
+#   parser.add_argument('-mouse', action = "store_true", 
+#                                 default = False,
+#                                 help    = "Indicates we are analysing mouse tissue. ")
+                                 
+   args = parser.parse_args()
+   run_analysis(args)
         
