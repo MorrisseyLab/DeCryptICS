@@ -4,8 +4,9 @@ import glob, os, sys
 import argparse
 import numpy as np
 import pandas as pd
+import cv2
 from sklearn.neighbors import NearestNeighbors
-from MiscFunctions import write_score_text_file, process_input_file
+from MiscFunctions import write_score_text_file, process_input_file, read_cnt_text_file, write_cnt_text_file
 from just_read_svs import svs_file
 
 def main():
@@ -81,7 +82,7 @@ def main():
    ## extract crypt counts from all analysed slides into base path
    extract_counts_csv(file_in, folder_out, base_path)
 
-def process_events(output_folder, use_manual_thresholding=True, clone_thresh=0.5, partial_thresh=0.5, fufi_thresh=0.5, crypt_thresh=0.5):
+def process_events(output_folder, use_manual_thresholding=True, p_c=0.5, p_p=0.5, p_f=0.5, crypt_thresh=0.5, output_patch_contours=True):
    if use_manual_thresholding:
       file_name = output_folder.split('/Analysed_slides/')[0] + output_folder.split('/Analysed_')[-1][:-1] + '.svs'
       tilesize = 60
@@ -103,9 +104,9 @@ def process_events(output_folder, use_manual_thresholding=True, clone_thresh=0.5
          svs.set_event_type('p_crypt')
          svs.plot_sampled_events()
       # update thresholds
-      clone_thresh   = svs.clone_threshold
-      partial_thresh = svs.partial_threshold
-      fufi_thresh    = svs.fufi_threshold
+      p_c = svs.clone_threshold
+      p_p = svs.partial_threshold
+      p_f = svs.fufi_threshold
       if 'p_crypt' in out_df.columns: crypt_thresh = svs.crypt_threshold
       out_df = svs.raw_data
    else:
@@ -113,9 +114,9 @@ def process_events(output_folder, use_manual_thresholding=True, clone_thresh=0.5
       out_df = pd.read_csv(output_folder + '/raw_crypt_output.csv')
       
    # create masks
-   clone_mask   = np.asarray(out_df['p_clone']   >= clone_thresh).astype(np.int32)
-   partial_mask = np.asarray(out_df['p_partial'] >= partial_thresh).astype(np.int32)
-   fufi_mask    = np.asarray(out_df['p_fufi']    >= fufi_thresh).astype(np.int32)
+   clone_mask   = np.asarray(out_df['p_clone']   >= p_c).astype(np.int32)
+   partial_mask = np.asarray(out_df['p_partial'] >= p_p).astype(np.int32)
+   fufi_mask    = np.asarray(out_df['p_fufi']    >= p_f).astype(np.int32)
    if 'p_crypt' in out_df.columns:
       crypt_mask = np.asarray(out_df['p_crypt'] >= crypt_thresh).astype(np.int32)
       
@@ -128,12 +129,12 @@ def process_events(output_folder, use_manual_thresholding=True, clone_thresh=0.5
       out_df.loc[:,'p_crypt'] = list(crypt_mask)
 
    # add thresholds to output dataframe
-   out_df['clone_threshold']   = clone_thresh
-   out_df['partial_threshold'] = partial_thresh
-   out_df['fufi_threshold']    = fufi_thresh
+   out_df['clone_threshold']   = p_c
+   out_df['partial_threshold'] = p_p
+   out_df['fufi_threshold']    = p_f
       
    # Join patches as contours
-   patch_indices = join_clones_if_close(out_df, clone_inds)
+   patch_indices, patch_contours = join_clones_if_close(out_df, clone_inds, output_folder, output_patch_contours=output_patch_contours)
    out_df = get_crypt_patchsizes_and_ids(patch_indices, out_df)
    
    # save output, but remove .bacs first
@@ -149,7 +150,10 @@ def process_events(output_folder, use_manual_thresholding=True, clone_thresh=0.5
    write_score_text_file(fufi_mask   , output_folder + '/fufi_mask.txt')
    if 'p_crypt' in out_df.columns:
       write_score_text_file(crypt_mask, output_folder + '/crypt_mask.txt')
-   
+   if output_patch_contours:
+      if os.path.exists(output_folder + '/patch_contours.bac'): os.remove(output_folder + '/patch_contours.bac')
+      write_cnt_text_file(patch_contours, output_folder + '/patch_contours.txt')
+         
 def get_crypt_patchsizes_and_ids(patch_indices, out_df):
    # gives mutant patches of size > 1 a unique ID.  Single mutants have ID = 0
    patch_size = np.zeros(out_df.shape[0])
@@ -171,7 +175,7 @@ def add_nearby_clones(patch, indices, clone_inds, i, j):
             add_nearby_clones(patch, indices, clone_inds, k, j)
    return patch
 
-def join_clones_if_close(out_df, clone_inds):
+def join_clones_if_close(out_df, clone_inds, output_folder, output_patch_contours=True):
    nn = np.minimum(9, out_df.shape[0]-1)
    nbrs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(out_df[['x','y']])
    distances, indices = nbrs.kneighbors(out_df[['x','y']])
@@ -215,13 +219,22 @@ def join_clones_if_close(out_df, clone_inds):
          if cut_patches[jj] not in used_patches:
             thispatch |= cut_patches[jj]
       cut_patches2.append(thispatch)
-      
+
    # turn into lists
    newpatchinds = []
    for patch in cut_patches2:
       patch = list(patch)
       newpatchinds.append(patch)
-   return newpatchinds
+
+   if output_patch_contours:
+      crypt_contours = read_cnt_text_file(output_folder + '/crypt_contours.txt')
+      cnt_joined = []
+      for patch in cut_patches2:
+         cont = np.vstack([np.array(crypt_contours[i]) for i in patch])
+         hull = cv2.convexHull(cont)
+         cnt_joined.append(hull)
+   else: cnt_joined = []      
+   return newpatchinds, cnt_joined
 
 def folder_from_image(image_num_str):
     return "/Analysed_"+str(image_num_str)+'/'
@@ -241,47 +254,50 @@ def extract_counts_csv(file_in, folder_out, base_path, clone_thresh=None, partia
       if 'p_crypt' in df.columns:
          # filter out non-crypts
          df = df[df['p_crypt']>0].reset_index().drop(['index'], axis=1)
-      allclone_inds = np.where(np.asarray(df['p_clone'])==1)[0]
-      partial_inds = np.where(np.asarray(df['p_partial'])==1)[0]
-      monoclonal_inds = np.setdiff1d(allclone_inds, partial_inds)
-      allmuts = np.hstack([partial_inds, monoclonal_inds])
-      
-      cryptcount = df.shape[0]
-      fuficount = np.where(np.asarray(df['p_fufi'])==1)[0].shape[0]
-      mutantcryptcount = allmuts.shape[0]
-      monoclonalcount = monoclonal_inds.shape[0]
-      partialcount = partial_inds.shape[0]
-      
-      # deal with patches
-      try:
-         unique_patches = np.vstack(list({tuple(row) for row in np.asarray(df[['patch_size', 'patch_id']].iloc[allmuts])})).astype(np.int32) # size, id
-      except:
-         unique_patches = np.zeros((1,2), dtype=np.int32)
-      numpatches = np.max(unique_patches[:,1])
-      patchsum = np.sum(unique_patches, axis=0)[0]
-      patch_sizes = np.sort(unique_patches[unique_patches[:,0]>0, 0])
-      patchsize_str = str(list(patch_sizes)).replace('[','').replace(']','').replace(' ', '')
-      
-      slide_counts[i,0] = cryptcount # 'NCrypts'
-      slide_counts[i,1] = fuficount # 'NFufis',
-      slide_counts[i,2] = mutantcryptcount # 'NMutantCrypts'
-      slide_counts[i,3] = int(mutantcryptcount - patchsum + numpatches) # 'NClones'
-      slide_counts[i,4] = monoclonalcount # 'NMonoclonals'
-      slide_counts[i,5] = partialcount # 'NPartials'
-      slide_counts[i,6] = numpatches # 'NPatches'
-      slide_counts[i,7] = patchsize_str # 'PatchSizes'
-      
-      
-      if 'clone_threshold' in df.columns:
-         # get thresholds
-         slide_counts[i,8 ] = df['clone_threshold']
-         slide_counts[i,9 ] = df['partial_threshold']
-         slide_counts[i,10] = df['fufi_threshold']
-         
+      ## do counting
+      slide_counts = construct_event_counts(slide_counts, df, i)         
    slidecounts_p = pd.DataFrame(slide_counts, columns=cols[1:])
    slidecounts_p = pd.concat([pd.DataFrame({'Slide_ID':slide_names}), slidecounts_p], axis=1)
    outname = "/slide_counts.csv"
    slidecounts_p.to_csv(folder_out + outname, sep=',', index=False)
+
+def construct_event_counts(slide_counts, df, i):
+   allclone_inds = np.where(np.asarray(df['p_clone'])==1)[0]
+   partial_inds = np.where(np.asarray(df['p_partial'])==1)[0]
+   monoclonal_inds = np.setdiff1d(allclone_inds, partial_inds)
+   allmuts = np.hstack([partial_inds, monoclonal_inds])
+   
+   cryptcount = df.shape[0]
+   fuficount = np.where(np.asarray(df['p_fufi'])==1)[0].shape[0]
+   mutantcryptcount = allmuts.shape[0]
+   monoclonalcount = monoclonal_inds.shape[0]
+   partialcount = partial_inds.shape[0]
+   
+   # deal with patches
+   try:
+      unique_patches = np.vstack(list({tuple(row) for row in np.asarray(df[['patch_size', 'patch_id']].iloc[allmuts])})).astype(np.int32) # size, id
+   except:
+      unique_patches = np.zeros((1,2), dtype=np.int32)
+   numpatches = np.max(unique_patches[:,1])
+   patchsum = np.sum(unique_patches, axis=0)[0]
+   patch_sizes = np.sort(unique_patches[unique_patches[:,0]>0, 0])
+   patchsize_str = str(list(patch_sizes)).replace('[','').replace(']','').replace(' ', '')
+   
+   slide_counts[i,0] = cryptcount # 'NCrypts'
+   slide_counts[i,1] = fuficount # 'NFufis',
+   slide_counts[i,2] = mutantcryptcount # 'NMutantCrypts'
+   slide_counts[i,3] = int(mutantcryptcount - patchsum + numpatches) # 'NClones'
+   slide_counts[i,4] = monoclonalcount # 'NMonoclonals'
+   slide_counts[i,5] = partialcount # 'NPartials'
+   slide_counts[i,6] = numpatches # 'NPatches'
+   slide_counts[i,7] = patchsize_str # 'PatchSizes'
+         
+   if 'clone_threshold' in df.columns:
+      # get thresholds
+      slide_counts[i,8 ] = np.asarray(df['clone_threshold'])[0]
+      slide_counts[i,9 ] = np.asarray(df['partial_threshold'])[0]
+      slide_counts[i,10] = np.asarray(df['fufi_threshold'])[0]
+   return slide_counts
 
 if __name__=='__main__':
    main()

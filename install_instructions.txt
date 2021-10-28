@@ -1,11 +1,11 @@
 ## install conda:
-###################
+#################
 mkdir /your/folder
 cd /your/folder
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh -b -p /full/path/to/install-dir
 
-# config
+## config conda
 export PATH=/full/path/to/your/folder/bin:$PATH
 conda init bash # to enable "conda activate" usage
 conda config --add channels defaults
@@ -15,12 +15,16 @@ conda config --add channels bioconda
 conda update -n base conda -c defaults
 
 ## python dependencies
-##################
-# create a conda environment, where you can choose the NAME_OF_ENV
-conda create -n NAME_OF_ENV python=3.8
+######################
+## create a conda environment, where you can choose the NAME_OF_ENV
+conda create -n NAME_OF_ENV python=3.8  # or the version of python that is compatible with the required CUDA/tensorflow combination for your operating system
+
+## activate the env and install the dependencies
 conda activate NAME_OF_ENV
+
 conda install openslide opencv matplotlib scikit-learn joblib pandas numpy scipy libiconv ipython scikit-image pyvips
-pip install xlrd openslide-python networkx community albumentations tensorflow==2.4 tensorflow-addons==0.13
+
+pip install xlrd openslide-python networkx community albumentations tensorflow==2.4 tensorflow-addons==0.13 # or the version of tensorflow and tensorflow-addons that are compatible with your version of CUDA and python
 
 ## Then download network weights from Dropbox, e.g.:
 wget "https://www.dropbox.com/s/k64wpse5l0a8177/decrypt_weights.hdf5?dl=0" -O ./DeCryptICS/weights/decrypt_weights.hdf5

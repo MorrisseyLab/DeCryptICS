@@ -58,12 +58,12 @@ val_data        = already_curated[keep_indx]
 train_datagen = DataGen_curt(params, train_data, nsteps, nclone_factor, npartial_mult)
 val_datagen   = CloneGen_curt(params, val_data, fufis=True)
 
-model, just_trnsf, just_unet = unet_sep(params, weight_ccpf = weight_ccpf)
+model, just_trnsf, just_unet = unet_sep(params, weight_ccpf = weight_ccpf, lr=2e-5) #lr=1e-4
 
 print('Loading weights!!')
-weights_name = dnnfolder + '/weights/pixshuf_genbb_balanceweights_11mpp.hdf5'
-model.load_weights(weights_name)
-weights_name_next = dnnfolder + '/weights/pixshuf_genbb_jitter_fufidilate_11mpp.hdf5'
+#weights_name = dnnfolder + '/weights/pixshuf_genbb_balanceweights_11mpp.hdf5'
+#model.load_weights(weights_name)
+weights_name_next = dnnfolder + '/weights/pixshuf_genbb_jitter_fufidilate_reducelr_11mpp.hdf5'
 
 callbacks = [EarlyStopping(monitor='loss', patience=25, verbose=1, min_delta=1e-9),
              ReduceLROnPlateau(monitor='loss', factor=0.075, patience=8, verbose=1, min_delta=1e-9),
