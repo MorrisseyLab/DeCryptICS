@@ -27,8 +27,8 @@ def plot_img_keep_decision(list_to_plot, nameWindow = 'Plots', NewWindow = True,
          cv2.waitKey(1)
    except:
       inkey = ord('z')
-      fig, ax = plt.subplots(dpi=resolution)
-      ax.imshow(cv2.cvrtColor(list_to_plot, cv2.COLOR_BGR2RGB))
+      fig, ax = plt.subplots()#dpi=resolution)
+      ax.imshow(cv2.cvtColor(list_to_plot, cv2.COLOR_BGR2RGB))
       plt.draw()
       plt.pause(1)
       while inkey == ord('z'):
