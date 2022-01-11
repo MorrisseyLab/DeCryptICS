@@ -2,6 +2,7 @@ import glob, cv2, pickle, os, random, shutil
 import pandas as pd
 import numpy as np
 import openslide as osl
+import matplotlib.pyplot as plt
 from MiscFunctions import plot_img, write_score_text_file, getROI_img_osl, centred_tile,\
                           read_cnt_text_file, rescale_contours, write_cnt_text_file
 from  process_output import construct_event_counts
