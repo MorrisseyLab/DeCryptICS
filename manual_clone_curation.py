@@ -12,17 +12,27 @@ import zipfile
 # then, using this new label and clone index, automatically update clone counts, patch indices, patch size and clone scores files
 
 def plot_img_keep_decision(list_to_plot, nameWindow = 'Plots', NewWindow = True, hold_plot = True, resolution = 800):
-   if NewWindow:
-      screen_res = (resolution, resolution)
-      cv2.namedWindow(nameWindow, cv2.WINDOW_NORMAL)
-      cv2.resizeWindow(nameWindow, screen_res[0], screen_res[1])
-   vis = list_to_plot
-   cv2.imshow(nameWindow, vis)
-   if (hold_plot):
-      inkey = 0xFF & cv2.waitKey(0)
-      cv2.destroyWindow(nameWindow)
-      cv2.destroyAllWindows()
-      cv2.waitKey(1)
+   try:
+      if NewWindow:
+         screen_res = (resolution, resolution)
+         cv2.namedWindow(nameWindow, cv2.WINDOW_NORMAL)
+         cv2.resizeWindow(nameWindow, screen_res[0], screen_res[1])
+      vis = list_to_plot
+      cv2.imshow(nameWindow, vis)
+      if (hold_plot):
+         inkey = 0xFF & cv2.waitKey(0)
+         cv2.destroyWindow(nameWindow)
+         cv2.destroyAllWindows()
+         cv2.waitKey(1)
+   except:
+      inkey = ord('z')
+      fig, ax = plt.subplots(dpi=resolution)
+      ax.imshow(cv2.cvrtColor(list_to_plot, cv2.COLOR_BGR2RGB))
+      plt.draw()
+      plt.pause(1)
+      while inkey == ord('z'):
+         inkey = input()
+      plt.close(fig)
    return inkey
 
 def add_single_offset(contour, xy_offset):
