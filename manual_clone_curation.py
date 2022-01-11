@@ -413,16 +413,8 @@ def main():
       out_df.to_csv(graphpath, index=False) 
 
       # update clone scores to zero for bad inds, one for good inds
-      local_bad_inds = [np.where(allclones==c)[0][0] for c in bad_inds]
-      local_good_inds = [np.where(allclones==c)[0][0] for c in good_inds]
-      for kk in bad_patches:
-         cinds = patchid_inds[np.where(ids_==kk)[0]]
-         local_pinds = [np.where(allclones==c)[0][0] for c in cinds]
-         local_bad_inds = local_bad_inds + local_pinds
-      for kk in good_patches:
-         cinds = patchid_inds[np.where(ids_==kk)[0]]
-         local_pinds = [np.where(allclones==c)[0][0] for c in cinds]
-         local_good_inds = local_good_inds + local_pinds
+      local_good_inds = good_inds + [patchid_inds[np.where(ids_==kk)[0]] for kk in good_patches]
+      local_bad_inds = bad_inds + [patchid_inds[np.where(ids_==kk)[0]] for kk in bad_patches]
             
       clone_scores = np.loadtxt(folder_to_analyse + "/clone_mask.txt", ndmin=1)
       clone_scores[local_bad_inds] = 0
