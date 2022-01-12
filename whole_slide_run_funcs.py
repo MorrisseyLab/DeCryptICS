@@ -13,11 +13,10 @@ from slide_gen import slide_tile_gen
 
 params = set_params()
 st_3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+mixed_precision.set_global_policy('mixed_float16')
+model, just_trnsf, just_unet = unet_sep(params, is_comp = False)
 
 dnnfolder = os.path.dirname(os.path.abspath(__file__))
-mixed_precision.set_global_policy('mixed_float16')
-
-model, just_trnsf, just_unet = unet_sep(params, is_comp = False)
 weights_name = os.path.join(dnnfolder, 'weights', 'decrypt_weights.hdf5')
 model.load_weights(weights_name)
 
@@ -25,10 +24,11 @@ def run_slide(file_name, output_folder, crypt_thresh=0.5, seg_max_len=20, seg_ba
    a_full = time.time()
 
    #test
-#   crypt_thresh=0.5; seg_max_len=20; seg_batch_size=16; min_micrn_overlap=80; bbox_batch_size=25; max_bboxes=400; repeat_method='largest'; save_contours=True
-#   dnnfolder = '/home/doran/Work/py_code/DeCryptICS/'
-#   file_name = '/home/doran/Work/images/Blocks/block_118193/624516.svs'   
-#   output_folder = file_name[:-(len(file_name.split('/')[-1]))] + 'Analysed_slides/Analysed_' + file_name.split('/')[-1].split('.')[0] + '/'
+   crypt_thresh=0.5; seg_max_len=20; seg_batch_size=16; min_micrn_overlap=80; bbox_batch_size=25; max_bboxes=400; repeat_method='largest'; save_contours=True
+   dnnfolder = '/home/doran/Work/py_code/DeCryptICS/'
+   model.load_weights(dnnfolder + '/weights/decrypt_weights.hdf5')
+   file_name = '/home/doran/Work/images/test/586572.svs'   
+   output_folder = file_name[:-(len(file_name.split('/')[-1]))] + 'Analysed_slides/Analysed_' + file_name.split('/')[-1].split('.')[0] + '/'
    
    wh_gen = slide_tile_gen(file_name, mpp=params['umpp'], tile_size=params['tilesize_train'], max_len=seg_max_len, batch_size=seg_batch_size, min_micrn_overlap = min_micrn_overlap)
    

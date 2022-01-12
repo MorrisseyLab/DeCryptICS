@@ -1,4 +1,4 @@
-import glob, cv2, pickle, os, random, shutil, sys
+import glob, cv2, pickle, os, random, shutil
 import pandas as pd
 import numpy as np
 import openslide as osl
@@ -8,9 +8,6 @@ from MiscFunctions import plot_img, write_score_text_file, getROI_img_osl, centr
 from  process_output import construct_event_counts
 import argparse
 import zipfile
-
-# Want to cycle through images of clones and assign a yes no label to them, saving their local clone index and associated label
-# then, using this new label and clone index, automatically update clone counts, patch indices, patch size and clone scores files
 
 def plot_img_keep_decision(list_to_plot, nameWindow = 'Plots', NewWindow = True, hold_plot = True, resolution = 800):
    try:
@@ -184,178 +181,43 @@ def main():
          shutil.copy2(folder_to_analyse + "/patch_contours.bac", folder_to_analyse + "/patch_contours.txt")
       except:
          print('No backups found.')
-            
+         
    ## load graph of slide analysis output
    graphpath = folder_to_analyse + '/processed_output.csv'
    try:
       gg = pd.read_csv(graphpath)
       colnames = gg.columns
-      clone_col = np.where(colnames == 'p_clone')[0][0]
-      patch_size_col = np.where(colnames == 'patch_size')[0][0]
-      patch_id_col = np.where(colnames == 'patch_id')[0][0]
+      fufi_col = np.where(colnames == 'p_fufi')[0][0]
       x_col = np.where(colnames == 'x')[0][0]
       y_col = np.where(colnames == 'y')[0][0]
       if gg.shape[0]==0:
          gg = np.zeros(19)
    except:
       gg = np.zeros(19)
-      clone_col = 3
-      patch_size_col = 17
-      patch_id_col = 18
+      clone_col = 4
       x_col = 1
       y_col = 2
    if len(gg.shape)==1:
       gg = gg.reshape((1,gg.shape[0]))      
    gg = np.asarray(gg)
    
-   allclones = np.where(gg[:,clone_col]>0)[0]
-   patchid_inds = np.where(gg[:,patch_id_col]>0)[0]
-   sizes_ = gg[patchid_inds, patch_size_col]
-   ids_ = gg[patchid_inds, patch_id_col].astype(np.int32)
-   uniq_ids_ = np.unique(ids_).astype(np.int32)
-
-   all_okay = False
-   while all_okay==False:
-      all_okay = True
-      for jj in uniq_ids_:
-         quoted_sizes = sizes_[np.where(ids_==jj)[0]]
-         crypts_with_size = len(sizes_[np.where(ids_==jj)[0]])
-         if (np.all(quoted_sizes==crypts_with_size)==False):
-            all_okay = False
-            # reduce the patch size for the rest of the patch
-            thispatch = np.where(gg[:,patch_id_col]==jj)[0]
-            for k in thispatch:
-               gg[k,patch_id_col] = crypts_with_size
-            if len(thispatch)==1:
-               # no longer a patch
-               gg[thispatch[0],patch_size_col] = 0
-               gg[thispatch[0],patch_id_col] = 0
-      # recalculate arrays
-      allclones = np.where(gg[:, clone_col]>0)[0]
-      patchid_inds = np.where(gg[:,patch_id_col]>0)[0]
-      sizes_ = gg[patchid_inds, patch_size_col]
-      ids_ = gg[patchid_inds, patch_id_col].astype(np.int32)
-      uniq_ids_ = np.unique(ids_).astype(np.int32)
-      
-   # get patch contours
-   patchcnts_fn = folder_to_analyse + "/patch_contours.txt"
-   patchcnts = load_contours(patchcnts_fn, scale = scale)
-
-   good_patches = []
-   bad_patches = []
-   examine_inds = []
-   lastbinned_l = []
-   i = 0
-   print("Use '1' or 'a' for good patches and '0' or 'd' for bad patches!")
-   print("Use '3' or 'w' for patches that you want to curate in more detail afterwards.")
-   print("(Or press 'p' to undo the last choice and go back to the previous image.)")
-   while i<(len(uniq_ids_)+1):
-      if i==len(uniq_ids_):
-         # allow one last 'p' in case final image was wrongly catergorised
-         print("Patches all done -- last chance to press 'p' and go back...")
-         decision_flag = plot_img_keep_decision(load_last(), resolution = resolution)
-         if (decision_flag == ord('p') and i>0):
-            if lastbinned_l[-1]=="good": good_patches = good_patches[:-1]
-            if lastbinned_l[-1]=="bad": bad_patches = bad_patches[:-1]
-            if lastbinned_l[-1]=="unsure":
-               examine_inds = examine_inds[:-1]
-            # roll back binning
-            lastbinned_l = lastbinned_l[:-1]
-            i -= 1
-         elif (decision_flag == ord('p') and i==0): pass
-         else:
-            i += 1
-      else:
-         ind = uniq_ids_[i]
-         thissize = sizes_[np.where(ids_==ind)[0][0]]
-         print("patch size = %d" % int(thissize))
-#         thiscnt = patchcnts[i]
-#         img = pull_contour(img_path, thiscnt, dwnsmpl_lvl, imgsize)
-         pnts = gg[np.where(gg[:, patch_id_col]==ind)[0], x_col:(y_col+1)]
-         img = pull_contour_check(img_path, patchcnts, pnts, scale, imgsize, dwnsmpl_lvl)
-         decision_flag = plot_img_keep_decision(img, resolution = resolution)
-         if (decision_flag == ord('a') or decision_flag == ord('1')):
-            good_patches.append(int(ind))
-            i += 1
-            lastbinned_l.append("good")
-         elif (decision_flag == ord('w') or decision_flag == ord('3')):
-            examine_inds.append(int(ind))
-            i += 1
-            lastbinned_l.append("unsure")
-         elif (decision_flag == ord('d') or decision_flag == ord('0')):
-            bad_patches.append(int(ind))
-            i += 1
-            lastbinned_l.append("bad")
-         elif (decision_flag == ord('p') and i>0):
-            if lastbinned_l[-1]=="good": good_patches = good_patches[:-1]
-            if lastbinned_l[-1]=="bad": bad_patches = bad_patches[:-1]
-            if lastbinned_l[-1]=="unsure":
-               examine_inds = examine_inds[:-1]
-            # roll back binning
-            lastbinned_l = lastbinned_l[:-1]
-            i -= 1
-         elif (decision_flag == ord('p') and i==0): pass
-         elif (decision_flag == ord('h')):
-            print("Exit signal received. Breaking out.")
-            break
-         else:
-            print("Use '1' or 'a' for good patches and '0' or 'd' for bad patches!")
-            print("Use '3' or 'w' for patches that you want to curate in more detail afterwards.")
-            print("(Or press 'p' to undo the last choice and go back to the previous image.)")
-            print("Repeating image...")
-         print("%d of %d" % (i+1 , len(uniq_ids_)))
-   cv2.destroyAllWindows()
-   if (decision_flag == ord('h')):
-      print("Quitting!")
-      return 0
-   
-   if (len(uniq_ids_)>0):
-      # update graph file
-      for kk in bad_patches:
-         cinds = patchid_inds[np.where(ids_==kk)[0]]
-         for j in cinds:
-            gg[j, clone_col] = 0 # mutant
-            gg[j, patch_size_col] = 0 # patch size
-            cur_pid = gg[j, patch_id_col]
-            gg[j, patch_id_col] = 0 # patch id
-            if cur_pid>0:
-               # reduce the patch size for the rest of the patch
-               thispatch = np.where(gg[:, patch_id_col]==cur_pid)[0]
-               for k in thispatch:
-                  gg[k, patch_size_col] = gg[k, patch_size_col] - 1
-               if len(thispatch)==1:
-                  # no longer a patch
-                  gg[thispatch[0], patch_size_col] = 0
-                  gg[thispatch[0], patch_id_col] = 0
-   
-   # find the clones remaining after patch curation
-   clone_inds = np.setdiff1d(np.where(gg[:, clone_col]>0)[0], patchid_inds)
-   extra_clone_inds = []
-   for ii in range(len(examine_inds)):
-      extra_clone_inds = extra_clone_inds + [ps for ps in patchid_inds[np.where(ids_==examine_inds[ii])[0]]]
-   clone_inds = np.hstack([clone_inds, np.asarray(extra_clone_inds)]).astype(np.int32)
-   
+   fufi_inds = np.where(gg[:,fufi_col]>0)[0]
    good_inds = []
    bad_inds = []
-   partials = []
    lastbinned_l = []
    i = 0
    print("The pertinent clone will be centered in the images that pop up.")
-   print("Use '1' or 'a' for good clones and '0' or 'd' for bad clones!")
-   print("Use '3' or 'w' for partial clones, which will also label them 'good'.")
+   print("Use '1' or 'a' for good fufis and '0' or 'd' for bad fufis!")
    print("(Or press 'p' to undo the last choice and go back to the previous image.)")
    print("If you want to quit, press 'h'.")
-   while i<(len(clone_inds)+1):
-      if i==len(clone_inds):
+   while i<(len(fufi_inds)+1):
+      if i==len(fufi_inds):
          # allow one last 'p' in case final image was wrongly catergorised
-         print("Clones all done -- last chance to press 'p' and go back...")
+         print("Fufis all done -- last chance to press 'p' and go back...")
          decision_flag = plot_img_keep_decision(load_last(), resolution = resolution)
          if (decision_flag == ord('p') and i>0):
             if lastbinned_l[-1]=="good": good_inds = good_inds[:-1]
             if lastbinned_l[-1]=="bad": bad_inds = bad_inds[:-1]
-            if lastbinned_l[-1]=="partial":
-               good_inds = good_inds[:-1]
-               partials = partials[:-1]
             # roll back binning
             lastbinned_l = lastbinned_l[:-1]
             i -= 1
@@ -363,7 +225,7 @@ def main():
          else:
             i += 1
       else:
-         ind = clone_inds[i]
+         ind = fufi_inds[i]
          xy_vals = centred_tile(gg[ind, x_col:(y_col+1)]/scale, imgsize, slide.level_dimensions[dwnsmpl_lvl])
          img = getROI_img_osl(img_path, xy_vals, (imgsize, imgsize), dwnsmpl_lvl)
          decision_flag = plot_img_keep_decision(img, resolution = resolution)
@@ -371,11 +233,6 @@ def main():
             good_inds.append(int(ind))
             i += 1
             lastbinned_l.append("good")
-         elif (decision_flag == ord('w') or decision_flag == ord('3')):
-            good_inds.append(int(ind))
-            partials.append(int(ind))
-            i += 1
-            lastbinned_l.append("partial")
          elif (decision_flag == ord('d') or decision_flag == ord('0')):
             bad_inds.append(int(ind))
             i += 1
@@ -383,9 +240,6 @@ def main():
          elif (decision_flag == ord('p') and i>0):
             if lastbinned_l[-1]=="good": good_inds = good_inds[:-1]
             if lastbinned_l[-1]=="bad": bad_inds = bad_inds[:-1]
-            if lastbinned_l[-1]=="partial":
-               good_inds = good_inds[:-1]
-               partials = partials[:-1]
             # roll back binning
             lastbinned_l = lastbinned_l[:-1]
             i -= 1
@@ -395,58 +249,31 @@ def main():
             break
          else:
             print("Use '1' or 'a' for good clones and '0' or 'd' for bad clones!")
-            print("Use '3' or 'w' for partial clones, which will also label them 'good'.")
             print("(Or press 'p' to undo the last choice and go back to the previous image.)")
             print("Repeating image...")
-         print("%d of %d" % (i+1 , len(clone_inds)))
+         print("%d of %d" % (i+1 , len(fufi_inds)))
    cv2.destroyAllWindows()
    if (decision_flag == ord('h')):
       print("Quitting!")
       return 0
       
-   if (len(clone_inds)==0):
-      print("No clones to curate, doing nothing!")
+   if (len(fufi_inds)==0):
+      print("No fufis to curate, doing nothing!")
       return 0
       
-   if (len(clone_inds)>0):
+   if (len(fufi_inds)>0):
       # update graph file
       for j in bad_inds:
-         gg[j, clone_col] = 0 # mutant
-         gg[j, patch_size_col] = 0 # patch size
-         cur_pid = gg[j, patch_id_col]
-         gg[j, patch_id_col] = 0 # patch id
-         if cur_pid>0:
-            # reduce the patch size for the rest of the patch
-            thispatch = np.where(gg[:, patch_id_col]==cur_pid)[0]
-            for k in thispatch:
-               gg[k, patch_size_col] = gg[k, patch_size_col] - 1
-            if len(thispatch)==1:
-               # no longer a patch
-               gg[thispatch[0], patch_size_col] = 0
-               gg[thispatch[0], patch_id_col] = 0
-
+         gg[j, fufi_col] = 0
       out_df = pd.DataFrame(gg)
       out_df.columns = colnames
       out_df.to_csv(graphpath, index=False) 
 
       # update clone scores to zero for bad inds, one for good inds
-      local_good_inds = good_inds + [patchid_inds[np.where(ids_==kk)[0]] for kk in good_patches]
-      local_bad_inds = bad_inds + [patchid_inds[np.where(ids_==kk)[0]] for kk in bad_patches]
-            
-      clone_scores = np.loadtxt(folder_to_analyse + "/clone_mask.txt", ndmin=1)
-      clone_scores[np.array(local_bad_inds, dtype=np.int32)] = 0
-      clone_scores[np.array(local_good_inds, dtype=np.int32)] = 1
-      write_score_text_file(clone_scores, folder_to_analyse + "/clone_mask.txt")
-
-      unique_patches = np.vstack(list({tuple(row) for row in np.hstack([gg[allclones,  patch_size_col:(patch_size_col+1)], gg[allclones, patch_id_col:(patch_id_col+1)]])})) # size, id
-      numpatches = unique_patches.shape[0] - 1 # get rid of zero-zero row
-      patchsum = int(np.sum(unique_patches, axis=0)[0])
-      
-      # update the patch contour file using the new graph data
-      patchid_inds = np.where(gg[:, patch_id_col]>0)[0]
-      uids_ = (np.unique(gg[patchid_inds, patch_id_col]) - 1).astype(np.int32) # to start at 0
-      patch_contours_new = [patchcnts[ct] for ct in uids_]
-      write_cnt_text_file(patch_contours_new, folder_to_analyse + "/patch_contours.txt")
+      clone_scores = np.loadtxt(folder_to_analyse + "/fufi_mask.txt", ndmin=1)
+      clone_scores[np.array(bad_inds, dtype=np.int32)] = 0
+      clone_scores[np.array(good_inds, dtype=np.int32)] = 1
+      write_score_text_file(clone_scores, folder_to_analyse + "/fufi_mask.txt")
       
       # finally update the clone and patch counts in the batch csv using the slide number for the row reference
       if '\\' in folder_to_analyse:
