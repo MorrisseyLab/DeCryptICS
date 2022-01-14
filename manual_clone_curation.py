@@ -12,6 +12,28 @@ import zipfile
 # Want to cycle through images of clones and assign a yes no label to them, saving their local clone index and associated label
 # then, using this new label and clone index, automatically update clone counts, patch indices, patch size and clone scores files
 
+class Matplotlib_hack:
+   def __init__(self, img):
+      self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+      self.event_key = np.nan
+   
+   def close_figure(self, event):
+      if (event.key == '1' or
+         event.key == '0' or 
+         event.key == '3' or
+         event.key == 'a' or 
+         event.key == 'w' or 
+         event.key == 'd' or 
+         event.key == 'p' or
+         event.key == 'h'):
+         plt.close(event.canvas.figure)
+         self.event_key = ord(event.key)
+   
+   def plot(self):
+      plt.imshow(self.img)
+      plt.gcf().canvas.mpl_connect('key_press_event', self.close_figure)
+      plt.show()
+
 def plot_img_keep_decision(list_to_plot, nameWindow = 'Plots', NewWindow = True, hold_plot = True, resolution = 800):
    try:
       if NewWindow:
@@ -27,13 +49,10 @@ def plot_img_keep_decision(list_to_plot, nameWindow = 'Plots', NewWindow = True,
          cv2.waitKey(1)
    except:
       inkey = np.nan
-      fig, ax = plt.subplots() #dpi=resolution)
-      ax.imshow(cv2.cvtColor(list_to_plot, cv2.COLOR_BGR2RGB))
-      plt.draw()
+      mpl_fig = Matplotlib_hack(list_to_plot)
+      mpl_fig.plot()
       plt.pause(1)
-      while np.isnan(inkey):
-         inkey = input()
-      plt.close(fig)
+      inkey = mpl_fig.event_key
    return inkey
 
 def add_single_offset(contour, xy_offset):
