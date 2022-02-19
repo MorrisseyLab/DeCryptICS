@@ -10,7 +10,7 @@ from tensorflow.keras.models       import Model
 from tensorflow.keras.layers       import Input
 from tensorflow.keras              import layers
 from tensorflow.keras              import metrics
-from tensorflow.keras.optimizers   import RMSprop, SGD
+from tensorflow.keras.optimizers   import RMSprop, SGD, Adam
 from roi_pool import ROIPoolingLayer, PatchEncoder_w_position
 from model_set_parameter_dicts import set_params
 params = set_params()
@@ -74,7 +74,7 @@ def classify_branch(input_shape=(256, 256, 32), roi_pool_size = [10, 10], num_bb
 
 def unet_sep(param, input_shape=(1024, 1024, 3), roi_pool_size = [10, 10], chan_num=3, 
              weight_ccpf = [1,1,1,1,1], projection_dim = 100, transformer_layers = 4, 
-             num_heads = 4, is_comp = True, lr=0.0001):
+             num_heads = 4, is_comp = True, lr=1e-3):
     num_bbox = param["num_bbox"] 
     
     input_img = layers.Input(shape=input_shape)
@@ -160,7 +160,7 @@ def unet_sep(param, input_shape=(1024, 1024, 3), roi_pool_size = [10, 10], chan_
                                 metrics.TrueNegatives()]
        }
     if is_comp: # compile
-       final_model.compile(optimizer=RMSprop(lr=lr), 
+       final_model.compile(optimizer=Adam(lr=lr), 
                            loss = losses, loss_weights = lossWeights,
                            metrics = metrics_use)
     return final_model, just_trnsf, just_unet

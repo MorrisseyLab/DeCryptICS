@@ -16,7 +16,7 @@ from unet_sep_multiout import unet_sep
 from model_set_parameter_dicts import set_params
 params = set_params()
 
-dnnfolder = '/home/doran/Work/py_code/new_DeCryptICS/'
+dnnfolder = '/home/doran/Work/py_code/DeCryptICS/'
 logs_folder = dnnfolder + '/training/logs'
 
 mixed_precision.set_global_policy('mixed_float16')
@@ -26,11 +26,12 @@ epochs               = 200
 params['umpp']       = 1.1
 params['num_bbox']   = 400
 params['batch_size'] = 8
+params['lr']  = 1e-3
 params['cpfr_frac']  = [2,1,1,1]
-nsteps        = 2
+nsteps        = 3 # through the data
 nclone_factor = 4
 npartial_mult = 5
-weight_ccpf = [1., 2.2, 2.2, 1.25, 1.25] # unet, clone, partial, fufi, crypt
+weight_ccpf = [1., 2.2, 3.5, 1.25, 1.25] # unet, clone, partial, fufi, crypt
 params['crypt_class']  = False
 
 # Read curated data and filter bad ones
@@ -47,6 +48,7 @@ dontuse = pd.DataFrame({'file_name':list(dontuse)}).drop_duplicates(keep='first'
 inds = ~already_curated.file_name.isin(dontuse.file_name)
 already_curated = already_curated[inds]
 
+## subset
 #train_data      = already_curated.sample(150, random_state=22)
 #keep_indx       = np.bitwise_not(already_curated.index.isin(train_data.index))
 #val_data        = already_curated[keep_indx].sample(100, random_state=223)
@@ -58,15 +60,16 @@ val_data        = already_curated[keep_indx]
 train_datagen = DataGen_curt(params, train_data, nsteps, nclone_factor, npartial_mult)
 val_datagen   = CloneGen_curt(params, val_data, fufis=True)
 
-model, just_trnsf, just_unet = unet_sep(params, weight_ccpf = weight_ccpf, lr=2e-5) #lr=1e-4
+model, just_trnsf, just_unet = unet_sep(params, weight_ccpf = weight_ccpf, lr=params['lr'])
 
 print('Loading weights!!')
-#weights_name = dnnfolder + '/weights/pixshuf_genbb_balanceweights_11mpp.hdf5'
-#model.load_weights(weights_name)
-weights_name_next = dnnfolder + '/weights/pixshuf_genbb_jitter_fufidilate_reducelr_11mpp.hdf5'
+#weights_name = dnnfolder + '/weights/decrypt_weights.hdf5'
+weights_name = dnnfolder + '/weights/changes_adam_rotatingclonegen.hdf5'
+model.load_weights(weights_name)
+weights_name_next = dnnfolder + '/weights/changes_adam_rotatingclonegen2.hdf5'
 
 callbacks = [EarlyStopping(monitor='loss', patience=25, verbose=1, min_delta=1e-9),
-             ReduceLROnPlateau(monitor='loss', factor=0.075, patience=8, verbose=1, min_delta=1e-9),
+             ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10, verbose=1, min_delta=1e-9),
              ModelCheckpoint(monitor='val_loss', mode='min', filepath=weights_name_next, 
                              save_best_only=True, save_weights_only=True, verbose=1),
              CSVLogger(logs_folder + '/hist_'+weights_name_next.split('/')[-1].split('.')[0]+'.csv')]

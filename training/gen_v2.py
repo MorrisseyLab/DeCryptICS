@@ -353,7 +353,8 @@ class CloneGen_curt(Sequence):
       self.norm_std = np.array([0.229, 0.224, 0.225])
       self.stride_bool = params['stride_bool']
       self.crypt_class = params['crypt_class']
-      self.fufis = fufis # do we want to generate fufis?      
+      self.fufis = fufis # do we want to generate fufis?
+      self.aug = params['aug']
       if params['reset_binaries']:
          self.save_new_binaries()
       
@@ -413,6 +414,13 @@ class CloneGen_curt(Sequence):
         n_dil = int(5/self.um_per_pixel) # if mpp is one or less than 1
         for i in range(mask.shape[2]):
             mask[:,:,i] = cv2.morphologyEx(mask[:,:,i].copy(), cv2.MORPH_DILATE, st_3, iterations = n_dil)
+
+      if self.aug==True:
+          composition = A.Compose([
+              A.HorizontalFlip(), A.VerticalFlip(), A.Rotate(border_mode = cv2.BORDER_CONSTANT),
+          ],  p = 1)
+          transformed = composition(image=img, mask=mask)
+          img, mask = transformed['image'], transformed['mask']
      
       mask_list = [mask[:,:,ii] for ii in range(mask.shape[2])]      
       if self.stride_bool:
