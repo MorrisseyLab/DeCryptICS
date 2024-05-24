@@ -48,7 +48,7 @@ This will produce an input\_files.txt listing the paths to the slides and the ma
 
 Run run\_script.py with an action and the path to the input file list. For example,
 
-python run\_script.py count /full/path/to/block/input\_files.py
+python run\_script.py count /full/path/to/block/input\_files.txt
 
 View the help with "python run\_script.py -h" to see all available options.
 
@@ -56,11 +56,11 @@ View the help with "python run\_script.py -h" to see all available options.
 
 Raw output is given in terms of probabilities of each bounding box being each object type (clone, partial, fufi). The processing step threshold these probabilities either with constant thresholds or manually with a slider by passing the -m flag:
 
-python process\_output.py /full/path/to/block/input\_files.py -m
+python process\_output.py /full/path/to/block/input\_files.txt -m
 
 Thresholds can be set for non-manual processing as follows:
 
-python process\_output.py /full/path/to/block/input\_files.py -c 0.5 -p 0.5 -f 0.5
+python process\_output.py /full/path/to/block/input\_files.txt -c 0.5 -p 0.5 -f 0.5
 
 for -c, -p and -f being clone, partial and fufi, respectively.
 
